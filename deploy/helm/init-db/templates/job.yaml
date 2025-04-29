@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "init-db.fullname" . }}
+  labels:
+    {{- include "init-db.labels" . | nindent 4 }}
+spec:
+  template:
+    spec:
+      containers:
+      - name: init-db
+        image: postgres:15-alpine
+        command: ["psql"]
+        args:
+        - "-h"
+        - "$(DB_HOST)"
+        - "-p"
+        - "$(DB_PORT)"
+        - "-U"
+        - "$(DB_USER)"
+        - "-d"
+        - "$(DB_NAME)"
+        - "-f"
+        - "/schema/schema.sql"
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              namespace: {{ .Values.existingSecretNamespace }}
+              key: host
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              namespace: {{ .Values.existingSecretNamespace }}
+              key: port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              namespace: {{ .Values.existingSecretNamespace }}
+              key: username
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              namespace: {{ .Values.existingSecretNamespace }}
+              key: dbname
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecret }}
+              namespace: {{ .Values.existingSecretNamespace }}
+              key: password
+        volumeMounts:
+        - name: schema
+          mountPath: /schema
+      volumes:
+      - name: schema
+        configMap:
+          name: {{ include "init-db.fullname" . }}-schema
+      restartPolicy: OnFailure
+  backoffLimit: 4 
