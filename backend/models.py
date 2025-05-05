@@ -68,6 +68,16 @@ class VirtualAssistant(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     creator = relationship("User", back_populates="virtual_assistants")
 
+class VirtualAssistantKnowledgeBase(Base):
+    __tablename__ = "virtual_assistant_knowledge_bases"
+    virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
+    knowledge_base_id = Column(UUID(as_uuid=True), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), primary_key=True)
+
+class VirtualAssistantTool(Base):
+    __tablename__ = "virtual_assistant_tools"
+    virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
+    mcp_server_id = Column(UUID(as_uuid=True), ForeignKey("mcp_servers.id", ondelete="CASCADE"), primary_key=True)
+
 class ChatHistory(Base):
     __tablename__ = "chat_history"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -86,3 +96,12 @@ class Guardrail(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     creator = relationship("User", back_populates="guardrails")
+
+class ModelServer(Base):
+    __tablename__ = "model_servers"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    provider_name = Column(String(255), nullable=False)
+    model_name = Column(String(255), nullable=False)
+    endpoint_url = Column(String(255), nullable=False)
+    token = Column(String(255), nullable=True)

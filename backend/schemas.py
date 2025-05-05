@@ -68,8 +68,13 @@ class VirtualAssistantBase(BaseModel):
     name: str
     prompt: str
     model_name: str
+    knowledge_base_ids: List[UUID4]
+    mcp_server_ids: List[UUID4]
 
 class VirtualAssistantCreate(VirtualAssistantBase):
+    pass
+
+class VirtualAssistantUpdate(VirtualAssistantBase):
     pass
 
 class VirtualAssistantRead(VirtualAssistantBase):
@@ -112,3 +117,25 @@ class GuardrailRead(GuardrailBase):
 
     class Config:
         orm_mode = True
+
+
+class ModelServerBase(BaseModel):
+    name: str
+    provider_name: str
+    model_name: str
+    endpoint_url: str
+    token: Optional[str] = None
+
+class ModelServerCreate(ModelServerBase):
+    pass
+
+class ModelServerUpdate(ModelServerBase):
+    pass
+
+class ModelServerRead(ModelServerBase):
+    id: UUID4
+
+    class Config:
+        orm_mode = True
+
+
