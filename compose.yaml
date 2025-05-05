@@ -7,7 +7,7 @@ services:
     container_name: postgresql
     restart: unless-stopped
     environment:
-      POSTGRES_DB: virtual_assistants
+      POSTGRES_DB: ai_virtual_assistant
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
     ports:
