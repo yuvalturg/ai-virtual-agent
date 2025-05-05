@@ -89,6 +89,18 @@ CREATE TABLE chat_history (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Model server Table
+CREATE TABLE model_servers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    provider_name VARCHAR(255) NOT NULL,
+    model_name VARCHAR(255) NOT NULL,
+    endpoint_url TEXT NOT NULL,
+    token TEXT,
+    created_by UUID,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 -- Guardrails table
 CREATE TABLE guardrails (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
