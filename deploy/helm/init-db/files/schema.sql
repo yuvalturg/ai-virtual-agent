@@ -33,7 +33,7 @@ CREATE TABLE mcp_servers (
     description VARCHAR(255),
     endpoint_url VARCHAR(255) NOT NULL,
     configuration JSONB,
-    created_by UUID REFERENCES users(id),
+    created_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -49,7 +49,7 @@ CREATE TABLE knowledge_bases (
     is_external BOOLEAN NOT NULL DEFAULT false,
     source VARCHAR(255),
     source_configuration JSONB,
-    created_by UUID REFERENCES users(id),
+    created_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -60,7 +60,7 @@ CREATE TABLE virtual_assistants (
     name VARCHAR(255) NOT NULL,
     prompt TEXT NOT NULL,
     model_name VARCHAR(255) NOT NULL,
-    created_by UUID REFERENCES users(id),
+    created_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -68,14 +68,14 @@ CREATE TABLE virtual_assistants (
 -- Virtual Assistant Knowledge Bases (junction table)
 CREATE TABLE virtual_assistant_knowledge_bases (
     virtual_assistant_id UUID REFERENCES virtual_assistants(id) ON DELETE CASCADE,
-    knowledge_base_id UUID REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+    knowledge_base_id VARCHAR(255),
     PRIMARY KEY (virtual_assistant_id, knowledge_base_id)
 );
 
 -- Virtual Assistant Tools (junction table)
 CREATE TABLE virtual_assistant_tools (
     virtual_assistant_id UUID REFERENCES virtual_assistants(id) ON DELETE CASCADE,
-    mcp_server_id UUID REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    mcp_server_id VARCHAR(255), -- use provider id and toolgroup_id from llamastack
     PRIMARY KEY (virtual_assistant_id, mcp_server_id)
 );
 
@@ -97,7 +97,7 @@ CREATE TABLE model_servers (
     model_name VARCHAR(255) NOT NULL,
     endpoint_url TEXT NOT NULL,
     token TEXT,
-    created_by UUID,
+    created_by VARCHAR(255),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -106,7 +106,7 @@ CREATE TABLE guardrails (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     rules JSONB NOT NULL,
-    created_by UUID REFERENCES users(id),
+    created_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

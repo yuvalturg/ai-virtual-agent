@@ -27,31 +27,26 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ .Values.existingSecret }}
-              namespace: {{ .Values.existingSecretNamespace }}
               key: host
         - name: DB_PORT
           valueFrom:
             secretKeyRef:
               name: {{ .Values.existingSecret }}
-              namespace: {{ .Values.existingSecretNamespace }}
               key: port
         - name: DB_USER
           valueFrom:
             secretKeyRef:
               name: {{ .Values.existingSecret }}
-              namespace: {{ .Values.existingSecretNamespace }}
-              key: username
+              key: user
         - name: DB_NAME
           valueFrom:
             secretKeyRef:
               name: {{ .Values.existingSecret }}
-              namespace: {{ .Values.existingSecretNamespace }}
               key: dbname
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.existingSecret }}
-              namespace: {{ .Values.existingSecretNamespace }}
               key: password
         volumeMounts:
         - name: schema
