@@ -17,66 +17,66 @@ import {
   MessageBar,
   MessageBox,
   MessageProps,
-} from "@patternfly/chatbot";
-import { DropdownItem, DropdownList } from "@patternfly/react-core";
-import React, { Fragment } from "react";
+} from '@patternfly/chatbot';
+import { DropdownItem, DropdownList } from '@patternfly/react-core';
+import React, { Fragment } from 'react';
 // import botAvatar from "../assets/img/bot-avatar.svg";
 // import userAvatar from "../assets/img/user-avatar.svg";
 
 const footnoteProps = {
-  label: "ChatBot uses AI. Check for mistakes.",
+  label: 'ChatBot uses AI. Check for mistakes.',
   popover: {
-    title: "Verify information",
+    title: 'Verify information',
     description: `While ChatBot strives for accuracy, AI is experimental and can make mistakes. We cannot guarantee that all information provided by ChatBot is up to date or without error. You should always verify responses using reliable sources, especially for crucial information and decision making.`,
     bannerImage: {
-      src: "https://cdn.dribbble.com/userupload/10651749/file/original-8a07b8e39d9e8bf002358c66fce1223e.gif",
-      alt: "Example image for footnote popover",
+      src: 'https://cdn.dribbble.com/userupload/10651749/file/original-8a07b8e39d9e8bf002358c66fce1223e.gif',
+      alt: 'Example image for footnote popover',
     },
     cta: {
-      label: "Dismiss",
+      label: 'Dismiss',
       onClick: () => {
-        alert("Do something!");
+        alert('Do something!');
       },
     },
     link: {
-      label: "View AI policy",
-      url: "https://www.redhat.com/",
+      label: 'View AI policy',
+      url: 'https://www.redhat.com/',
     },
   },
 };
 
 const fillerWelcomePrompts = [
   {
-    title: "Set up account",
-    message: "Choose the necessary settings and preferences for your account.",
+    title: 'Set up account',
+    message: 'Choose the necessary settings and preferences for your account.',
   },
   {
-    title: "Troubleshoot issue",
-    message: "Find documentation and instructions to resolve your issue.",
+    title: 'Troubleshoot issue',
+    message: 'Find documentation and instructions to resolve your issue.',
   },
 ];
 
 const fillerInitialConversations: Conversation[] = [
-  { id: "1", text: "Hello, can you give me an example of what you can do?" },
+  { id: '1', text: 'Hello, can you give me an example of what you can do?' },
   {
-    id: "2",
-    text: "Enterprise Linux installation and setup",
+    id: '2',
+    text: 'Enterprise Linux installation and setup',
   },
-  { id: "3", text: "Troubleshoot system crash" },
-  { id: "4", text: "Ansible security and updates" },
-  { id: "5", text: "Red Hat certification" },
-  { id: "6", text: "Lightspeed user documentation" },
-  { id: "7", text: "Crashing pod assistance" },
-  { id: "8", text: "OpenShift AI pipelines" },
-  { id: "9", text: "Updating subscription plan" },
-  { id: "10", text: "Red Hat licensing options" },
-  { id: "11", text: "RHEL system performance" },
-  { id: "12", text: "Manage user accounts" },
+  { id: '3', text: 'Troubleshoot system crash' },
+  { id: '4', text: 'Ansible security and updates' },
+  { id: '5', text: 'Red Hat certification' },
+  { id: '6', text: 'Lightspeed user documentation' },
+  { id: '7', text: 'Crashing pod assistance' },
+  { id: '8', text: 'OpenShift AI pipelines' },
+  { id: '9', text: 'Updating subscription plan' },
+  { id: '10', text: 'Red Hat licensing options' },
+  { id: '11', text: 'RHEL system performance' },
+  { id: '12', text: 'Manage user accounts' },
 ];
 
 export function AssistantChat() {
   const [messages, setMessages] = React.useState<MessageProps[]>([]);
-  const [selectedModel, setSelectedModel] = React.useState("Granite 7B");
+  const [selectedModel, setSelectedModel] = React.useState('Granite 7B');
   const [isSendButtonDisabled, setIsSendButtonDisabled] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [conversations, setConversations] = React.useState<
@@ -102,9 +102,9 @@ export function AssistantChat() {
     // append message if no items are found
     if (filteredConversations.length === 0) {
       filteredConversations.push({
-        id: "13",
+        id: '13',
         noIcon: true,
-        text: "No results found",
+        text: 'No results found',
       });
     }
     return filteredConversations;
@@ -127,27 +127,25 @@ export function AssistantChat() {
     const date = new Date();
     newMessages.push({
       id: generateId(),
-      role: "user",
+      role: 'user',
       content: message,
-      name: "User",
-      avatar: "userAvatar",
+      name: 'User',
+      avatar: 'userAvatar',
       timestamp: date.toLocaleString(),
       avatarProps: { isBordered: true },
     });
     newMessages.push({
       id: generateId(),
-      role: "bot",
-      content: "API response goes here",
-      name: "Bot",
-      avatar: "botAvatar",
+      role: 'bot',
+      content: 'API response goes here',
+      name: 'Bot',
+      avatar: 'botAvatar',
       isLoading: true,
       timestamp: date.toLocaleString(),
     });
     setMessages(newMessages);
     // make announcement to assistive devices that new messages have been added
-    setAnnouncement(
-      `Message from User: ${message}. Message from Bot is loading.`
-    );
+    setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`);
 
     // this is for demo purposes only; in a real situation, there would be an API response we would wait for
     setTimeout(() => {
@@ -158,17 +156,17 @@ export function AssistantChat() {
       loadedMessages.pop();
       loadedMessages.push({
         id: generateId(),
-        role: "bot",
-        content: "API response goes here",
-        name: "Bot",
-        avatar: "",
+        role: 'bot',
+        content: 'API response goes here',
+        name: 'Bot',
+        avatar: '',
         isLoading: false,
         actions: {
-          positive: { onClick: () => console.log("Good response") },
-          negative: { onClick: () => console.log("Bad response") },
-          copy: { onClick: () => console.log("Copy") },
-          share: { onClick: () => console.log("Share") },
-          listen: { onClick: () => console.log("Listen") },
+          positive: { onClick: () => console.log('Good response') },
+          negative: { onClick: () => console.log('Bad response') },
+          copy: { onClick: () => console.log('Copy') },
+          share: { onClick: () => console.log('Share') },
+          listen: { onClick: () => console.log('Listen') },
         },
         timestamp: date.toLocaleString(),
       });
@@ -198,7 +196,7 @@ export function AssistantChat() {
           setMessages([]);
         }}
         handleTextInputChange={(value: string) => {
-          if (value === "") {
+          if (value === '') {
             setConversations(fillerInitialConversations);
           }
           // this is where you would perform search on the items in the drawer
@@ -218,10 +216,7 @@ export function AssistantChat() {
                 <ChatbotHeaderTitle>Chat</ChatbotHeaderTitle>
               </ChatbotHeaderMain>
               <ChatbotHeaderActions>
-                <ChatbotHeaderSelectorDropdown
-                  value={selectedModel}
-                  onSelect={onSelectModel}
-                >
+                <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
                   <DropdownList>
                     <DropdownItem value="Granite 7B" key="granite">
                       Granite 7B

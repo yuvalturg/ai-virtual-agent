@@ -1,14 +1,14 @@
-import { PageSection, Title } from "@patternfly/react-core";
-import { createFileRoute } from "@tanstack/react-router";
+import { PageSection, Title } from '@patternfly/react-core';
+import { createFileRoute } from '@tanstack/react-router';
 
-export const Route = createFileRoute("/config/knowledge-bases")({
+export const Route = createFileRoute('/config/knowledge-bases')({
   component: KnowledgeBases,
 });
 
 function KnowledgeBases() {
   return (
     <PageSection hasBodyWrapper={false}>
-      <Title headingLevel="h1">Hello "/config/knowledge-bases"!</Title>
+      <Title headingLevel="h1">Knowledge Bases</Title>
     </PageSection>
   );
 }

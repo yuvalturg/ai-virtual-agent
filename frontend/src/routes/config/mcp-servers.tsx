@@ -1,14 +1,14 @@
-import { PageSection, Title } from "@patternfly/react-core";
-import { createFileRoute } from "@tanstack/react-router";
+import { PageSection, Title } from '@patternfly/react-core';
+import { createFileRoute } from '@tanstack/react-router';
 
-export const Route = createFileRoute("/config/mcp-servers")({
+export const Route = createFileRoute('/config/mcp-servers')({
   component: MCPServers,
 });
 
 function MCPServers() {
   return (
     <PageSection hasBodyWrapper={false}>
-      <Title headingLevel="h1">Hello "/config/mcp-servers"!</Title>
+      <Title headingLevel="h1">MCP Servers</Title>
     </PageSection>
   );
 }
