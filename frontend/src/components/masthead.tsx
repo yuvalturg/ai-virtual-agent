@@ -13,14 +13,14 @@ import {
   ToolbarContent,
   ToolbarGroup,
   ToolbarItem,
-} from "@patternfly/react-core";
-import React from "react";
+} from '@patternfly/react-core';
+import React from 'react';
 
-import MoonIcon from "@patternfly/react-icons/dist/esm/icons/moon-icon";
-import SunIcon from "@patternfly/react-icons/dist/esm/icons/sun-icon";
-import { Link } from "@tanstack/react-router";
+import MoonIcon from '@patternfly/react-icons/dist/esm/icons/moon-icon';
+import SunIcon from '@patternfly/react-icons/dist/esm/icons/sun-icon';
+import { Link } from '@tanstack/react-router';
 
-export const themeStorageKey = "app-theme";
+export const themeStorageKey = 'app-theme';
 
 export function Masthead() {
   const [isDarkTheme, setIsDarkTheme] = React.useState(false);
@@ -35,37 +35,33 @@ export function Masthead() {
 
     if (!isDark) return;
 
-    const htmlElement = document.querySelector("html");
+    const htmlElement = document.querySelector('html');
     if (!htmlElement) return;
 
-    htmlElement.classList.toggle("pf-v6-theme-dark", true);
+    htmlElement.classList.toggle('pf-v6-theme-dark', true);
   }, []);
 
-  const toggleDarkTheme = (_evt, selected) => {
+  const toggleDarkTheme = (
+    _event: MouseEvent | React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
+    selected: boolean
+  ) => {
     const darkThemeToggleClicked = !selected === isDarkTheme;
-    const htmlElement = document.querySelector("html");
+    const htmlElement = document.querySelector('html');
     if (htmlElement) {
-      htmlElement.classList.toggle("pf-v6-theme-dark", darkThemeToggleClicked);
+      htmlElement.classList.toggle('pf-v6-theme-dark', darkThemeToggleClicked);
     }
     setIsDarkTheme(darkThemeToggleClicked);
-    localStorage.setItem(
-      themeStorageKey,
-      JSON.stringify(darkThemeToggleClicked)
-    );
+    localStorage.setItem(themeStorageKey, JSON.stringify(darkThemeToggleClicked));
   };
 
   const nav = (
     <Nav variant="horizontal" aria-label="Main Nav">
       <NavList>
         {/* Preventing default click behavior on each NavItem for demo purposes only */}
-        <NavItem itemId={0} isActive={location.pathname == "/"} to="#">
+        <NavItem itemId={0} isActive={location.pathname == '/'} to="#">
           <Link to="/">Chat</Link>
         </NavItem>
-        <NavItem
-          itemId={1}
-          isActive={location.pathname.startsWith("/config/")}
-          to="#"
-        >
+        <NavItem itemId={1} isActive={location.pathname.startsWith('/config/')} to="#">
           <Link to="/config/agents">Config</Link>
         </NavItem>
       </NavList>
@@ -75,19 +71,19 @@ export function Masthead() {
   const toolbar = (
     <Toolbar
       inset={{
-        default: "insetSm",
-        md: "insetMd",
-        lg: "insetLg",
-        xl: "insetXl",
-        "2xl": "inset2xl",
+        default: 'insetSm',
+        md: 'insetMd',
+        lg: 'insetLg',
+        xl: 'insetXl',
+        '2xl': 'inset2xl',
       }}
       isFullHeight
     >
       <ToolbarContent>
-        <ToolbarGroup align={{ default: "alignStart" }}>
+        <ToolbarGroup align={{ default: 'alignStart' }}>
           <ToolbarItem>{nav}</ToolbarItem>
         </ToolbarGroup>
-        <ToolbarGroup align={{ default: "alignEnd" }}>
+        <ToolbarGroup align={{ default: 'alignEnd' }}>
           <ToolbarItem>
             <ToggleGroup aria-label="Dark theme toggle group">
               <ToggleGroupItem
