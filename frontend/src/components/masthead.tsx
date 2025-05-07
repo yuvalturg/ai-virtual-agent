@@ -1,9 +1,11 @@
 import {
-  Masthead,
   MastheadBrand,
   MastheadContent,
   MastheadMain,
-  Page,
+  Nav,
+  NavItem,
+  NavList,
+  Masthead as PFMasthead,
   Title,
   ToggleGroup,
   ToggleGroupItem,
@@ -16,10 +18,11 @@ import React from "react";
 
 import MoonIcon from "@patternfly/react-icons/dist/esm/icons/moon-icon";
 import SunIcon from "@patternfly/react-icons/dist/esm/icons/sun-icon";
+import { Link } from "@tanstack/react-router";
 
 export const themeStorageKey = "app-theme";
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Masthead() {
   const [isDarkTheme, setIsDarkTheme] = React.useState(false);
 
   // Load preferred theme from localstorage
@@ -51,6 +54,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const nav = (
+    <Nav variant="horizontal" aria-label="Main Nav">
+      <NavList>
+        {/* Preventing default click behavior on each NavItem for demo purposes only */}
+        <NavItem itemId={0} isActive={location.pathname == "/"} to="#">
+          <Link to="/">Chat</Link>
+        </NavItem>
+        <NavItem
+          itemId={1}
+          isActive={location.pathname.startsWith("/config/")}
+          to="#"
+        >
+          <Link to="/config/agents">Config</Link>
+        </NavItem>
+      </NavList>
+    </Nav>
+  );
+
   const toolbar = (
     <Toolbar
       inset={{
@@ -63,6 +84,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       isFullHeight
     >
       <ToolbarContent>
+        <ToolbarGroup align={{ default: "alignStart" }}>
+          <ToolbarItem>{nav}</ToolbarItem>
+        </ToolbarGroup>
         <ToolbarGroup align={{ default: "alignEnd" }}>
           <ToolbarItem>
             <ToggleGroup aria-label="Dark theme toggle group">
@@ -85,22 +109,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </Toolbar>
   );
 
-  const masthead = (
-    <Masthead>
+  return (
+    <PFMasthead>
       <MastheadMain>
         <MastheadBrand data-codemods>
           <Title headingLevel="h1">Virtual Assistant</Title>
         </MastheadBrand>
       </MastheadMain>
       <MastheadContent>{toolbar}</MastheadContent>
-    </Masthead>
-  );
-
-  const pageId = "primary-app-container";
-
-  return (
-    <Page mainContainerId={pageId} masthead={masthead}>
-      {children}
-    </Page>
+    </PFMasthead>
   );
 }
