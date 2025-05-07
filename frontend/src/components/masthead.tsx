@@ -41,7 +41,13 @@ export function Masthead() {
     htmlElement.classList.toggle("pf-v6-theme-dark", true);
   }, []);
 
-  const toggleDarkTheme = (_evt, selected) => {
+  const toggleDarkTheme = (
+    _event:
+      | MouseEvent
+      | React.MouseEvent<Element, MouseEvent>
+      | React.KeyboardEvent<Element>,
+    selected: boolean
+  ) => {
     const darkThemeToggleClicked = !selected === isDarkTheme;
     const htmlElement = document.querySelector("html");
     if (htmlElement) {

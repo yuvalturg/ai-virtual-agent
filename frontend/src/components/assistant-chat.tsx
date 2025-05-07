@@ -19,7 +19,7 @@ import {
   MessageProps,
 } from "@patternfly/chatbot";
 import { DropdownItem, DropdownList } from "@patternfly/react-core";
-import React from "react";
+import React, { Fragment } from "react";
 // import botAvatar from "../assets/img/bot-avatar.svg";
 // import userAvatar from "../assets/img/user-avatar.svg";
 
@@ -56,33 +56,23 @@ const fillerWelcomePrompts = [
   },
 ];
 
-const fillerInitialConversations = {
-  Today: [
-    { id: "1", text: "Hello, can you give me an example of what you can do?" },
-  ],
-  "This month": [
-    {
-      id: "2",
-      text: "Enterprise Linux installation and setup",
-    },
-    { id: "3", text: "Troubleshoot system crash" },
-  ],
-  March: [
-    { id: "4", text: "Ansible security and updates" },
-    { id: "5", text: "Red Hat certification" },
-    { id: "6", text: "Lightspeed user documentation" },
-  ],
-  February: [
-    { id: "7", text: "Crashing pod assistance" },
-    { id: "8", text: "OpenShift AI pipelines" },
-    { id: "9", text: "Updating subscription plan" },
-    { id: "10", text: "Red Hat licensing options" },
-  ],
-  January: [
-    { id: "11", text: "RHEL system performance" },
-    { id: "12", text: "Manage user accounts" },
-  ],
-};
+const fillerInitialConversations: Conversation[] = [
+  { id: "1", text: "Hello, can you give me an example of what you can do?" },
+  {
+    id: "2",
+    text: "Enterprise Linux installation and setup",
+  },
+  { id: "3", text: "Troubleshoot system crash" },
+  { id: "4", text: "Ansible security and updates" },
+  { id: "5", text: "Red Hat certification" },
+  { id: "6", text: "Lightspeed user documentation" },
+  { id: "7", text: "Crashing pod assistance" },
+  { id: "8", text: "OpenShift AI pipelines" },
+  { id: "9", text: "Updating subscription plan" },
+  { id: "10", text: "Red Hat licensing options" },
+  { id: "11", text: "RHEL system performance" },
+  { id: "12", text: "Manage user accounts" },
+];
 
 export function AssistantChat() {
   const [messages, setMessages] = React.useState<MessageProps[]>([]);
@@ -105,23 +95,17 @@ export function AssistantChat() {
     setSelectedModel(value as string);
   };
   const findMatchingItems = (targetValue: string) => {
-    let filteredConversations = Object.entries(
-      fillerInitialConversations
-    ).reduce((acc, [key, items]) => {
-      const filteredItems = items.filter((item) =>
-        item.text.toLowerCase().includes(targetValue.toLowerCase())
-      );
-      if (filteredItems.length > 0) {
-        acc[key] = filteredItems;
-      }
-      return acc;
-    }, {});
+    const filteredConversations = fillerInitialConversations.filter((convo) =>
+      convo.text.includes(targetValue)
+    );
 
     // append message if no items are found
-    if (Object.keys(filteredConversations).length === 0) {
-      filteredConversations = [
-        { id: "13", noIcon: true, text: "No results found" },
-      ];
+    if (filteredConversations.length === 0) {
+      filteredConversations.push({
+        id: "13",
+        noIcon: true,
+        text: "No results found",
+      });
     }
     return filteredConversations;
   };
@@ -177,18 +161,13 @@ export function AssistantChat() {
         role: "bot",
         content: "API response goes here",
         name: "Bot",
-        avatar: patternflyAvatar,
+        avatar: "",
         isLoading: false,
         actions: {
-          // eslint-disable-next-line no-console
           positive: { onClick: () => console.log("Good response") },
-          // eslint-disable-next-line no-console
           negative: { onClick: () => console.log("Bad response") },
-          // eslint-disable-next-line no-console
           copy: { onClick: () => console.log("Copy") },
-          // eslint-disable-next-line no-console
           share: { onClick: () => console.log("Share") },
-          // eslint-disable-next-line no-console
           listen: { onClick: () => console.log("Listen") },
         },
         timestamp: date.toLocaleString(),
@@ -210,8 +189,7 @@ export function AssistantChat() {
         isDrawerOpen={isDrawerOpen}
         setIsDrawerOpen={setIsDrawerOpen}
         activeItemId="1"
-        // eslint-disable-next-line no-console
-        onSelectActiveItem={(e, selectedItem) =>
+        onSelectActiveItem={(_e, selectedItem) =>
           console.log(`Selected history item with id ${selectedItem}`)
         }
         conversations={conversations}
@@ -225,12 +203,11 @@ export function AssistantChat() {
           }
           // this is where you would perform search on the items in the drawer
           // and update the state
-          const newConversations: { [key: string]: Conversation[] } =
-            findMatchingItems(value);
+          const newConversations = findMatchingItems(value);
           setConversations(newConversations);
         }}
         drawerContent={
-          <>
+          <Fragment>
             <ChatbotHeader>
               <ChatbotHeaderMain>
                 <ChatbotHeaderMenu
@@ -276,10 +253,10 @@ export function AssistantChat() {
                 {messages.map((message, index) => {
                   if (index === messages.length - 1) {
                     return (
-                      <>
+                      <Fragment key={message.id}>
                         <div ref={scrollToBottomRef}></div>
                         <Message key={message.id} {...message} />
-                      </>
+                      </Fragment>
                     );
                   }
                   return <Message key={message.id} {...message} />;
@@ -288,13 +265,13 @@ export function AssistantChat() {
             </ChatbotContent>
             <ChatbotFooter>
               <MessageBar
-                onSendMessage={handleSend}
+                onSendMessage={(message) => handleSend(message as string)}
                 hasMicrophoneButton
                 isSendButtonDisabled={isSendButtonDisabled}
               />
               <ChatbotFootnote {...footnoteProps} />
             </ChatbotFooter>
-          </>
+          </Fragment>
         }
       ></ChatbotConversationHistoryNav>
     </Chatbot>
