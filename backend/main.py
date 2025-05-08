@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from .database import engine, Base, AsyncSessionLocal
-from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers
+from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers, llama_stack
+import logging
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from dotenv import load_dotenv
@@ -8,6 +9,12 @@ import os
 
 load_dotenv()
 
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = FastAPI()
 
@@ -51,6 +58,4 @@ app.include_router(virtual_assistants.router)
 app.include_router(chat_history.router)
 app.include_router(guardrails.router)
 app.include_router(model_servers.router)
-
-
-
+app.include_router(llama_stack.router)
