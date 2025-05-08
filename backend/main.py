@@ -1,7 +1,12 @@
 from fastapi import FastAPI
-from .database import engine, Base
+from .database import engine, Base, AsyncSessionLocal
 from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 
 app = FastAPI()
@@ -20,6 +25,24 @@ app.add_middleware(
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    try:
+        async with AsyncSessionLocal() as session:
+            await mcp_servers.sync_mcp_servers(session)
+    except Exception as e:
+        print(f"Failed to sync MCP servers on startup: {str(e)}")
+    
+    async with AsyncSessionLocal() as session:
+        try:
+            await model_servers.sync_model_servers(session)
+        except Exception as e:
+            print(f"Failed to sync model servers on startup: {str(e)}")
+    
+    async with AsyncSessionLocal() as session:
+        try:
+            await knowledge_bases.sync_knowledge_bases(session)
+        except Exception as e:
+            print(f"Failed to sync knowledge bases on startup: {str(e)}")
 
 app.include_router(users.router)
 app.include_router(mcp_servers.router)
