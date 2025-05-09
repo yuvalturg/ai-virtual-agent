@@ -19,9 +19,14 @@ import {
   MessageProps,
 } from '@patternfly/chatbot';
 import { DropdownItem, DropdownList } from '@patternfly/react-core';
-import React, { Fragment } from 'react';
 // import botAvatar from "../assets/img/bot-avatar.svg";
 // import userAvatar from "../assets/img/user-avatar.svg";
+import React, { Fragment, useEffect } from 'react';
+
+interface LlamaMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 const footnoteProps = {
   label: 'ChatBot uses AI. Check for mistakes.',
@@ -74,9 +79,16 @@ const fillerInitialConversations: Conversation[] = [
   { id: '12', text: 'Manage user accounts' },
 ];
 
+interface LlamaModel {
+  id: string;
+  name: string;
+  model_type: string;
+}
+
 export function AssistantChat() {
   const [messages, setMessages] = React.useState<MessageProps[]>([]);
-  const [selectedModel, setSelectedModel] = React.useState('Granite 7B');
+  const [availableModels, setAvailableModels] = React.useState<LlamaModel[]>([]);
+  const [selectedModel, setSelectedModel] = React.useState('');
   const [isSendButtonDisabled, setIsSendButtonDisabled] = React.useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [conversations, setConversations] = React.useState<
@@ -85,6 +97,7 @@ export function AssistantChat() {
   const [announcement, setAnnouncement] = React.useState<string>();
   const scrollToBottomRef = React.useRef<HTMLDivElement>(null);
   const historyRef = React.useRef<HTMLButtonElement>(null);
+
 
   const displayMode = ChatbotDisplayMode.embedded;
 
@@ -116,65 +129,136 @@ export function AssistantChat() {
     return id.toString();
   };
 
-  const handleSend = (message: string) => {
+  // Fetch available models on mount
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('/api/llama_stack/llms');
+        const models = await response.json();
+        const llmModels = models.filter((model: LlamaModel) => model.model_type === 'llm');
+        setAvailableModels(llmModels);
+        if (llmModels.length > 0) {
+          setSelectedModel(llmModels[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching models:', err);
+        setAnnouncement('Failed to load LLM models');
+      }
+    };
+    fetchModels();
+  }, []);
+
+  const handleSend = async (message: string) => {
+    if (!selectedModel || !message.trim()) return;
+
     setIsSendButtonDisabled(true);
     const newMessages: MessageProps[] = [];
-    // We can't use structuredClone since messages contains functions, but we can't mutate
-    // items that are going into state or the UI won't update correctly
-    messages.forEach((message) => newMessages.push(message));
-    // It's important to set a timestamp prop since the Message components re-render.
-    // The timestamps re-render with them.
-    const date = new Date();
+
+    // Add user message
     newMessages.push({
       id: generateId(),
       role: 'user',
       content: message,
-      name: 'User',
-      avatar: 'userAvatar',
-      timestamp: date.toLocaleString(),
+      name: 'You',
+      timestamp: new Date().toLocaleString(),
+      avatar: '',
       avatarProps: { isBordered: true },
     });
-    newMessages.push({
-      id: generateId(),
-      role: 'bot',
-      content: 'API response goes here',
-      name: 'Bot',
-      avatar: 'botAvatar',
-      isLoading: true,
-      timestamp: date.toLocaleString(),
-    });
-    setMessages(newMessages);
-    // make announcement to assistive devices that new messages have been added
-    setAnnouncement(`Message from User: ${message}. Message from Bot is loading.`);
 
-    // this is for demo purposes only; in a real situation, there would be an API response we would wait for
-    setTimeout(() => {
-      const loadedMessages: MessageProps[] = [];
-      // we can't use structuredClone since messages contains functions, but we can't mutate
-      // items that are going into state or the UI won't update correctly
-      newMessages.forEach((message) => loadedMessages.push(message));
-      loadedMessages.pop();
-      loadedMessages.push({
-        id: generateId(),
-        role: 'bot',
-        content: 'API response goes here',
-        name: 'Bot',
-        avatar: '',
-        isLoading: false,
-        actions: {
-          positive: { onClick: () => console.log('Good response') },
-          negative: { onClick: () => console.log('Bad response') },
-          copy: { onClick: () => console.log('Copy') },
-          share: { onClick: () => console.log('Share') },
-          listen: { onClick: () => console.log('Listen') },
+    // Add assistant message
+    const assistantMessageId = generateId();
+    newMessages.push({
+      id: assistantMessageId,
+      role: 'bot',
+      content: '',
+      name: 'Assistant',
+      isLoading: true,
+      timestamp: new Date().toLocaleString(),
+      avatar: '',
+      avatarProps: { isBordered: true },
+    });
+
+    // Update messages state
+    setMessages((prevMessages) => [...prevMessages, ...newMessages]);
+
+    try {
+      // Convert messages to LlamaStack format
+      const llamaMessages: LlamaMessage[] = messages
+        .concat(newMessages)
+        .filter((msg) => !msg.isLoading)
+        .map((msg) => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content || '',
+        }));
+
+      // Stream response from LlamaStack
+      const response = await fetch('/api/llama_stack/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        timestamp: date.toLocaleString(),
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: llamaMessages,
+          stream: true,
+        }),
       });
-      setMessages(loadedMessages);
-      // make announcement to assistive devices that new message has loaded
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader available');
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Decode the chunk and process any complete SSE messages
+          const chunk = new TextDecoder().decode(value, { stream: true });
+          const lines = chunk.split('\n\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const text = line.slice(6);
+              if (text.trim() === '[DONE]') {
+                break;
+              } else if (text.trim().startsWith('Error:')) {
+                throw new Error(text.trim().slice(7));
+              } else if (text) {
+                // Update message content
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const lastMsg = updated.find((msg) => msg.id === assistantMessageId);
+                  if (lastMsg) {
+                    // Add space after sentence endings if needed
+                    const currentContent = lastMsg.content || '';
+                    const needsSpace = currentContent.match(/[.!?]$/) && text && !text.startsWith(' ');
+                    lastMsg.content = currentContent + (needsSpace ? ' ' : '') + text;
+                    lastMsg.isLoading = false;
+                  }
+                  return updated;
+                });
+
+                // Scroll to bottom
+                if (scrollToBottomRef.current) {
+                  scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
       setAnnouncement(`Message from Bot: API response goes here`);
       setIsSendButtonDisabled(false);
-    }, 5000);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setAnnouncement('Failed to send message');
+    }
   };
 
   return (
@@ -218,15 +302,11 @@ export function AssistantChat() {
               <ChatbotHeaderActions>
                 <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
                   <DropdownList>
-                    <DropdownItem value="Granite 7B" key="granite">
-                      Granite 7B
-                    </DropdownItem>
-                    <DropdownItem value="Llama 3.0" key="llama">
-                      Llama 3.0
-                    </DropdownItem>
-                    <DropdownItem value="Mistral 3B" key="mistral">
-                      Mistral 3B
-                    </DropdownItem>
+                    {availableModels.map(model => (
+                      <DropdownItem value={model.id} key={model.id}>
+                        {model.name}
+                      </DropdownItem>
+                    ))}
                   </DropdownList>
                 </ChatbotHeaderSelectorDropdown>
               </ChatbotHeaderActions>
