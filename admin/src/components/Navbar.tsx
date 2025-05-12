@@ -24,6 +24,9 @@ export default function Navbar() {
             <li>
               <Link to="/model_servers" className="hover:text-blue-600 transition">Model Servers</Link>
             </li>
+            <li>
+              <Link to="/chat" className="hover:text-blue-600 transition">Chat</Link>
+            </li>
           </ul>
         </div>
       </div>

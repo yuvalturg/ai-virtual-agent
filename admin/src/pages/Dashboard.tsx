@@ -104,6 +104,12 @@ export default function Dashboard() {
         </ul>
         <Link to="/model_servers" className="text-blue-600 hover:underline text-sm mt-2 inline-block">Manage Model Servers</Link>
       </section>
+
+      <section className="bg-white rounded-xl shadow p-5">
+        <h2 className="text-xl font-semibold mb-4 border-b pb-2">Chat Interface</h2>
+        <p className="text-gray-600 mb-4">Test and interact with LlamaStack models through the chat interface.</p>
+        <Link to="/chat" className="text-blue-600 hover:underline text-sm mt-2 inline-block">Open Chat Interface</Link>
+      </section>
     </div>
   );
 }
