@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from .database import engine, Base, AsyncSessionLocal
 from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers, llama_stack
 import logging
@@ -6,6 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from dotenv import load_dotenv
 import os
+from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+import httpx
+import sys
 
 load_dotenv()
 
@@ -59,3 +64,24 @@ app.include_router(chat_history.router)
 app.include_router(guardrails.router)
 app.include_router(model_servers.router)
 app.include_router(llama_stack.router)
+
+
+# Serve React App (frontend)
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        if len(sys.argv) > 1 and sys.argv[1] == "dev":
+            # We are in Dev mode, proxy to the React dev server
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"http://localhost:9000/{path}")
+            return Response(response.text, status_code=response.status_code)
+        else:
+            try:
+                return await super().get_response(path, scope)
+            except (HTTPException, StarletteHTTPException) as ex:
+                if ex.status_code == 404:
+                    return await super().get_response("index.html", scope)
+                else:
+                    raise ex
+
+
+app.mount("/", SPAStaticFiles(directory="backend/public", html=True), name="spa-static-files")

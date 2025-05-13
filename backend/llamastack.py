@@ -8,4 +8,4 @@ LLAMASTACK_URL = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
 
 client = LlamaStackClient(
     base_url=LLAMASTACK_URL,
-) 
+)
