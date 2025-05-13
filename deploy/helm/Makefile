@@ -102,6 +102,7 @@ install: namespace depend
 	@$(eval LLM_SERVICE_ARGS := $(call helm_llm_service_args))
 	@$(eval LLAMA_STACK_ARGS := $(call helm_llama_stack_args))
 	@$(eval INGESTION_ARGS := $(call helm_ingestion_args))
+
 	@echo "Installing $(AI_VIRTUAL_ASSISTANT_CHART) helm chart"
 	@helm upgrade --install $(AI_VIRTUAL_ASSISTANT_CHART) $(AI_VIRTUAL_ASSISTANT_CHART) -n $(NAMESPACE) \
 		$(PGVECTOR_ARGS) \

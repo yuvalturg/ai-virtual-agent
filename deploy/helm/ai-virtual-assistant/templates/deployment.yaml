@@ -33,6 +33,31 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
+        - name: oauth-proxy 
+          args:
+            - -provider=openshift
+            - -https-address=:8888
+            - -http-address=
+            - -email-domain=*
+            - -upstream=http://localhost:8000
+            - -tls-cert=/etc/tls/private/tls.crt
+            - -tls-key=/etc/tls/private/tls.key
+            - -cookie-secret-file=/etc/proxy/secrets/session_secret
+            - -openshift-service-account=ai-virtual-assistant-proxy-sa
+            - -openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            - -skip-auth-regex=^/metrics
+          image: quay.io/openshift/origin-oauth-proxy:4.17
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: oauth-proxy
+              containerPort: 8888    
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: secret-ai-virtual-assistant-tls
+            - mountPath: /etc/proxy/secrets
+              name: secret-ai-virtual-assistant-proxy
+
         - name: {{ .Chart.Name }}
           {{- with .Values.securityContext }}
           securityContext:
