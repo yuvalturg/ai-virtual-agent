@@ -38,9 +38,9 @@ interface NewAgent {
 // API Fetching Functions (these are mocked for now)
 
 // Mock API endpoint for AI Models
-const AI_MODELS_API_ENDPOINT = '/api/ai-models';
+//const AI_MODELS_API_ENDPOINT = '/api/ai-models';
 // Mock API endpoint for Agents
-const AGENTS_API_ENDPOINT = '/api/agents';
+//const AGENTS_API_ENDPOINT = '/api/agents';
 
 const fetchAIModels = async (): Promise<string[]> => {
   // Replace with actual API call
@@ -53,6 +53,7 @@ const fetchAIModels = async (): Promise<string[]> => {
   // }
   // return response.json();
 };
+
 
 const fetchAgents = async (): Promise<Agent[]> => {
   // Replace with actual API call

@@ -46,6 +46,24 @@ In another terminal:
 
 2. Start server
 
-    ```bash
+   ```bash
     npm run start
+   ```
+
+## Building container image
+
+```bash
+podman build --platform linux/amd64 -t quay.io/ecosystem-appeng/ai-virtual-assistant:1.1.0 .
+```
+
+## Running container image
+
+1. Start PostgreSQL database
+2. Run the container
+
+   ```bash
+   podman run --platform linux/amd64 --rm  -p 8000:8000 \
+   -e DATABASE_URL=postgresql+asyncpg://admin:password@host.containers.internal:5432/ai_virtual_assistant \
+   -e LLAMASTACK_URL=http://host.containers.internal:8321 \
+   quay.io/ecosystem-appeng/ai-virtual-assistant:1.1.0
    ```

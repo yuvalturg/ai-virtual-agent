@@ -26,3 +26,6 @@ dist-ssr
 venv
 *pycache*
 .venv
+
+assets
+backend/public/index.html
