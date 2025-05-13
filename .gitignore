@@ -29,3 +29,5 @@ venv
 
 assets
 backend/public/index.html
+
+charts
