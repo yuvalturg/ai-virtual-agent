@@ -1,14 +1,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "init-db.fullname" . }}
+  name: {{ include "ai-virtual-assistant.fullname" . }}
   labels:
-    {{- include "init-db.labels" . | nindent 4 }}
+    {{- include "ai-virtual-assistant.labels" . | nindent 4 }}
 spec:
   template:
     spec:
       containers:
-      - name: init-db
+      - name: ai-virtual-assistant
         image: postgres:15-alpine
         command: ["psql"]
         args:
@@ -26,27 +26,27 @@ spec:
         - name: DB_HOST
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.existingSecret }}
+              name: {{ .Values.pgSecret }}
               key: host
         - name: DB_PORT
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.existingSecret }}
+              name: {{ .Values.pgSecret }}
               key: port
         - name: DB_USER
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.existingSecret }}
+              name: {{ .Values.pgSecret }}
               key: user
         - name: DB_NAME
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.existingSecret }}
+              name: {{ .Values.pgSecret }}
               key: dbname
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.existingSecret }}
+              name: {{ .Values.pgSecret }}
               key: password
         volumeMounts:
         - name: schema
@@ -54,6 +54,6 @@ spec:
       volumes:
       - name: schema
         configMap:
-          name: {{ include "init-db.fullname" . }}-schema
+          name: {{ include "ai-virtual-assistant.fullname" . }}-schema
       restartPolicy: OnFailure
-  backoffLimit: 4 
+  backoffLimit: 10
