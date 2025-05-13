@@ -22,14 +22,15 @@ fullnameOverride: ""
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
   # Specifies whether a service account should be created
-  create: false
+  create: true
   # Automatically mount a ServiceAccount's API credentials?
   automount: true
   # Annotations to add to the service account
-  annotations: {}
+  annotations: 
+    serviceaccounts.openshift.io/oauth-redirectreference.ai-virtual-assistant: '{"kind":"OAuthRedirectReference","apiVersion":"v1","reference":{"kind":"Route","name":"ai-virtual-assistant-authenticated"}}'
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  name: "ai-virtual-assistant-proxy-sa"
 
 # This is for setting Kubernetes Annotations to a Pod.
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -88,7 +89,15 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # Additional volumes on the output Deployment definition.
-volumes: []
+volumes:
+  - name: secret-ai-virtual-assistant-tls
+    secret:
+      defaultMode: 420
+      secretName: ai-virtual-assistant-tls
+  - name: secret-ai-virtual-assistant-proxy
+    secret:
+      defaultMode: 420
+      secretName: ai-virtual-assistant-proxy
 # - name: foo
 #   secret:
 #     secretName: mysecret
@@ -111,3 +120,7 @@ pgSecret: pgvector
 dbName: ai_virtual_assistant
 
 llama_stack_url: http://llamastack:8321
+
+sessionSecret: {}
+ # value: "my-session-secret"
+
