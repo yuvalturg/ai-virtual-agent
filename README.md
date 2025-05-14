@@ -47,7 +47,7 @@ In another terminal:
 2. Start server
 
    ```bash
-    npm run start
+    npm run dev
    ```
 
 ## Building container image
