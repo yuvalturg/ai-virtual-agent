@@ -49,6 +49,7 @@ CREATE TABLE knowledge_bases (
     is_external BOOLEAN NOT NULL DEFAULT false,
     source VARCHAR(255),
     source_configuration JSONB,
+    status VARCHAR(255) DEFAULT 'pending',
     created_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
