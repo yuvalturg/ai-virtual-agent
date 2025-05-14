@@ -68,8 +68,8 @@ class VirtualAssistantBase(BaseModel):
     name: str
     prompt: str
     model_name: str
-    knowledge_base_ids: List[UUID4]
-    mcp_server_ids: List[UUID4]
+    knowledge_base_ids: List[str]
+    mcp_server_ids: List[str]
 
 class VirtualAssistantCreate(VirtualAssistantBase):
     pass

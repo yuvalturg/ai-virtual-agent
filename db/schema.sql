@@ -68,7 +68,7 @@ CREATE TABLE virtual_assistants (
 -- Virtual Assistant Knowledge Bases (junction table)
 CREATE TABLE virtual_assistant_knowledge_bases (
     virtual_assistant_id UUID REFERENCES virtual_assistants(id) ON DELETE CASCADE,
-    knowledge_base_id UUID REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+    knowledge_base_id VARCHAR(255),
     PRIMARY KEY (virtual_assistant_id, knowledge_base_id)
 );
 

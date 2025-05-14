@@ -75,7 +75,7 @@ CREATE TABLE virtual_assistant_knowledge_bases (
 -- Virtual Assistant Tools (junction table)
 CREATE TABLE virtual_assistant_tools (
     virtual_assistant_id UUID REFERENCES virtual_assistants(id) ON DELETE CASCADE,
-    mcp_server_id VARCHAR(255), -- use provider id and toolgroup_id from llamastack
+    mcp_server_id VARCHAR(255),
     PRIMARY KEY (virtual_assistant_id, mcp_server_id)
 );
 
@@ -117,6 +117,8 @@ CREATE TABLE virtual_assistant_guardrails (
     guardrail_id UUID REFERENCES guardrails(id) ON DELETE CASCADE,
     PRIMARY KEY (virtual_assistant_id, guardrail_id)
 );
+
+
 
 -- create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
