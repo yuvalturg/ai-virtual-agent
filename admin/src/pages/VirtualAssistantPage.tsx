@@ -23,8 +23,11 @@ export default function VirtualAssistantPage() {
   const [assistants, setAssistants] = useState<VirtualAssistant[]>([]);
   const [knowledgeBases, setKnowledgeBases] = useState<any[]>([]);
   const [mcpServers, setMcpServers] = useState<any[]>([]);
+  const [models, setModels] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
+    // Fetch models from LlamaStack
+    axios.get('/llama_stack/llms').then(res => setModels(res.data));
     axios.get('/knowledge_bases').then(res => setKnowledgeBases(res.data));
     axios.get('/mcp_servers').then(res => setMcpServers(res.data));
     fetchAssistants();
@@ -33,6 +36,13 @@ export default function VirtualAssistantPage() {
   const fetchAssistants = async () => {
     const res = await axios.get('/virtual_assistants');
     setAssistants(res.data);
+  };
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setForm(prev => ({
+      ...prev,
+      model_name: e.target.value
+    }));
   };
 
   const handleSubmit = async () => {
@@ -83,7 +93,16 @@ export default function VirtualAssistantPage() {
       <div className="space-y-4 mb-8">
         <input className="w-full border p-2 rounded" placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
         <textarea className="w-full border p-2 rounded" placeholder="Prompt" value={form.prompt} onChange={e => setForm({ ...form, prompt: e.target.value })} rows={4} />
-        <input className="w-full border p-2 rounded" placeholder="Model Name" value={form.model_name} onChange={e => setForm({ ...form, model_name: e.target.value })} />
+        <select 
+          className="w-full border p-2 rounded bg-white" 
+          value={form.model_name} 
+          onChange={handleModelChange}
+        >
+          <option value="">Select a model</option>
+          {models.map(model => (
+            <option key={model.id} value={model.id}>{model.name}</option>
+          ))}
+        </select>
        
         <div>
           <h2 className="font-semibold">Select Knowledge Bases</h2>

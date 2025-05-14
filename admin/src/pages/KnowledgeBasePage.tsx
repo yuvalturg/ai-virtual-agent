@@ -4,27 +4,28 @@ import axios from '../api/axios';
 interface KnowledgeBase {
   id?: string;
   name: string;
-  version: string;
-  embedding_model: string;
   provider_id?: string;
-  vector_db_name: string;
-  is_external: boolean;
+  type?: string;
+  embedding_model?: string;
+  version?: string;
+  vector_db_name?: string;
+  is_external?: boolean;
   source?: string;
-  source_configuration?: string;
-  created_by?: string;
+  source_configuration?: any;
 }
 
 export default function KnowledgeBasePage() {
   const [kbs, setKbs] = useState<KnowledgeBase[]>([]);
   const [form, setForm] = useState<KnowledgeBase>({
     name: '',
-    version: '',
-    embedding_model: '',
     provider_id: '',
+    type: '',
+    embedding_model: '',
+    version: '',
     vector_db_name: '',
     is_external: false,
     source: '',
-    source_configuration: '{}'
+    source_configuration: {}
   });
 
   const [s3Inputs, setS3Inputs] = useState({
