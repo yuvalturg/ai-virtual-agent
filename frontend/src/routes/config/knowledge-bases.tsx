@@ -5,6 +5,8 @@ import { KnowledgeBaseForm } from '@/components/knowledge-base-form';
 import axios from '../../../../admin/src/api/axios.ts';
 import { useState, useEffect } from 'react';
 
+import baseUrl from '../../config/api';
+
 export interface KnowledgeBase {
   id?: string;
   name: string;
@@ -30,7 +32,7 @@ export function KnowledgeBases() {
   }, []);
 
   const fetchKbs = async () => {
-    const res = await axios.get('/knowledge_bases');
+    const res = await axios.get(`${baseUrl}/knowledge_bases/`);
     const kbs = res.data;
 
     if (kbs) {
