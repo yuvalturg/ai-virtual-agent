@@ -1,24 +1,12 @@
-import { PageSection, Title } from '@patternfly/react-core';
-import { createFileRoute } from '@tanstack/react-router';
 import { KnowledgeBaseCard } from '@/components/knowledge-base-card';
 import { KnowledgeBaseForm } from '@/components/knowledge-base-form';
+import { PageSection, Title } from '@patternfly/react-core';
+import { createFileRoute } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 import axios from '../../../../admin/src/api/axios.ts';
-import { useState, useEffect } from 'react';
 
+import { KnowledgeBase } from '@/types/index.js';
 import baseUrl from '../../config/api';
-
-export interface KnowledgeBase {
-  id?: string;
-  name: string;
-  version: string;
-  embedding_model: string;
-  provider_id?: string;
-  vector_db_name: string;
-  is_external: boolean;
-  source?: string;
-  source_configuration?: string;
-  created_by?: string;
-}
 
 export const Route = createFileRoute('/config/knowledge-bases')({
   component: KnowledgeBases,

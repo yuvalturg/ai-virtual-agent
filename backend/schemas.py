@@ -69,7 +69,7 @@ class VirtualAssistantBase(BaseModel):
     prompt: str
     model_name: str
     knowledge_base_ids: List[str]
-    mcp_server_ids: List[str]
+    tool_ids: List[str]
 
 class VirtualAssistantCreate(VirtualAssistantBase):
     pass

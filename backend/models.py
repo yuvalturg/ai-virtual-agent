@@ -76,7 +76,7 @@ class VirtualAssistantKnowledgeBase(Base):
 class VirtualAssistantTool(Base):
     __tablename__ = "virtual_assistant_tools"
     virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
-    mcp_server_id = Column(String(255), nullable=False)
+    tool_id = Column(String(255), nullable=False)
 
 class ChatHistory(Base):
     __tablename__ = "chat_history"
