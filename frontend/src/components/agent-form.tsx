@@ -1,4 +1,5 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
+import { KnowledgeBase, Model, Tool } from '@/types';
 import {
   ActionGroup,
   Alert,
@@ -15,29 +16,15 @@ import { Fragment, useMemo } from 'react';
 import { CustomSelectOptionProps, MultiSelect } from './multi-select';
 
 interface ModelsFieldProps {
-  models: string[];
+  models: Model[];
   isLoadingModels: boolean;
   modelsError: Error | null;
-}
-
-interface KnowledgeBase {
-  id: string;
-  name: string;
-  provider_id: string;
-  type: string;
-  embedding_model: string;
 }
 
 interface KnowledgeBasesFieldProps {
   knowledgeBases: KnowledgeBase[];
   isLoadingKnowledgeBases: boolean;
   knowledgeBasesError: Error | null;
-}
-
-interface Tool {
-  id: string;
-  name: string;
-  title: string;
 }
 
 interface ToolsFieldProps {
@@ -121,8 +108,8 @@ export function AgentForm({
       ];
     }
     return knowledgeBases.map((kb) => ({
-      value: kb.id, // The ID will be stored in form.knowledge_base_ids
-      children: kb.name, // The name will be displayed
+      value: kb.id ?? '', // The ID will be stored in form.knowledge_base_ids
+      children: kb.id, // The name will be displayed
       id: `kb-option-${kb.id}`, // Unique ID for React key and ARIA
     }));
   }, [knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError]);
@@ -160,7 +147,7 @@ export function AgentForm({
     }
     return tools.map((tool) => ({
       value: tool.id, // The ID will be stored in form.tools_ids
-      children: tool.name, // The name will be displayed
+      children: tool.id, // The name will be displayed
       id: `tools-option-${tool.id}`, // Unique ID for React key and ARIA
     }));
   }, [tools, isLoadingTools, toolsError]);
@@ -189,7 +176,6 @@ export function AgentForm({
           </FormGroup>
         )}
       />
-
       <form.Field
         name="model_name"
         children={(field) => (
@@ -211,7 +197,7 @@ export function AgentForm({
                 <Fragment>
                   <FormSelectOption key="placeholder" value="" label="Select a model" isDisabled />
                   {models.map((model) => (
-                    <FormSelectOption key={model} value={model} label={model} />
+                    <FormSelectOption key={model.name} value={model.name} label={model.name} />
                   ))}
                 </Fragment>
               )}

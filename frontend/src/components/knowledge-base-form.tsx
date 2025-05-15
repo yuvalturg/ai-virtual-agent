@@ -1,43 +1,31 @@
-import { Fragment, useEffect, useState } from 'react';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardBody,
-  CardExpandableContent,
-  Dropdown,
-  DropdownList,
-  DropdownItem,
-  MenuToggle,
-  MenuToggleElement,
   ActionGroup,
   Button,
+  Card,
+  CardBody,
+  CardExpandableContent,
+  CardHeader,
+  CardTitle,
   Checkbox,
+  Dropdown,
+  DropdownItem,
+  DropdownList,
   Form,
   FormGroup,
-  TextInput,
-  TextArea,
   FormSelect,
   FormSelectOption,
   Grid,
   InputGroup,
+  MenuToggle,
+  MenuToggleElement,
+  TextArea,
+  TextInput,
 } from '@patternfly/react-core';
 import { EditIcon, EllipsisVIcon, TrashIcon } from '@patternfly/react-icons';
+import { Fragment, useEffect, useState } from 'react';
 // import axios from '../../../admin/src/api/axios';
+import { KnowledgeBase } from '@/types';
 import baseUrl from '../config/api';
-
-export interface KnowledgeBase {
-  id?: string;
-  name: string;
-  version: string;
-  embedding_model: string;
-  provider_id?: string;
-  vector_db_name: string;
-  is_external: boolean;
-  source?: string;
-  source_configuration?: string;
-  created_by?: string;
-}
 
 export const FormBasic: React.FunctionComponent = () => {
   const [kbs, setKbs] = useState<KnowledgeBase[]>([]);
@@ -81,23 +69,20 @@ export const FormBasic: React.FunctionComponent = () => {
     }
   }, [s3Inputs, githubInputs, urlInputs, form.source]);
 
- 
+  // Fetch available models on mount
+  useEffect(() => {
+    const fetchKbs = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/knowledge_bases`);
+        const kbs = await response.json();
 
-    // Fetch available models on mount
-    useEffect(() => {
-      const fetchKbs = async () => {
-        try {
-          const response = await fetch(`${baseUrl}/knowledge_bases`);
-          const kbs = await response.json();
-           
-          setKbs(kbs);
-         
-        } catch (err) {
-          console.error('Error fetching models:', err);
-        }
-      };
-      fetchKbs();
-    }, []);
+        setKbs(kbs);
+      } catch (err) {
+        console.error('Error fetching models:', err);
+      }
+    };
+    fetchKbs();
+  }, []);
 
   const handleSubmit = async () => {
     try {

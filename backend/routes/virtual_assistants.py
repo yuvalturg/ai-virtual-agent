@@ -26,10 +26,10 @@ async def create_virtual_assistant(va: schemas.VirtualAssistantCreate, db: Async
             knowledge_base_id=kb_id
         ))
 
-    for tool_id in va.mcp_server_ids:
+    for tool_id in va.tool_ids:
         db.add(models.VirtualAssistantTool(
             virtual_assistant_id=db_va.id,
-            mcp_server_id=tool_id
+            tool_id=tool_id
         ))
 
     await db.commit()
@@ -37,8 +37,8 @@ async def create_virtual_assistant(va: schemas.VirtualAssistantCreate, db: Async
     kb_result = await db.execute(select(models.VirtualAssistantKnowledgeBase).where(models.VirtualAssistantKnowledgeBase.virtual_assistant_id == db_va.id))
     kb_ids = [r.knowledge_base_id for r in kb_result.scalars().all()]
 
-    mcp_result = await db.execute(select(models.VirtualAssistantTool).where(models.VirtualAssistantTool.virtual_assistant_id == db_va.id))
-    mcp_ids = [r.mcp_server_id for r in mcp_result.scalars().all()]
+    tool_result = await db.execute(select(models.VirtualAssistantTool).where(models.VirtualAssistantTool.virtual_assistant_id == db_va.id))
+    tool_ids = [r.tool_id for r in tool_result.scalars().all()]
     
     ret = {
         "id": db_va.id,
@@ -49,7 +49,7 @@ async def create_virtual_assistant(va: schemas.VirtualAssistantCreate, db: Async
         "created_at": db_va.created_at,
         "updated_at": db_va.updated_at,
         "knowledge_base_ids": kb_ids,
-        "mcp_server_ids": mcp_ids,
+        "tool_ids": tool_ids,
     }
 
     return ret
@@ -63,8 +63,8 @@ async def get_virtual_assistants(db: AsyncSession = Depends(get_db)):
         kb_result = await db.execute(select(models.VirtualAssistantKnowledgeBase).where(models.VirtualAssistantKnowledgeBase.virtual_assistant_id == a.id))
         kb_ids = [r.knowledge_base_id for r in kb_result.scalars().all()]
 
-        mcp_result = await db.execute(select(models.VirtualAssistantTool).where(models.VirtualAssistantTool.virtual_assistant_id == a.id))
-        mcp_ids = [r.mcp_server_id for r in mcp_result.scalars().all()]
+        tool_result = await db.execute(select(models.VirtualAssistantTool).where(models.VirtualAssistantTool.virtual_assistant_id == a.id))
+        tool_ids = [r.tool_id for r in tool_result.scalars().all()]
 
         ret.append({
             "id": a.id,
@@ -75,7 +75,7 @@ async def get_virtual_assistants(db: AsyncSession = Depends(get_db)):
             "created_at": a.created_at,
             "updated_at": a.updated_at,
             "knowledge_base_ids": kb_ids,
-            "mcp_server_ids": mcp_ids,
+            "tool_ids": tool_ids,
         })
     return ret
 
@@ -105,8 +105,8 @@ async def update_virtual_assistant(va_id: UUID, va: schemas.VirtualAssistantUpda
     for kb_id in va.knowledge_base_ids:
         db.add(models.VirtualAssistantKnowledgeBase(virtual_assistant_id=db_va.id, knowledge_base_id=kb_id))
 
-    for mcp_id in va.mcp_server_ids:
-        db.add(models.VirtualAssistantTool(virtual_assistant_id=db_va.id, mcp_server_id=mcp_id))
+    for tool_id in va.tool_ids:
+        db.add(models.VirtualAssistantTool(virtual_assistant_id=db_va.id, tool_id=tool_id))
 
     await db.commit()
     await db.refresh(db_va)

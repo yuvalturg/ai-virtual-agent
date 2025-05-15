@@ -1,4 +1,11 @@
+import {
+  AGENTS_API_ENDPOINT,
+  KNOWLEDGE_BASES_API_ENDPOINT,
+  TOOLS_API_ENDPOINT,
+} from '@/config/api';
 import { Agent, NewAgent } from '@/routes/config/agents';
+import { fetchModels } from '@/services/models';
+import { KnowledgeBase, Model, Tool } from '@/types';
 import {
   Alert,
   Card,
@@ -15,26 +22,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentForm } from './agent-form';
 
-const AI_MODELS_API_ENDPOINT = '/api/llama_stack/llms';
-const KNOWLEDGE_BASES_API_ENDPOINT = '/api/llama_stack/knowledge_bases';
-const TOOLS_API_ENDPOINT = '/api/llama_stack/mcp_servers';
-const AGENTS_API_ENDPOINT = '/api/virtual_assistants';
-
-const fetchAIModels = async (): Promise<string[]> => {
-  const response = await fetch(AI_MODELS_API_ENDPOINT);
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-  return response.json();
-};
-const fetchKnowledgeBases = async (): Promise<string[]> => {
+const fetchKnowledgeBases = async (): Promise<KnowledgeBase[]> => {
   const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT);
   if (!response.ok) {
     throw new Error('Network response was not ok');
   }
   return response.json();
 };
-const fetchTools = async (): Promise<string[]> => {
+const fetchTools = async (): Promise<Tool[]> => {
   const response = await fetch(TOOLS_API_ENDPOINT);
   if (!response.ok) {
     throw new Error('Network response was not ok');
@@ -66,16 +61,16 @@ export function NewAgentCard() {
     data: models,
     isLoading: isLoadingModels,
     error: modelsError,
-  } = useQuery<string[], Error>({
-    queryKey: ['aiModels'],
-    queryFn: fetchAIModels,
+  } = useQuery<Model[], Error>({
+    queryKey: ['models'],
+    queryFn: fetchModels,
   });
   // Query for Knowledge bases
   const {
     data: knowledgeBases,
     isLoading: isLoadingKnowledgeBases,
     error: knowledgeBasesError,
-  } = useQuery<string[], Error>({
+  } = useQuery<KnowledgeBase[], Error>({
     queryKey: ['knowledgeBases'],
     queryFn: fetchKnowledgeBases,
   });
@@ -84,7 +79,7 @@ export function NewAgentCard() {
     data: tools,
     isLoading: isLoadingTools,
     error: toolsError,
-  } = useQuery<string[], Error>({
+  } = useQuery<Tool[], Error>({
     queryKey: ['tools'],
     queryFn: fetchTools,
   });
@@ -93,29 +88,19 @@ export function NewAgentCard() {
   const agentMutation = useMutation<Agent, Error, NewAgent>({
     mutationFn: createAgent,
     onSuccess: (newAgentData) => {
-      // Invalidate and refetch the agents list to show the new agent
       queryClient.invalidateQueries({ queryKey: ['agents'] });
-      // Or, for optimistic updates:
-      // queryClient.setQueryData(['agents'], (oldData: Agent[] | undefined) =>
-      //   oldData ? [...oldData, newAgentData] : [newAgentData]
-      // );
       console.log('Agent created successfully:', newAgentData);
-      // Optionally reset form or show a success message
     },
     onError: (error) => {
       console.error('Error creating agent:', error);
-      // Optionally show an error message
+      // Show an error message
     },
   });
 
   const handleCreateAgent = (values: NewAgent) => {
-    if (!values.model_name) {
-      // Or handle this validation within the form itself
-      alert('Please select a model.');
-      return;
-    }
     agentMutation.mutate(values);
   };
+
   return (
     <Card isExpanded={isOpen} isClickable={!isOpen}>
       <CardHeader

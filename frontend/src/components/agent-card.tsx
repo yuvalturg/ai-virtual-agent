@@ -20,7 +20,7 @@ import {
   Title,
 } from '@patternfly/react-core';
 import { EditIcon, EllipsisVIcon, TrashIcon } from '@patternfly/react-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { AgentForm } from './agent-form';
 
@@ -35,21 +35,9 @@ export function AgentCard({ agent }: AgentCardProps) {
 
   const queryClient = useQueryClient();
 
-  const fetchAIModels = async (): Promise<string[]> => {
-    // Replace with actual API call
-    // For now, returning mock data
-    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
-    return ['llama-1', 'llama-2', 'llama-3', 'llama-4'];
-    // const response = await fetch(AI_MODELS_API_ENDPOINT);
-    // if (!response.ok) {
-    //   throw new Error('Network response was not ok');
-    // }
-    // return response.json();
-  };
-
   const editAgent = async (agentProps: Agent): Promise<Agent> => {
     // Replace with actual API call
-    console.log('Creating agent:', agentProps);
+    console.log('editing agent:', agentProps);
     await new Promise((resolve) => setTimeout(resolve, 700)); // Simulate network delay
     // This is a mock response, in a real scenario, the backend would probably return the created agent with an id
     const editedAgent: Agent = { ...agentProps };
@@ -66,16 +54,6 @@ export function AgentCard({ agent }: AgentCardProps) {
     // }
     // return response.json();
   };
-
-  // Query for AI Models
-  const {
-    data: models,
-    isLoading: isLoadingModels,
-    error: modelsError,
-  } = useQuery<string[], Error>({
-    queryKey: ['aiModels'],
-    queryFn: fetchAIModels,
-  });
 
   // Mutation for editing an Agent
   const agentMutation = useMutation<Agent, Error, Agent>({
@@ -184,11 +162,17 @@ export function AgentCard({ agent }: AgentCardProps) {
                 </Modal>
               </FlexItem>
             </Flex>
-            <Title className="pf-v6-u-text-color-subtle" headingLevel="h3">
+            <Title className="pf-v6-u-text-color-subtle" headingLevel="h4">
               {agent.model_name}
             </Title>
           </CardHeader>
-          <CardBody>Here is some info about the agent</CardBody>
+          <CardBody>
+            <Flex direction={{ default: 'column' }}>
+              <FlexItem>{agent.prompt}</FlexItem>
+              <FlexItem>{agent.knowledge_base_ids.map((kb) => kb)}</FlexItem>
+              <FlexItem>{agent.tool_ids.map((tool) => tool)}</FlexItem>
+            </Flex>
+          </CardBody>
         </Fragment>
       ) : (
         <Fragment>

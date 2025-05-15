@@ -1,32 +1,16 @@
 import { AgentCard } from '@/components/agent-card';
+import { AGENTS_API_ENDPOINT } from '@/config/api';
 import { Agent } from '@/routes/config/agents';
 import { Alert, Flex, Spinner } from '@patternfly/react-core';
 import { useQuery } from '@tanstack/react-query';
 
 export function AgentList() {
   const fetchAgents = async (): Promise<Agent[]> => {
-    // Replace with actual API call
-    // For now, returning mock data
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-    return [
-      {
-        id: 'agent-1',
-        name: 'My First Agent',
-        model_name: 'model-1',
-        prompt: 'You are an AI agent',
-      },
-      {
-        id: 'agent-2',
-        name: 'Chatbot Assistant',
-        model_name: 'model-2',
-        prompt: 'You are a helpful assistant',
-      },
-    ];
-    // const response = await fetch(AGENTS_API_ENDPOINT);
-    // if (!response.ok) {
-    //   throw new Error('Network response was not ok');
-    // }
-    // return response.json();
+    const response = await fetch(AGENTS_API_ENDPOINT);
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    return response.json();
   };
 
   // Query for Agents
