@@ -1,0 +1,412 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.monitor.name }}
+  labels:
+    app: {{ .Values.monitor.name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.monitor.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.monitor.name }}
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+      serviceAccountName: {{ .Values.monitor.serviceAccount.name }}
+      containers:
+      - name: monitor
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Create Python script
+          cat > /tmp/monitor.py << 'EOF'
+          import os
+          import subprocess
+          import json
+          import time
+          from datetime import datetime
+
+          def log(message):
+              print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}", flush=True)
+
+          def monitor_job(kb_name):
+              try:
+                  # Wait for job to start
+                  log("Waiting for job to start...")
+                  for _ in range(30):  # Wait up to 30 seconds
+                      cmd = ["oc", "get", f"job/ingestion-pipeline-{kb_name}", "-o", "jsonpath={.status.active}"]
+                      result = subprocess.run(cmd, capture_output=True, text=True)
+                      if result.stdout.strip() == "1":
+                          log("Job started successfully")
+                          break
+                      time.sleep(1)
+                  else:
+                      log("Job did not start within 30 seconds")
+                      # Update status to failed
+                      update_status(kb_name, 'failed', "Job did not start within 30 seconds")
+                      return
+                  
+                  # Wait for job completion
+                  log("Waiting for job completion...")
+                  while True:
+                      cmd = ["oc", "get", f"job/ingestion-pipeline-{kb_name}", "-o", "jsonpath={.status.conditions[0].type}"]
+                      result = subprocess.run(cmd, capture_output=True, text=True)
+                      if result.stdout.strip() == "Complete":
+                          log("Job completed successfully")
+                          # Update status to completed
+                          update_status(kb_name, 'completed')
+                          break
+                      elif result.stdout.strip() == "Failed":
+                          log("Job failed")
+                          # Get job logs for error message
+                          cmd = ["oc", "logs", f"job/ingestion-pipeline-{kb_name}"]
+                          logs = subprocess.run(cmd, capture_output=True, text=True)
+                          error_msg = logs.stdout if logs.stdout else "Job failed without logs"
+                          # Update status to failed
+                          update_status(kb_name, 'failed', error_msg)
+                          break
+                      time.sleep(10)
+              except Exception as e:
+                  log(f"Error monitoring job: {str(e)}")
+                  update_status(kb_name, 'failed', str(e))
+
+          def create_ingestion_job(kb_name, s3_config):
+              try:
+                  log(f"Creating ingestion job for knowledge base: {kb_name}")
+                  
+                  # Parse S3 config
+                  s3_config_dict = json.loads(s3_config)
+                  
+                  # Create secret for S3 config
+                  secret_yaml = f"""
+                  apiVersion: v1
+                  kind: Secret
+                  metadata:
+                    name: s3-config-{kb_name}
+                    namespace: rag-llama-demo
+                  type: Opaque
+                  stringData:
+                    SOURCE: "S3"
+                    EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+                    NAME: "{kb_name}"
+                    VERSION: "1"
+                    ACCESS_KEY_ID: "{s3_config_dict.get('access_key_id', '')}"
+                    SECRET_ACCESS_KEY: "{s3_config_dict.get('secret_access_key', '')}"
+                    ENDPOINT_URL: "http://minio:9000"
+                    BUCKET_NAME: "{s3_config_dict.get('bucket_name', '')}"
+                    REGION: "{s3_config_dict.get('region', 'us-east-1')}"
+                  """
+                  
+                  # Add debug logging
+                  log(f"S3 Config Dictionary: {s3_config_dict}")
+                  log(f"Access Key ID: {s3_config_dict.get('access_key_id', '')}")
+                  log(f"Secret Access Key: {s3_config_dict.get('secret_access_key', '')}")
+                  log(f"Bucket Name: {s3_config_dict.get('bucket_name', '')}")
+                  
+                  # Write secret YAML to file
+                  with open('/tmp/secret.yaml', 'w') as f:
+                      f.write(secret_yaml)
+                  
+                  # Create secret
+                  result = subprocess.run('oc apply -f /tmp/secret.yaml', shell=True, capture_output=True, text=True)
+                  if result.returncode != 0:
+                      log(f"Error creating secret: {result.stderr}")
+                      # Update status to failed
+                      update_status(kb_name, 'failed', f"Failed to create secret: {result.stderr}")
+                      return
+                  log("Secret created successfully")
+                  
+                  # Create job YAML
+                  job_yaml = f"""
+                  kind: Job
+                  apiVersion: batch/v1
+                  metadata:
+                    name: ingestion-pipeline-{kb_name}
+                    namespace: rag-llama-demo
+                    labels:
+                      pipelines.kubeflow.org/v2_component: 'true'
+                  spec:
+                    manualSelector: false
+                    backoffLimit: 6
+                    completions: 1
+                    template:
+                      metadata:
+                        labels:
+                          job-name: ingestion-pipeline-{kb_name}
+                          pipelines.kubeflow.org/v2_component: 'true'
+                      spec:
+                        volumes:
+                          - name: ingestion-python-script-volume
+                            configMap:
+                              name: ingestion-pipeline-script
+                              defaultMode: 420
+                          - name: dot-local
+                            emptyDir:
+                              medium: Memory
+                        initContainers:
+                          - name: wait-for-pipeline
+                            image: 'image-registry.openshift-image-registry.svc:5000/openshift/tools:latest'
+                            command:
+                              - /bin/bash
+                              - '-c'
+                              - |
+                                set -e
+                                url="https://ds-pipeline-dspa:8888/apis/v2beta1/healthz"
+                                echo "Waiting for $url..."
+                                until curl -ksf "$url"; do
+                                  echo "Still waiting for $url ..."
+                                  sleep 10
+                                done
+                                echo "\\nData science pipeline configured."
+                            terminationMessagePath: /dev/termination-log
+                            terminationMessagePolicy: File
+                            imagePullPolicy: Always
+                        containers:
+                          - terminationMessagePath: /dev/termination-log
+                            name: create-ingestion-pipeline
+                            command:
+                              - /bin/bash
+                            env:
+                              - name: LLAMASTACK_BASE_URL
+                                value: 'http://llamastack.rag-llama-demo.svc.cluster.local:8321'
+                              - name: DS_PIPELINE_URL
+                                value: 'https://ds-pipeline-dspa.rag-llama-demo.svc.cluster.local:8888'
+                            envFrom:
+                              - secretRef:
+                                  name: s3-config-{kb_name}
+                            imagePullPolicy: IfNotPresent
+                            volumeMounts:
+                              - name: ingestion-python-script-volume
+                                mountPath: /ingestion-script
+                              - name: dot-local
+                                mountPath: /.local
+                            terminationMessagePolicy: File
+                            image: 'python:3.10-slim'
+                            args:
+                              - '-ec'
+                              - |
+                                pip install kfp[kubernetes]
+                                python3 /ingestion-script/ingestion.py
+                        restartPolicy: Never
+                        terminationGracePeriodSeconds: 30
+                        dnsPolicy: ClusterFirst
+                        schedulerName: default-scheduler
+                    suspend: false
+                    parallelism: 1
+                    podReplacementPolicy: TerminatingOrFailed
+                    completionMode: NonIndexed
+                  """
+                  
+                  # Write job YAML to file
+                  with open('/tmp/job.yaml', 'w') as f:
+                      f.write(job_yaml)
+                  
+                  # Create job
+                  result = subprocess.run('oc apply -f /tmp/job.yaml', shell=True, capture_output=True, text=True)
+                  if result.returncode != 0:
+                      log(f"Error creating job: {result.stderr}")
+                      # Update status to failed
+                      update_status(kb_name, 'failed', f"Failed to create job: {result.stderr}")
+                      return
+                  log("Job created successfully")
+                  
+                  # Start job monitoring in a separate thread
+                  import threading
+                  monitor_thread = threading.Thread(target=monitor_job, args=(kb_name,))
+                  monitor_thread.daemon = True
+                  monitor_thread.start()
+                  
+              except Exception as e:
+                  log(f"Error in create_ingestion_job: {str(e)}")
+                  # Update status to failed
+                  update_status(kb_name, 'failed', str(e))
+
+          def process_database_results():
+              try:
+                  # Keep track of processed knowledge bases
+                  processed_kbs = set()
+                  
+                  while True:
+                      # Read results from shared volume
+                      try:
+                          with open('/shared/db_results.txt', 'r') as f:
+                              results = f.read().strip()
+                      except FileNotFoundError:
+                          log("No results file found, waiting...")
+                          time.sleep(10)
+                          continue
+                      
+                      if not results:
+                          log("No new knowledge bases found")
+                          time.sleep(10)
+                          continue
+                      
+                      # Process each line
+                      for line in results.splitlines():
+                          if line.strip():
+                              log(f"Processing line: {line}")
+                              kb_name, s3_config = line.split('|')
+                              kb_name = kb_name.strip()
+                              
+                              # Skip if already processed
+                              if kb_name in processed_kbs:
+                                  log(f"Skipping already processed knowledge base: {kb_name}")
+                                  continue
+                              
+                              # Create ingestion job
+                              create_ingestion_job(kb_name, s3_config.strip())
+                              
+                              # Add to processed set
+                              processed_kbs.add(kb_name)
+                              
+                              # Clear the results file after processing
+                              with open('/shared/db_results.txt', 'w') as f:
+                                  f.write('')
+                              
+                              log(f"Processed knowledge base: {kb_name}")
+                      
+                      # Wait before checking again
+                      time.sleep(10)
+                  
+              except Exception as e:
+                  log(f"Error processing database results: {str(e)}")
+                  time.sleep(10)  # Wait before retrying
+
+          if __name__ == "__main__":
+              while True:
+                  try:
+                      process_database_results()
+                  except Exception as e:
+                      log(f"Fatal error: {str(e)}")
+                      time.sleep(60)  # Wait before retrying
+          EOF
+
+          # Make script executable and run it
+          chmod +x /tmp/monitor.py
+          python3 /tmp/monitor.py
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared
+      - name: db-query
+        image: python:3.10-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Create a writable directory for pip installations
+          mkdir -p /tmp/pip
+          export PIP_TARGET=/tmp/pip
+          export PYTHONPATH=/tmp/pip:$PYTHONPATH
+          
+          # Install psycopg2
+          pip install --no-cache-dir psycopg2-binary
+          
+          # Create Python script
+          cat > /tmp/query.py << 'EOF'
+          import os
+          import psycopg2
+          import time
+          from datetime import datetime
+
+          def log(message):
+              print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}", flush=True)
+
+          def check_database():
+              try:
+                  log("Checking database for new knowledge bases...")
+                  
+                  # Connect to database
+                  conn = psycopg2.connect(
+                      host=os.environ["DB_HOST"],
+                      database="ai_virtual_assistant",  # Connect directly to ai_virtual_assistant
+                      user=os.environ["DB_USER"],
+                      password=os.environ["DB_PASSWORD"]
+                  )
+                  
+                  # Query to execute - only get pending knowledge bases
+                  query = """
+                      SELECT name, source_configuration::text 
+                      FROM knowledge_bases 
+                      WHERE is_external = true
+                      AND source_configuration IS NOT NULL
+                      AND status = 'pending';
+                  """
+                  log(f"Executing query: {query}")
+                  
+                  with conn.cursor() as cur:
+                      cur.execute(query)
+                      results = cur.fetchall()
+                  
+                  log(f"Found {len(results)} pending knowledge bases")
+                  
+                  # Write results to shared volume
+                  with open('/shared/db_results.txt', 'w') as f:
+                      for row in results:
+                          f.write(f"{row[0]}|{row[1]}\n")
+                  
+                  # Update status to 'processing' for the found knowledge bases
+                  if results:
+                      update_query = """
+                          UPDATE knowledge_bases 
+                          SET status = 'processing' 
+                          WHERE name = ANY(%s);
+                      """
+                      kb_names = [row[0] for row in results]
+                      with conn.cursor() as cur:
+                          cur.execute(update_query, (kb_names,))
+                          conn.commit()
+                      log(f"Updated status to 'processing' for {len(kb_names)} knowledge bases")
+                  
+                  conn.close()
+                  
+              except Exception as e:
+                  log(f"Error in check_database: {str(e)}")
+
+          if __name__ == "__main__":
+              while True:
+                  try:
+                      check_database()
+                      # Wait for 1 minute before checking again
+                      time.sleep(60)
+                  except Exception as e:
+                      log(f"Fatal error: {str(e)}")
+                      time.sleep(60)  # Wait before retrying
+          EOF
+
+          # Make script executable and run it
+          chmod +x /tmp/query.py
+          python3 /tmp/query.py
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: pgvector
+              key: host
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: pgvector
+              key: user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pgvector
+              key: password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: pgvector
+              key: dbname
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared
+      volumes:
+      - name: shared-volume
+        emptyDir: {} 
