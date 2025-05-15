@@ -23,7 +23,8 @@ import {
   InputGroup,
 } from '@patternfly/react-core';
 import { EditIcon, EllipsisVIcon, TrashIcon } from '@patternfly/react-icons';
-import axios from '../../../admin/src/api/axios';
+// import axios from '../../../admin/src/api/axios';
+import baseUrl from '../config/api';
 
 export interface KnowledgeBase {
   id?: string;
@@ -67,11 +68,6 @@ export const FormBasic: React.FunctionComponent = () => {
   });
 
   const [urlInputs, setUrlInputs] = useState<string[]>(['']);
-
-  useEffect(() => {
-    void fetchKbs();
-  }, []);
-
   useEffect(() => {
     if (form.source === 'S3') {
       const sourceConfig = JSON.stringify(s3Inputs, null, 2);
@@ -85,10 +81,23 @@ export const FormBasic: React.FunctionComponent = () => {
     }
   }, [s3Inputs, githubInputs, urlInputs, form.source]);
 
-  const fetchKbs = async () => {
-    const res = await axios.get('/knowledge_bases');
-    setKbs(res.data);
-  };
+ 
+
+    // Fetch available models on mount
+    useEffect(() => {
+      const fetchKbs = async () => {
+        try {
+          const response = await fetch(`${baseUrl}/knowledge_bases`);
+          const kbs = await response.json();
+           
+          setKbs(kbs);
+         
+        } catch (err) {
+          console.error('Error fetching models:', err);
+        }
+      };
+      fetchKbs();
+    }, []);
 
   const handleSubmit = async () => {
     try {
