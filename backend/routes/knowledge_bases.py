@@ -6,7 +6,7 @@ from typing import List
 
 from .. import models, schemas
 from ..database import get_db
-from ..llamastack import client
+from ..api.llamastack import client
 
 router = APIRouter(prefix="/knowledge_bases", tags=["knowledge_bases"])
 
