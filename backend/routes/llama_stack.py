@@ -58,7 +58,7 @@ async def get_llms():
                         "id": str(model.identifier),
                         "name": model.provider_resource_id,
                         "model_type": model.model_type,
-                    }
+                }
                     llms.append(llm_config)
             except AttributeError as ae:
                 log.error(f"Error processing model data: {str(ae)}. Model data: {model}")

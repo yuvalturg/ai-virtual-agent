@@ -1,7 +1,9 @@
 fastapi
 uvicorn[standard]
 sqlalchemy[asyncio]
+alembic
 asyncpg
+psycopg2-binary
 pydantic
 python-dotenv
 bcrypt

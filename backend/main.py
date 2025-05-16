@@ -34,10 +34,7 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-async def on_startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
+async def on_startup(): 
     try:
         async with AsyncSessionLocal() as session:
             await mcp_servers.sync_mcp_servers(session)
