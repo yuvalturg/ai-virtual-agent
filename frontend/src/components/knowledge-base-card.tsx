@@ -31,7 +31,6 @@ export function KnowledgeBaseCard({ knowledgeBase }: KnowledgeBaseCardProps) {
   };
 
   const onExpand = (_event: React.MouseEvent, id: string) => {
-    // eslint-disable-next-line no-console
     console.log(id);
     setIsExpanded(!isExpanded);
   };

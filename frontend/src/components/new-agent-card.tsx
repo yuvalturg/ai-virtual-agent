@@ -1,10 +1,8 @@
-import {
-  AGENTS_API_ENDPOINT,
-  KNOWLEDGE_BASES_API_ENDPOINT,
-  TOOLS_API_ENDPOINT,
-} from '@/config/api';
 import { Agent, NewAgent } from '@/routes/config/agents';
+import { createAgent } from '@/services/agents';
+import { fetchKnowledgeBases } from '@/services/knowledge-bases';
 import { fetchModels } from '@/services/models';
+import { fetchTools } from '@/services/tools';
 import { KnowledgeBase, Model, Tool } from '@/types';
 import {
   Alert,
@@ -21,35 +19,6 @@ import { PlusIcon } from '@patternfly/react-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AgentForm } from './agent-form';
-
-const fetchKnowledgeBases = async (): Promise<KnowledgeBase[]> => {
-  const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT);
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-  return response.json();
-};
-const fetchTools = async (): Promise<Tool[]> => {
-  const response = await fetch(TOOLS_API_ENDPOINT);
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-  return response.json();
-};
-
-const createAgent = async (newAgent: NewAgent): Promise<Agent> => {
-  const response = await fetch(AGENTS_API_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(newAgent),
-  });
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-  return response.json();
-};
 
 export function NewAgentCard() {
   const [isOpen, setIsOpen] = useState(false);
@@ -87,8 +56,8 @@ export function NewAgentCard() {
   // Mutation for creating an Agent
   const agentMutation = useMutation<Agent, Error, NewAgent>({
     mutationFn: createAgent,
-    onSuccess: (newAgentData) => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] });
+    onSuccess: async (newAgentData) => {
+      await queryClient.invalidateQueries({ queryKey: ['agents'] });
       console.log('Agent created successfully:', newAgentData);
     },
     onError: (error) => {
@@ -105,7 +74,6 @@ export function NewAgentCard() {
     <Card isExpanded={isOpen} isClickable={!isOpen}>
       <CardHeader
         selectableActions={{
-          // eslint-disable-next-line no-console
           onClickAction: () => setIsOpen(!isOpen),
           selectableActionAriaLabelledby: 'clickable-card-example-title-1',
         }}

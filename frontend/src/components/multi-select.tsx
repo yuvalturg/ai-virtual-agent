@@ -17,8 +17,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 export interface CustomSelectOptionProps extends PFSelectOptionProps {
   value: string;
-  children: React.ReactNode;
-  // id?: string; // id is optional on PFSelectOptionProps, we'll generate one if needed
+  children: string;
 }
 
 interface MultiSelectProps {
@@ -79,21 +78,6 @@ export function MultiSelect({
     }
     setFilteredOptions(newFilteredOptions);
   }, [inputValue, options, isOpen, id]);
-
-  useEffect(() => {
-    setFilteredOptions(options);
-    // Re-apply filter if there was an input value and options change
-    if (inputValue && isOpen) {
-      // Trigger the filter effect by slightly changing inputValue if options changed
-      // This is a bit of a hack; a more robust way might be to explicitly call a filter function.
-      // For now, let's rely on the dependency array of the main filter effect.
-      const currentInput = inputValue;
-      setInputValue(''); // Clear briefly
-      setInputValue(currentInput); // Re-set to trigger filter
-    } else if (!inputValue) {
-      setFilteredOptions(options); // Ensure reset if input is cleared
-    }
-  }, [options]); // Only re-filter if the main options list changes
 
   const createItemId = (optionValue: string | number | undefined): string => {
     // Ensure optionValue is a string before calling replace

@@ -12,13 +12,13 @@ export interface KnowledgeBase {
 }
 
 export interface Tool {
-    id: string;
-    name: string;
-    title: string;
-  }
+  id: string;
+  name: string;
+  title: string;
+}
 
 export interface Model {
-    "id": string
-    "name": string
-    "model_type": string
+  id: string;
+  name: string;
+  model_type: string;
 }

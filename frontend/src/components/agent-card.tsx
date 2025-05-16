@@ -60,7 +60,7 @@ export function AgentCard({ agent }: AgentCardProps) {
     mutationFn: editAgent,
     onSuccess: (editedAgentData) => {
       // Invalidate and refetch the agents list to show the new agent
-      queryClient.invalidateQueries({ queryKey: ['agents'] });
+      void queryClient.invalidateQueries({ queryKey: ['agents'] });
       // Or, for optimistic updates:
       // queryClient.setQueryData(['agents'], (oldData: Agent[] | undefined) =>
       //   oldData ? [...oldData, newAgentData] : [newAgentData]
@@ -125,7 +125,12 @@ export function AgentCard({ agent }: AgentCardProps) {
                   popperProps={{ position: 'right' }}
                 >
                   <DropdownList>
-                    <DropdownItem icon={<EditIcon />} value={0} key="edit">
+                    <DropdownItem
+                      onClick={() => setEditing(true)}
+                      icon={<EditIcon />}
+                      value={0}
+                      key="edit"
+                    >
                       Edit
                     </DropdownItem>
                     <DropdownItem
@@ -168,9 +173,20 @@ export function AgentCard({ agent }: AgentCardProps) {
           </CardHeader>
           <CardBody>
             <Flex direction={{ default: 'column' }}>
-              <FlexItem>{agent.prompt}</FlexItem>
-              <FlexItem>{agent.knowledge_base_ids.map((kb) => kb)}</FlexItem>
-              <FlexItem>{agent.tool_ids.map((tool) => tool)}</FlexItem>
+              <FlexItem>
+                <span className="pf-v6-u-text-color-subtle">Knowledge Bases: </span>
+                {agent.prompt}
+              </FlexItem>
+              <FlexItem>
+                <span className="pf-v6-u-text-color-subtle">Knowledge Bases: </span>
+                {agent.knowledge_base_ids.length > 0
+                  ? agent.knowledge_base_ids.map((kb) => kb)
+                  : 'None'}
+              </FlexItem>
+              <FlexItem>
+                <span className="pf-v6-u-text-color-subtle">Tools: </span>
+                {agent.tool_ids.length > 0 ? agent.tool_ids.map((tool) => tool) : 'None'}
+              </FlexItem>
             </Flex>
           </CardBody>
         </Fragment>
@@ -182,6 +198,7 @@ export function AgentCard({ agent }: AgentCardProps) {
               defaultAgentProps={agent}
               isSubmitting={agentMutation.isPending}
               onSubmit={handleEditAgent}
+              onCancel={() => setEditing(false)}
             />
           </CardBody>
         </Fragment>

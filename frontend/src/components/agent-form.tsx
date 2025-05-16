@@ -66,7 +66,7 @@ export function AgentForm({
 
   const form = useForm({
     defaultValues: initialAgentData,
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       onSubmit(value);
     },
   });
@@ -157,12 +157,11 @@ export function AgentForm({
       onSubmit={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        form.handleSubmit();
+        void form.handleSubmit();
       }}
     >
-      <form.Field
-        name="name"
-        children={(field) => (
+      <form.Field name="name">
+        {(field) => (
           <FormGroup label="Agent Name" isRequired fieldId="agent-name">
             <TextInput
               isRequired
@@ -175,10 +174,9 @@ export function AgentForm({
             />
           </FormGroup>
         )}
-      />
-      <form.Field
-        name="model_name"
-        children={(field) => (
+      </form.Field>
+      <form.Field name="model_name">
+        {(field) => (
           <FormGroup label="Select AI Model" isRequired fieldId="ai-model">
             <FormSelect
               id="ai-model"
@@ -204,11 +202,9 @@ export function AgentForm({
             </FormSelect>
           </FormGroup>
         )}
-      />
-
-      <form.Field
-        name="prompt"
-        children={(field) => (
+      </form.Field>
+      <form.Field name="prompt">
+        {(field) => (
           <FormGroup label="Agent Prompt" isRequired fieldId="prompt">
             <TextArea
               isRequired
@@ -221,10 +217,9 @@ export function AgentForm({
             />
           </FormGroup>
         )}
-      />
-      <form.Field
-        name="knowledge_base_ids" // This field expects string[]
-        children={(field) => (
+      </form.Field>
+      <form.Field name="knowledge_base_ids">
+        {(field) => (
           <FormGroup
             label="Select Knowledge Bases"
             fieldId="knowledge-bases-multiselect" // Unique ID for the FormGroup
@@ -248,10 +243,9 @@ export function AgentForm({
             />
           </FormGroup>
         )}
-      />
-      <form.Field
-        name="tool_ids" // This field expects string[]
-        children={(field) => (
+      </form.Field>
+      <form.Field name="tool_ids">
+        {(field) => (
           <FormGroup
             label="Select Tools"
             fieldId="tools-multiselect" // Unique ID for the FormGroup
@@ -272,7 +266,7 @@ export function AgentForm({
             />
           </FormGroup>
         )}
-      />
+      </form.Field>
 
       <ActionGroup>
         <Button
