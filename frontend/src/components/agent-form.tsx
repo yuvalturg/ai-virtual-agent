@@ -1,4 +1,5 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
+import { UpdateAgentProps } from '@/services/agents';
 import { KnowledgeBase, Model, Tool } from '@/types';
 import {
   ActionGroup,
@@ -38,7 +39,7 @@ interface AgentFormProps {
   modelsProps: ModelsFieldProps;
   knowledgeBasesProps: KnowledgeBasesFieldProps;
   toolsProps: ToolsFieldProps;
-  onSubmit: (values: NewAgent | Agent) => void;
+  onSubmit: (values: UpdateAgentProps) => void;
   isSubmitting: boolean;
   onCancel: () => void;
 }
@@ -56,6 +57,8 @@ export function AgentForm({
   const { knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError } = knowledgeBasesProps;
   const { tools, isLoadingTools, toolsError } = toolsProps;
 
+  const agent_id = defaultAgentProps?.id ?? undefined;
+
   const initialAgentData: NewAgent = defaultAgentProps ?? {
     name: '',
     model_name: '',
@@ -67,7 +70,7 @@ export function AgentForm({
   const form = useForm({
     defaultValues: initialAgentData,
     onSubmit: ({ value }) => {
-      onSubmit(value);
+      onSubmit({ agent_id, agentProps: value });
     },
   });
 
@@ -157,7 +160,9 @@ export function AgentForm({
       onSubmit={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        void form.handleSubmit();
+        void form.handleSubmit().then(() => {
+          handleCancel();
+        });
       }}
     >
       <form.Field name="name">

@@ -1,4 +1,5 @@
 import { Agent } from '@/routes/config/agents';
+import { deleteAgent, editAgent, UpdateAgentProps } from '@/services/agents';
 import {
   Button,
   Card,
@@ -20,9 +21,13 @@ import {
   Title,
 } from '@patternfly/react-core';
 import { EditIcon, EllipsisVIcon, TrashIcon } from '@patternfly/react-icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { AgentForm } from './agent-form';
+import { fetchModels } from '@/services/models';
+import { fetchKnowledgeBases } from '@/services/knowledge-bases';
+import { fetchTools } from '@/services/tools';
+import { KnowledgeBase, Model, Tool } from '@/types';
 
 interface AgentCardProps {
   agent: Agent;
@@ -35,38 +40,42 @@ export function AgentCard({ agent }: AgentCardProps) {
 
   const queryClient = useQueryClient();
 
-  const editAgent = async (agentProps: Agent): Promise<Agent> => {
-    // Replace with actual API call
-    console.log('editing agent:', agentProps);
-    await new Promise((resolve) => setTimeout(resolve, 700)); // Simulate network delay
-    // This is a mock response, in a real scenario, the backend would probably return the created agent with an id
-    const editedAgent: Agent = { ...agentProps };
-    return editedAgent;
-    // const response = await fetch(AGENTS_API_ENDPOINT, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(newAgent),
-    // });
-    // if (!response.ok) {
-    //   throw new Error('Network response was not ok');
-    // }
-    // return response.json();
-  };
+  // Query for AI Models
+  const {
+    data: models,
+    isLoading: isLoadingModels,
+    error: modelsError,
+  } = useQuery<Model[], Error>({
+    queryKey: ['models'],
+    queryFn: fetchModels,
+  });
+  // Query for Knowledge bases
+  const {
+    data: knowledgeBases,
+    isLoading: isLoadingKnowledgeBases,
+    error: knowledgeBasesError,
+  } = useQuery<KnowledgeBase[], Error>({
+    queryKey: ['knowledgeBases'],
+    queryFn: fetchKnowledgeBases,
+  });
+  // Query for tools
+  const {
+    data: tools,
+    isLoading: isLoadingTools,
+    error: toolsError,
+  } = useQuery<Tool[], Error>({
+    queryKey: ['tools'],
+    queryFn: fetchTools,
+  });
 
   // Mutation for editing an Agent
-  const agentMutation = useMutation<Agent, Error, Agent>({
+  const editAgentMutation = useMutation<Agent, Error, UpdateAgentProps>({
     mutationFn: editAgent,
     onSuccess: (editedAgentData) => {
       // Invalidate and refetch the agents list to show the new agent
       void queryClient.invalidateQueries({ queryKey: ['agents'] });
-      // Or, for optimistic updates:
-      // queryClient.setQueryData(['agents'], (oldData: Agent[] | undefined) =>
-      //   oldData ? [...oldData, newAgentData] : [newAgentData]
-      // );
+      setEditing(false);
       console.log('Agent edited successfully:', editedAgentData);
-      // Optionally reset form or show a success message
     },
     onError: (error) => {
       console.error('Error editing agent:', error);
@@ -74,13 +83,26 @@ export function AgentCard({ agent }: AgentCardProps) {
     },
   });
 
-  const handleEditAgent = (values: Agent) => {
-    if (!values.model_name) {
-      // Or handle this validation within the form itself
-      alert('Please select a model.');
-      return;
-    }
-    agentMutation.mutate(values);
+  // Mutation for deleting an Agent
+  const deleteAgentMutation = useMutation<void, Error, string>({
+    mutationFn: deleteAgent,
+    onSuccess: () => {
+      // Invalidate and refetch the agents list to show the new agent
+      void queryClient.invalidateQueries({ queryKey: ['agents'] });
+      setModalOpen(false);
+      console.log('Agent deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Error deleting agent:', error);
+      // Optionally show an error message
+    },
+  });
+
+  const handleEditAgent = (values: UpdateAgentProps) => {
+    editAgentMutation.mutate(values);
+  };
+  const handleDeleteAgent = () => {
+    deleteAgentMutation.mutate(agent.id);
   };
 
   const toggleModal = () => {
@@ -88,6 +110,9 @@ export function AgentCard({ agent }: AgentCardProps) {
   };
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen);
+  };
+  const toggleEditing = () => {
+    setEditing(!editing);
   };
 
   return (
@@ -126,7 +151,10 @@ export function AgentCard({ agent }: AgentCardProps) {
                 >
                   <DropdownList>
                     <DropdownItem
-                      onClick={() => setEditing(true)}
+                      onClick={() => {
+                        toggleEditing();
+                        setDropdownOpen(false);
+                      }}
                       icon={<EditIcon />}
                       value={0}
                       key="edit"
@@ -159,7 +187,13 @@ export function AgentCard({ agent }: AgentCardProps) {
                     Are you sure you want to delete this AI agent? This action cannot be undone.
                   </ModalBody>
                   <ModalFooter>
-                    <Button variant="danger">Delete</Button>
+                    <Button
+                      isLoading={deleteAgentMutation.isPending}
+                      onClick={handleDeleteAgent}
+                      variant="danger"
+                    >
+                      Delete
+                    </Button>
                     <Button variant="link" onClick={toggleModal}>
                       Cancel
                     </Button>
@@ -192,13 +226,30 @@ export function AgentCard({ agent }: AgentCardProps) {
         </Fragment>
       ) : (
         <Fragment>
-          <CardHeader>Edit Agent</CardHeader>
+          <CardHeader>
+            <Title headingLevel="h3">Edit {agent.name}</Title>
+          </CardHeader>
           <CardBody>
             <AgentForm
               defaultAgentProps={agent}
-              isSubmitting={agentMutation.isPending}
+              modelsProps={{
+                models: models || [],
+                isLoadingModels,
+                modelsError,
+              }}
+              knowledgeBasesProps={{
+                knowledgeBases: knowledgeBases || [],
+                isLoadingKnowledgeBases,
+                knowledgeBasesError,
+              }}
+              toolsProps={{
+                tools: tools || [],
+                isLoadingTools,
+                toolsError,
+              }}
+              isSubmitting={editAgentMutation.isPending}
               onSubmit={handleEditAgent}
-              onCancel={() => setEditing(false)}
+              onCancel={toggleEditing}
             />
           </CardBody>
         </Fragment>

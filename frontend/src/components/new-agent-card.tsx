@@ -1,5 +1,5 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
-import { createAgent } from '@/services/agents';
+import { createAgent, UpdateAgentProps } from '@/services/agents';
 import { fetchKnowledgeBases } from '@/services/knowledge-bases';
 import { fetchModels } from '@/services/models';
 import { fetchTools } from '@/services/tools';
@@ -66,70 +66,81 @@ export function NewAgentCard() {
     },
   });
 
-  const handleCreateAgent = (values: NewAgent) => {
-    agentMutation.mutate(values);
+  const handleCreateAgent = (values: UpdateAgentProps) => {
+    agentMutation.mutate(values.agentProps);
   };
 
   return (
-    <Card isExpanded={isOpen} isClickable={!isOpen}>
-      <CardHeader
-        selectableActions={{
-          onClickAction: () => setIsOpen(!isOpen),
-          selectableActionAriaLabelledby: 'clickable-card-example-title-1',
-        }}
-      >
-        <CardTitle>
-          {!isOpen ? (
-            <Flex>
-              <FlexItem>
-                <PlusIcon />
-              </FlexItem>
-              <FlexItem>
+    <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+      {agentMutation.isSuccess && (
+        <FlexItem>
+          <Alert variant="success" title="Agent created successfully!" className="pf-v5-u-mb-md" />
+        </FlexItem>
+      )}
+      <FlexItem>
+        <Card isExpanded={isOpen} isClickable={!isOpen}>
+          <CardHeader
+            selectableActions={{
+              onClickAction: () => setIsOpen(!isOpen),
+              selectableActionAriaLabelledby: 'clickable-card-example-title-1',
+            }}
+          >
+            <CardTitle>
+              {!isOpen ? (
+                <Flex>
+                  <FlexItem>
+                    <PlusIcon />
+                  </FlexItem>
+                  <FlexItem>
+                    <Title headingLevel="h3">New Agent</Title>
+                  </FlexItem>
+                </Flex>
+              ) : (
                 <Title headingLevel="h3">New Agent</Title>
-              </FlexItem>
-            </Flex>
-          ) : (
-            <Title headingLevel="h1">New Agent</Title>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardExpandableContent className="pf-v5-u-mb-lg">
-        <CardBody>
-          <AgentForm
-            modelsProps={{
-              models: models || [],
-              isLoadingModels,
-              modelsError,
-            }}
-            knowledgeBasesProps={{
-              knowledgeBases: knowledgeBases || [],
-              isLoadingKnowledgeBases,
-              knowledgeBasesError,
-            }}
-            toolsProps={{
-              tools: tools || [],
-              isLoadingTools,
-              toolsError,
-            }}
-            onSubmit={handleCreateAgent}
-            isSubmitting={agentMutation.isPending}
-            onCancel={() => setIsOpen(false)}
-          />
-          {agentMutation.isError && (
-            <Alert variant="danger" title="Failed to create agent" className="pf-v5-u-mt-md">
-              {agentMutation.error?.message || 'An unexpected error occurred.'}
-            </Alert>
-          )}
-
-          {agentMutation.isSuccess && (
-            <Alert
-              variant="success"
-              title="Agent created successfully!"
-              className="pf-v5-u-mt-md"
-            />
-          )}
-        </CardBody>
-      </CardExpandableContent>
-    </Card>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardExpandableContent className="pf-v5-u-mb-lg">
+            <CardBody>
+              <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+                <FlexItem>
+                  <AgentForm
+                    modelsProps={{
+                      models: models || [],
+                      isLoadingModels,
+                      modelsError,
+                    }}
+                    knowledgeBasesProps={{
+                      knowledgeBases: knowledgeBases || [],
+                      isLoadingKnowledgeBases,
+                      knowledgeBasesError,
+                    }}
+                    toolsProps={{
+                      tools: tools || [],
+                      isLoadingTools,
+                      toolsError,
+                    }}
+                    onSubmit={handleCreateAgent}
+                    isSubmitting={agentMutation.isPending}
+                    onCancel={() => setIsOpen(false)}
+                  />
+                </FlexItem>
+                {agentMutation.isError && (
+                  <FlexItem>
+                    <Alert
+                      variant="danger"
+                      title="Failed to create agent"
+                      className="pf-v5-u-mt-md"
+                    >
+                      {agentMutation.error?.message || 'An unexpected error occurred.'}
+                    </Alert>
+                  </FlexItem>
+                )}
+              </Flex>
+            </CardBody>
+          </CardExpandableContent>
+        </Card>
+      </FlexItem>
+    </Flex>
   );
 }
