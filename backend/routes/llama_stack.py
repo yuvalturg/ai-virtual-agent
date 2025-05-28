@@ -1,22 +1,18 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
-from typing import List, Dict, Any, AsyncGenerator, Literal, Optional, AsyncIterable
+from typing import List, Dict, Any, Literal, Optional
 import json
-from sqlalchemy.exc import StatementError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from backend.models import VirtualAssistant, VirtualAssistantTool, VirtualAssistantKnowledgeBase, KnowledgeBase, ChatSession
+from backend.models import VirtualAssistant
 from backend.database import get_db
-from uuid import UUID
-import time
 from typing import List, Dict, Any, Literal, Optional
 import logging
 from pydantic import BaseModel
 from .chat import Chat
 from ..api.llamastack import client
 from .. import models
-from uuid import uuid4
 from fastapi import BackgroundTasks
 
 class Message(BaseModel):
