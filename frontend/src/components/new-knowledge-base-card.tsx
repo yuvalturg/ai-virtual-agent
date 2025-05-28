@@ -57,6 +57,7 @@ export function NewKnowledgeBaseCard() {
 
   const handleCreateKb = (values: KnowledgeBase) => {
     // Strip out fields that shouldn't be sent to the API
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { created_at, updated_at, ...createPayload } = values;
     kbMutation.mutate(createPayload);
   };

@@ -114,7 +114,7 @@ export function AgentCard({ agent }: AgentCardProps) {
     setEditing(!editing);
   };
 
-  const onExpand = (_event: React.MouseEvent, _id: string) => {
+  const onExpand = () => {
     setIsExpanded(!isExpanded);
   };
 

@@ -242,8 +242,8 @@ export function AgentCard({ agent }: AgentCardProps) {
                     </FlexItem>
 
                     {agent.knowledge_base_ids.length > 0
-                      ? agent.knowledge_base_ids.map((kb) => (
-                          <FlexItem>
+                      ? agent.knowledge_base_ids.map((kb, index) => (
+                          <FlexItem key={index}>
                             <Label color="blue">{kb}</Label>
                           </FlexItem>
                         ))

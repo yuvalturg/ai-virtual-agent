@@ -7,6 +7,11 @@ import {
 } from '@patternfly/react-core/dist/esm/components/FormSelect';
 import { Fragment } from 'react';
 
+// Form interface with string source_configuration for the form input
+interface KnowledgeBaseFormData extends Omit<KnowledgeBase, 'source_configuration'> {
+  source_configuration: string;
+}
+
 // Define source options at the top for easy configuration
 const KB_SOURCE_OPTIONS = [
   { value: '', label: 'Select a source', disabled: true },
@@ -49,16 +54,25 @@ export function KnowledgeBaseForm({
   const { models, isLoadingModels, modelsError } = embeddingModelProps;
   const { providers, isLoadingProviders, providersError } = providersProps;
 
-  const initialData: KnowledgeBase = defaultKnowledgeBase ?? {
-    name: '',
-    version: '',
-    embedding_model: '',
-    provider_id: '',
-    vector_db_name: '',
-    is_external: false,
-    source: '',
-    source_configuration: '{}',
-  };
+  const initialData: KnowledgeBaseFormData = defaultKnowledgeBase
+    ? {
+        ...defaultKnowledgeBase,
+        source_configuration: JSON.stringify(
+          defaultKnowledgeBase.source_configuration || {},
+          null,
+          2
+        ),
+      }
+    : {
+        name: '',
+        version: '',
+        embedding_model: '',
+        provider_id: '',
+        vector_db_name: '',
+        is_external: false,
+        source: '',
+        source_configuration: '{}',
+      };
 
   const form = useForm({
     defaultValues: initialData,
@@ -67,7 +81,10 @@ export function KnowledgeBaseForm({
       try {
         const parsedValue = {
           ...value,
-          source_configuration: JSON.parse(value.source_configuration || '{}'),
+          source_configuration: JSON.parse(value.source_configuration || '{}') as Record<
+            string,
+            unknown
+          >,
         };
         onSubmit(parsedValue);
       } catch (error) {

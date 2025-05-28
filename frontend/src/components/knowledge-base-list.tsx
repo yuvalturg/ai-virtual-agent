@@ -33,7 +33,7 @@ export function KnowledgeBaseList() {
   const deleteKnowledgeBaseMutation = useMutation({
     mutationFn: deleteKnowledgeBase,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledgeBases'] });
+      void queryClient.invalidateQueries({ queryKey: ['knowledgeBases'] });
       console.log('Knowledge base deleted successfully');
     },
     onError: (error) => {
@@ -46,7 +46,7 @@ export function KnowledgeBaseList() {
   };
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['knowledgeBases'] });
+    void queryClient.invalidateQueries({ queryKey: ['knowledgeBases'] });
   };
 
   return (

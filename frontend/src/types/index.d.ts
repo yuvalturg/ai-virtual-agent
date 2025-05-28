@@ -6,7 +6,7 @@ export interface KnowledgeBase {
   provider_id?: string;
   is_external: boolean;
   source?: string;
-  source_configuration?: any;
+  source_configuration?: Record<string, unknown>;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
@@ -19,13 +19,13 @@ export interface ToolGroup {
   name: string;
   description?: string;
   endpoint_url?: string;
-  configuration?: any;
+  configuration?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
 }
 
 // Keep Tool interface for backward compatibility (will be deprecated)
-export interface Tool extends ToolGroup {}
+export type Tool = ToolGroup;
 
 export interface ToolAssociationInfo {
   toolgroup_id: string;
@@ -46,7 +46,7 @@ export interface EmbeddingModel {
 export interface Provider {
   provider_id: string;
   provider_type: string;
-  config: any;
+  config: Record<string, unknown>;
 }
 
 export type KnowledgeBaseStatus = 'ready' | 'pending' | 'orphaned';

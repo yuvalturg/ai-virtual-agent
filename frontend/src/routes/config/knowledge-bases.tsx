@@ -1,6 +1,5 @@
 import { KnowledgeBaseList } from '@/components/knowledge-base-list';
-import { NewKnowledgeBaseCard } from '@/components/new-knowledge-base-card';
-import { Flex, FlexItem, PageSection } from '@patternfly/react-core';
+import { PageSection } from '@patternfly/react-core';
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/config/knowledge-bases')({
