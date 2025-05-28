@@ -3,7 +3,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
 #from llama_stack_client.types import UserMessage, SystemMessage, CompletionMessage, Tool
-from typing import List, Dict, Any, AsyncGenerator, Literal, Optional, AsyncIterable
+from typing import List, Dict, Any, Literal, Optional, AsyncIterable
 import logging
 from pydantic import BaseModel
 import json
@@ -53,11 +53,11 @@ async def get_llms():
         llms = []
         for model in models:
             try:
-                if model.model_type == "llm":
+                if model.api_model_type == "llm":
                     llm_config = {
-                        "id": str(model.identifier),
-                        "name": model.provider_resource_id,
-                        "model_type": model.model_type,
+                        "model_name": str(model.identifier),
+                        "provider_resource_id": model.provider_resource_id,
+                        "model_type": model.api_model_type,
                 }
                     llms.append(llm_config)
             except AttributeError as ae:
@@ -80,8 +80,8 @@ async def get_knowledge_bases():
     try:
         kbs = client.vector_dbs.list()
         return [{
-            "id": str(kb.identifier),
-            "name": kb.provider_resource_id,
+            "kb_name": str(kb.identifier),
+            "provider_resource_id": kb.provider_resource_id,
             "provider_id": kb.provider_id,
             "type": kb.type,
             "embedding_model": kb.embedding_model,
@@ -129,8 +129,8 @@ async def get_embedding_models():
         for model in models:
             if model.model_type == "embedding":
                 embedding_model = {
-                    "id": str(model.identifier),
-                    "name": model.provider_resource_id,
+                    "name": str(model.identifier),
+                    "provider_resource_id": model.provider_resource_id,
                     "model_type": model.type,
                 }
                 embedding_models.append(embedding_model)
@@ -152,6 +152,19 @@ async def get_shields():
                 }
             shields_list.append(shield)
         return shields_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/providers", response_model=List[Dict[str, Any]])
+async def get_providers():
+    """Get available providers from LlamaStack"""
+    try:
+        providers = client.providers.list()
+        return [{
+            "provider_id": str(provider.provider_id),
+            "provider_type": provider.provider_type,
+            "config": provider.config if hasattr(provider, 'config') else {},
+        } for provider in providers]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -193,7 +206,7 @@ def chat(request: ChatRequest):
 
         chat = Chat("", "") 
         
-        def generate_response() -> AsyncGenerator[str, None]:
+        def generate_response():
             try:
                 # Can check if there is last message and role is user
                 if len(request.messages) >0:

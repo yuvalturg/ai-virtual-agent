@@ -3,7 +3,7 @@ import { createAgent, UpdateAgentProps } from '@/services/agents';
 import { fetchKnowledgeBases } from '@/services/knowledge-bases';
 import { fetchModels } from '@/services/models';
 import { fetchTools } from '@/services/tools';
-import { KnowledgeBase, Model, Tool } from '@/types';
+import { KnowledgeBase, Model, ToolGroup } from '@/types';
 import {
   Alert,
   Card,
@@ -48,7 +48,7 @@ export function NewAgentCard() {
     data: tools,
     isLoading: isLoadingTools,
     error: toolsError,
-  } = useQuery<Tool[], Error>({
+  } = useQuery<ToolGroup[], Error>({
     queryKey: ['tools'],
     queryFn: fetchTools,
   });
@@ -58,6 +58,7 @@ export function NewAgentCard() {
     mutationFn: createAgent,
     onSuccess: async (newAgentData) => {
       await queryClient.invalidateQueries({ queryKey: ['agents'] });
+      setIsOpen(false);
       console.log('Agent created successfully:', newAgentData);
     },
     onError: (error) => {
@@ -74,7 +75,12 @@ export function NewAgentCard() {
     <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
       {agentMutation.isSuccess && (
         <FlexItem>
-          <Alert variant="success" title="Agent created successfully!" className="pf-v5-u-mb-md" />
+          <Alert
+            timeout={5000}
+            variant="success"
+            title="Agent created successfully!"
+            className="pf-v6-u-mb-sm"
+          />
         </FlexItem>
       )}
       <FlexItem>
@@ -100,7 +106,7 @@ export function NewAgentCard() {
               )}
             </CardTitle>
           </CardHeader>
-          <CardExpandableContent className="pf-v5-u-mb-lg">
+          <CardExpandableContent>
             <CardBody>
               <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
                 <FlexItem>
@@ -130,7 +136,7 @@ export function NewAgentCard() {
                     <Alert
                       variant="danger"
                       title="Failed to create agent"
-                      className="pf-v5-u-mt-md"
+                      className="pf-v6-u-mt-md"
                     >
                       {agentMutation.error?.message || 'An unexpected error occurred.'}
                     </Alert>

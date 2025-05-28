@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardBody,
+  CardExpandableContent,
   CardHeader,
   CardTitle,
   Dropdown,
@@ -12,6 +13,7 @@ import {
   Flex,
   FlexItem,
   Icon,
+  Label,
   MenuToggle,
   MenuToggleElement,
   Modal,
@@ -27,7 +29,7 @@ import { AgentForm } from './agent-form';
 import { fetchModels } from '@/services/models';
 import { fetchKnowledgeBases } from '@/services/knowledge-bases';
 import { fetchTools } from '@/services/tools';
-import { KnowledgeBase, Model, Tool } from '@/types';
+import { KnowledgeBase, Model, ToolGroup } from '@/types';
 
 interface AgentCardProps {
   agent: Agent;
@@ -37,6 +39,7 @@ export function AgentCard({ agent }: AgentCardProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -63,7 +66,7 @@ export function AgentCard({ agent }: AgentCardProps) {
     data: tools,
     isLoading: isLoadingTools,
     error: toolsError,
-  } = useQuery<Tool[], Error>({
+  } = useQuery<ToolGroup[], Error>({
     queryKey: ['tools'],
     queryFn: fetchTools,
   });
@@ -115,114 +118,162 @@ export function AgentCard({ agent }: AgentCardProps) {
     setEditing(!editing);
   };
 
+  const toggleExpanded = () => {
+    setExpanded(!expanded);
+  };
+
+  const headerActions = (
+    <Fragment>
+      <Dropdown
+        isOpen={dropdownOpen}
+        onOpenChange={(isOpen: boolean) => setDropdownOpen(isOpen)}
+        toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
+          <MenuToggle
+            ref={toggleRef}
+            aria-label="kebab dropdown toggle"
+            variant="plain"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent header click
+              toggleDropdown();
+            }}
+            isExpanded={dropdownOpen}
+            icon={
+              <Icon iconSize="lg">
+                <EllipsisVIcon />
+              </Icon>
+            }
+          />
+        )}
+        shouldFocusToggleOnSelect
+        popperProps={{ position: 'right' }}
+      >
+        <DropdownList>
+          <DropdownItem
+            onClick={() => {
+              toggleEditing();
+              setDropdownOpen(false);
+            }}
+            icon={<EditIcon />}
+            value={0}
+            key="edit"
+          >
+            Edit
+          </DropdownItem>
+          <DropdownItem
+            isDanger
+            onClick={() => {
+              toggleModal();
+              toggleDropdown();
+            }}
+            icon={<TrashIcon />}
+            value={1}
+            key="delete"
+          >
+            Delete
+          </DropdownItem>
+        </DropdownList>
+      </Dropdown>
+      <Modal
+        isOpen={modalOpen}
+        onClose={toggleModal}
+        variant="small"
+        aria-labelledby="delete-agent-modal-title"
+        aria-describedby="delete-agent-modal-desc"
+      >
+        <ModalHeader title="Delete Agent" labelId="delete-agent-modal-title" />
+        <ModalBody id="delete-agent-modal-desc">
+          Are you sure you want to delete this AI agent? This action cannot be undone.
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            isLoading={deleteAgentMutation.isPending}
+            onClick={handleDeleteAgent}
+            variant="danger"
+          >
+            Delete
+          </Button>
+          <Button variant="link" onClick={toggleModal}>
+            Cancel
+          </Button>
+        </ModalFooter>
+      </Modal>
+    </Fragment>
+  );
   return (
-    <Card>
+    <Card id={`expandable-agent-card-${agent.id}`} isExpanded={expanded} className="pf-v6-u-mb-md">
       {!editing ? (
         <Fragment>
-          <CardHeader>
-            <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }}>
-              <FlexItem>
-                <CardTitle>
-                  <Title className="pf-v6-u-mb-sm" headingLevel="h2">
+          <CardHeader
+            actions={{ actions: headerActions }}
+            onExpand={toggleExpanded}
+            toggleButtonProps={{
+              id: `toggle-agent-button-${agent.id}`,
+              'aria-label': 'Details',
+              'aria-labelledby': `expandable-agent-title-${agent.id} toggle-agent-button-${agent.id}`,
+              'aria-expanded': expanded,
+            }}
+          >
+            <CardTitle id={`expandable-agent-title-${agent.id}`}>
+              <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
+                <FlexItem>
+                  <Title className="pf-v6-u-mb-0" headingLevel="h2">
                     {agent.name}
                   </Title>
-                </CardTitle>
-              </FlexItem>
-              <FlexItem>
-                <Dropdown
-                  isOpen={dropdownOpen}
-                  onOpenChange={(isOpen: boolean) => setDropdownOpen(isOpen)}
-                  toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                    <MenuToggle
-                      ref={toggleRef}
-                      aria-label="kebab dropdown toggle"
-                      variant="plain"
-                      onClick={toggleDropdown}
-                      isExpanded={dropdownOpen}
-                      icon={
-                        <Icon iconSize="lg">
-                          <EllipsisVIcon />
-                        </Icon>
-                      }
-                    />
-                  )}
-                  shouldFocusToggleOnSelect
-                  popperProps={{ position: 'right' }}
-                >
-                  <DropdownList>
-                    <DropdownItem
-                      onClick={() => {
-                        toggleEditing();
-                        setDropdownOpen(false);
-                      }}
-                      icon={<EditIcon />}
-                      value={0}
-                      key="edit"
-                    >
-                      Edit
-                    </DropdownItem>
-                    <DropdownItem
-                      isDanger
-                      onClick={() => {
-                        toggleModal();
-                        toggleDropdown();
-                      }}
-                      icon={<TrashIcon />}
-                      value={1}
-                      key="delete"
-                    >
-                      Delete
-                    </DropdownItem>
-                  </DropdownList>
-                </Dropdown>
-                <Modal
-                  isOpen={modalOpen}
-                  onClose={toggleModal}
-                  variant="small"
-                  aria-labelledby="delete-agent-modal-title"
-                  aria-describedby="delete-agent-modal-desc"
-                >
-                  <ModalHeader title="Delete Agent" labelId="delete-agent-modal-title" />
-                  <ModalBody id="delete-agent-modal-desc">
-                    Are you sure you want to delete this AI agent? This action cannot be undone.
-                  </ModalBody>
-                  <ModalFooter>
-                    <Button
-                      isLoading={deleteAgentMutation.isPending}
-                      onClick={handleDeleteAgent}
-                      variant="danger"
-                    >
-                      Delete
-                    </Button>
-                    <Button variant="link" onClick={toggleModal}>
-                      Cancel
-                    </Button>
-                  </ModalFooter>
-                </Modal>
-              </FlexItem>
-            </Flex>
-            <Title className="pf-v6-u-text-color-subtle" headingLevel="h4">
-              {agent.model_name}
-            </Title>
+                </FlexItem>
+                <FlexItem>
+                  <Title className="pf-v6-u-text-color-subtle pf-v6-u-mb-0" headingLevel="h5">
+                    {agent.model_name}
+                  </Title>
+                </FlexItem>
+              </Flex>
+            </CardTitle>
           </CardHeader>
-          <CardBody>
-            <Flex direction={{ default: 'column' }}>
-              <FlexItem>
-                <span className="pf-v6-u-text-color-subtle">Knowledge Bases: </span>
-                {agent.prompt}
-              </FlexItem>
-              <FlexItem>
-                <span className="pf-v6-u-text-color-subtle">Knowledge Bases: </span>
-                {agent.knowledge_base_ids.length > 0
-                  ? agent.knowledge_base_ids.map((kb) => kb)
-                  : 'None'}
-              </FlexItem>
-              <FlexItem>
-                <span className="pf-v6-u-text-color-subtle">Tools: </span>
-                {agent.tool_ids.length > 0 ? agent.tool_ids.map((tool) => tool) : 'None'}
-              </FlexItem>
-            </Flex>
-          </CardBody>
+          <CardExpandableContent>
+            <CardBody>
+              <Flex direction={{ default: 'column' }}>
+                <FlexItem>
+                  <span className="pf-v6-u-text-color-subtle">Prompt: </span>
+                  {agent.prompt}
+                </FlexItem>
+                <FlexItem>
+                  <Flex gap={{ default: 'gapSm' }}>
+                    <FlexItem>
+                      <span className="pf-v6-u-text-color-subtle">Knowledge Bases: </span>
+                    </FlexItem>
+
+                    {agent.knowledge_base_ids.length > 0
+                      ? agent.knowledge_base_ids.map((kb) => (
+                          <FlexItem>
+                            <Label color="blue">{kb}</Label>
+                          </FlexItem>
+                        ))
+                      : 'None'}
+                  </Flex>
+                </FlexItem>
+                <FlexItem>
+                  <Flex gap={{ default: 'gapSm' }}>
+                    <FlexItem>
+                      <span className="pf-v6-u-text-color-subtle">Tool Groups: </span>
+                    </FlexItem>
+                    {agent.tools.length > 0
+                      ? agent.tools.map((tool, index) => {
+                          // Find the tool group name from the tools data
+                          const toolGroup = tools?.find(
+                            (t) => t.toolgroup_id === tool.toolgroup_id
+                          );
+                          const displayName = toolGroup?.name || tool.toolgroup_id;
+                          return (
+                            <FlexItem key={index}>
+                              <Label color="orange">{displayName}</Label>
+                            </FlexItem>
+                          );
+                        })
+                      : 'None'}
+                  </Flex>
+                </FlexItem>
+              </Flex>
+            </CardBody>
+          </CardExpandableContent>
         </Fragment>
       ) : (
         <Fragment>

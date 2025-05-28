@@ -16,6 +16,14 @@ async def create_model_server(server: schemas.ModelServerCreate, db: AsyncSessio
     db.add(model_server)
     await db.commit()
     await db.refresh(model_server)
+    
+    # Auto-sync with LlamaStack after creation
+    try:
+        print(f"Auto-syncing model servers after creation of: {model_server.name}")
+        await sync_model_servers(db)
+    except Exception as e:
+        print(f"Warning: Failed to auto-sync after model server creation: {str(e)}")
+    
     return model_server
 
 @router.get("/", response_model=List[schemas.ModelServerRead])
@@ -41,6 +49,14 @@ async def update_mcp_server(server_id: UUID, server: schemas.ModelServerCreate, 
         setattr(db_server, field, value)
     await db.commit()
     await db.refresh(db_server)
+    
+    # Auto-sync with LlamaStack after update
+    try:
+        print(f"Auto-syncing model servers after update of: {db_server.name}")
+        await sync_model_servers(db)
+    except Exception as e:
+        print(f"Warning: Failed to auto-sync after model server update: {str(e)}")
+    
     return db_server
 
 @router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -49,8 +65,18 @@ async def delete_model_server(server_id: UUID, db: AsyncSession = Depends(get_db
     db_server = result.scalar_one_or_none()
     if not db_server:
         raise HTTPException(status_code=404, detail="Server not found")
+    
+    server_name = db_server.name  # Store name before deletion
     await db.delete(db_server)
     await db.commit()
+    
+    # Auto-sync with LlamaStack after deletion
+    try:
+        print(f"Auto-syncing model servers after deletion of: {server_name}")
+        await sync_model_servers(db)
+    except Exception as e:
+        print(f"Warning: Failed to auto-sync after model server deletion: {str(e)}")
+    
     return None
 
 async def sync_model_servers(db: AsyncSession):

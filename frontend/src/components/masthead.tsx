@@ -1,11 +1,15 @@
 import {
+  Flex,
+  FlexItem,
   MastheadBrand,
   MastheadContent,
   MastheadMain,
+  MastheadToggle,
   Nav,
   NavItem,
   NavList,
   Masthead as PFMasthead,
+  PageToggleButton,
   Title,
   ToggleGroup,
   ToggleGroupItem,
@@ -16,13 +20,23 @@ import {
 } from '@patternfly/react-core';
 import React from 'react';
 
-import MoonIcon from '@patternfly/react-icons/dist/esm/icons/moon-icon';
-import SunIcon from '@patternfly/react-icons/dist/esm/icons/sun-icon';
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
+import { BarsIcon, SunIcon, MoonIcon, ChatIcon, CogIcon } from '@patternfly/react-icons';
 
 export const themeStorageKey = 'app-theme';
 
-export function Masthead() {
+interface MastheadProps {
+  showSidebarToggle?: boolean;
+  isSidebarOpen?: boolean;
+  onSidebarToggle?: () => void;
+}
+
+export function Masthead({
+  showSidebarToggle = false,
+  isSidebarOpen = false,
+  onSidebarToggle,
+}: MastheadProps) {
+  const location = useLocation();
   const [isDarkTheme, setIsDarkTheme] = React.useState(false);
 
   // Load preferred theme from localstorage
@@ -57,16 +71,55 @@ export function Masthead() {
   const nav = (
     <Nav variant="horizontal" aria-label="Main Nav">
       <NavList>
-        {/* Preventing default click behavior on each NavItem for demo purposes only */}
         <NavItem itemId={0} isActive={location.pathname == '/'} to="#">
-          <Link to="/">Chat</Link>
+          <Link to="/">
+            <Flex
+              direction={{ default: 'row' }}
+              alignItems={{ default: 'alignItemsCenter' }}
+              gap={{ default: 'gapSm' }}
+            >
+              <FlexItem>
+                <ChatIcon />
+              </FlexItem>
+              <FlexItem>Chat</FlexItem>
+            </Flex>
+          </Link>
         </NavItem>
-        <NavItem itemId={1} isActive={location.pathname.startsWith('/config/')} to="#">
-          <Link to="/config/agents">Config</Link>
+        <NavItem
+          icon={<CogIcon />}
+          itemId={1}
+          isActive={location.pathname.startsWith('/config/')}
+          to="#"
+        >
+          <Link to="/config/agents">
+            <Flex
+              direction={{ default: 'row' }}
+              alignItems={{ default: 'alignItemsCenter' }}
+              gap={{ default: 'gapSm' }}
+            >
+              <FlexItem>
+                <CogIcon />
+              </FlexItem>
+              <FlexItem>Config</FlexItem>
+            </Flex>
+          </Link>
         </NavItem>
       </NavList>
     </Nav>
   );
+
+  const toggle =
+    showSidebarToggle && onSidebarToggle ? (
+      <PageToggleButton
+        variant="plain"
+        aria-label="Global navigation"
+        isSidebarOpen={isSidebarOpen}
+        onSidebarToggle={onSidebarToggle}
+        id="main-padding-nav-toggle"
+      >
+        <BarsIcon />
+      </PageToggleButton>
+    ) : null;
 
   const toolbar = (
     <Toolbar
@@ -108,6 +161,7 @@ export function Masthead() {
   return (
     <PFMasthead>
       <MastheadMain>
+        {showSidebarToggle && <MastheadToggle>{toggle}</MastheadToggle>}
         <MastheadBrand data-codemods>
           <Title headingLevel="h1">Virtual Assistant</Title>
         </MastheadBrand>

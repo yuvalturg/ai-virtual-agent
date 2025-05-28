@@ -6,7 +6,7 @@ export const fetchAgents = async (): Promise<Agent[]> => {
   if (!response.ok) {
     throw new Error('Network response was not ok');
   }
-  const data: unknown = response.json();
+  const data: unknown = await response.json();
   return data as Agent[];
 };
 
@@ -21,7 +21,7 @@ export const createAgent = async (newAgent: NewAgent): Promise<Agent> => {
   if (!response.ok) {
     throw new Error('Network response was not ok');
   }
-  const data: unknown = response.json();
+  const data: unknown = await response.json();
   return data as Agent;
 };
 
@@ -41,7 +41,7 @@ export const editAgent = async ({ agent_id, agentProps }: UpdateAgentProps): Pro
   if (!response.ok) {
     throw new Error('Network response was not ok');
   }
-  const data: unknown = response.json();
+  const data: unknown = await response.json();
   return data as Agent;
 };
 

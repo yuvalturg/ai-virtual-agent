@@ -22,17 +22,20 @@ class User(Base):
     role = Column(Enum(RoleEnum, name="role"), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+    chat_histories = relationship("ChatHistory", back_populates="user")
     mcp_servers = relationship("MCPServer", back_populates="creator")
     knowledge_bases = relationship("KnowledgeBase", back_populates="creator")
     virtual_assistants = relationship("VirtualAssistant", back_populates="creator")
     guardrails = relationship("Guardrail", back_populates="creator")
 
+class ToolTypeEnum(enum.Enum):
+    BUILTIN = "builtin"
+    MCP_SERVER = "mcp_server"
+
 class MCPServer(Base):
     __tablename__ = "mcp_servers"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    toolgroup_id = Column(String(255), primary_key=True)
     name = Column(String(255), nullable=False)
-    title = Column(String(255), nullable=False)
     description = Column(String(255))
     endpoint_url = Column(String(255), nullable=False)
     configuration = Column(JSON)
@@ -43,12 +46,11 @@ class MCPServer(Base):
 
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_bases"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    vector_db_name = Column(String(255), primary_key=True)
     name = Column(String(255), nullable=False)
     version = Column(String(50), nullable=False)
     embedding_model = Column(String(255), nullable=False)
     provider_id = Column(String(255))
-    vector_db_name = Column(String(255), nullable=False)
     is_external = Column(Boolean, nullable=False, default=False)
     source = Column(String(255))
     source_configuration = Column(JSON)
@@ -56,6 +58,7 @@ class KnowledgeBase(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     creator = relationship("User", back_populates="knowledge_bases")
+    va_links = relationship("VirtualAssistantKnowledgeBase", back_populates="knowledge_base")
 
 class VirtualAssistant(Base):
     __tablename__ = "virtual_assistants"
@@ -67,22 +70,31 @@ class VirtualAssistant(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     creator = relationship("User", back_populates="virtual_assistants")
+    knowledge_bases = relationship("VirtualAssistantKnowledgeBase", back_populates="virtual_assistant", cascade="all, delete-orphan")
+    tools = relationship("VirtualAssistantTool", back_populates="virtual_assistant", cascade="all, delete-orphan")
+    chat_histories = relationship("ChatHistory", back_populates="virtual_assistant")
 
 class VirtualAssistantKnowledgeBase(Base):
     __tablename__ = "virtual_assistant_knowledge_bases"
     virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
-    knowledge_base_id = Column(String(255), nullable=False)
+    virtual_assistant = relationship("VirtualAssistant", back_populates="knowledge_bases")
+    vector_db_name = Column(String(255), ForeignKey("knowledge_bases.vector_db_name"), primary_key=True)
+    knowledge_base = relationship("KnowledgeBase", back_populates="va_links")
 
 class VirtualAssistantTool(Base):
     __tablename__ = "virtual_assistant_tools"
     virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
-    tool_id = Column(String(255), nullable=False)
+    virtual_assistant = relationship("VirtualAssistant", back_populates="tools")
+    toolgroup_id = Column(String(255), primary_key=True)
+    
 
 class ChatHistory(Base):
     __tablename__ = "chat_history"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id"))
+    virtual_assistant = relationship("VirtualAssistant", back_populates="chat_histories")
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user = relationship("User", back_populates="chat_histories")
     message = Column(Text, nullable=False)
     response = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

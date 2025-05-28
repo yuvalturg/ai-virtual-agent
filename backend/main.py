@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from .database import engine, Base, AsyncSessionLocal
-from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers, llama_stack
+from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers, llama_stack, tools
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +55,7 @@ async def on_startup():
 
 app.include_router(users.router)
 app.include_router(mcp_servers.router)
+app.include_router(tools.router)
 app.include_router(knowledge_bases.router)
 app.include_router(virtual_assistants.router)
 app.include_router(chat_history.router)

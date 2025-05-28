@@ -1,24 +1,56 @@
 export interface KnowledgeBase {
-  id?: string;
+  vector_db_name: string; // Primary key - LlamaStack identifier
   name: string;
   version: string;
   embedding_model: string;
   provider_id?: string;
-  vector_db_name: string;
   is_external: boolean;
   source?: string;
-  source_configuration?: string;
+  source_configuration?: any;
   created_by?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface Tool {
-  id: string;
+export type ToolType = 'builtin' | 'mcp_server';
+
+export interface ToolGroup {
+  toolgroup_id: string; // Primary key - LlamaStack identifier
   name: string;
-  title: string;
+  description?: string;
+  endpoint_url?: string;
+  configuration?: any;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Keep Tool interface for backward compatibility (will be deprecated)
+export interface Tool extends ToolGroup {}
+
+export interface ToolAssociationInfo {
+  toolgroup_id: string;
 }
 
 export interface Model {
-  id: string;
-  name: string;
+  model_name: string;
+  provider_resource_id: string;
   model_type: string;
+}
+
+export interface EmbeddingModel {
+  name: string;
+  provider_resource_id: string;
+  model_type: string;
+}
+
+export interface Provider {
+  provider_id: string;
+  provider_type: string;
+  config: any;
+}
+
+export type KnowledgeBaseStatus = 'ready' | 'pending' | 'orphaned';
+
+export interface KnowledgeBaseWithStatus extends KnowledgeBase {
+  status: KnowledgeBaseStatus;
 }

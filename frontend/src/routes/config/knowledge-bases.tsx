@@ -1,82 +1,16 @@
-import { KnowledgeBaseCard } from '@/components/knowledge-base-card';
-import { KnowledgeBaseForm } from '@/components/knowledge-base-form';
-import { PageSection, Title } from '@patternfly/react-core';
+import { KnowledgeBaseList } from '@/components/knowledge-base-list';
+import { NewKnowledgeBaseCard } from '@/components/new-knowledge-base-card';
+import { Flex, FlexItem, PageSection } from '@patternfly/react-core';
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import axios from '../../../../admin/src/api/axios.ts';
-
-import { KnowledgeBase } from '@/types/index.js';
-import baseUrl from '../../config/api';
 
 export const Route = createFileRoute('/config/knowledge-bases')({
   component: KnowledgeBases,
 });
 
 export function KnowledgeBases() {
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
-
-  useEffect(() => {
-    void fetchKbs();
-  }, []);
-
-  const fetchKbs = async () => {
-    const res = await axios.get(`${baseUrl}/knowledge_bases/`);
-    const kbs = res.data;
-
-    if (kbs) {
-      setKnowledgeBases(kbs);
-    } else {
-      setKnowledgeBases([
-        {
-          id: '1',
-          name: 'apple',
-          version: 'v1',
-          embedding_model: 'llamastack',
-          provider_id: '1',
-          vector_db_name: 'pg_data',
-          is_external: true,
-          source: 'www',
-          source_configuration: 'config',
-          created_by: '2020-01-01',
-        },
-        {
-          id: '2',
-          name: 'orange',
-          version: 'v1',
-          embedding_model: 'llamastack',
-          provider_id: '1',
-          vector_db_name: 'pg_data',
-          is_external: true,
-          source: 'www',
-          source_configuration: 'config',
-          created_by: '2020-01-01',
-        },
-        {
-          id: '3',
-          name: 'grape',
-          version: 'v1',
-          embedding_model: 'llamastack',
-          provider_id: '1',
-          vector_db_name: 'pg_data',
-          is_external: true,
-          source: 'www',
-          source_configuration: 'config',
-          created_by: '2020-01-01',
-        },
-      ]);
-    }
-  };
-
   return (
-    <PageSection hasBodyWrapper={false}>
-      <Title headingLevel="h1">Knowledge Bases</Title>
-
-      <PageSection className="pf-v5-u-mb-lg">
-        <KnowledgeBaseForm />
-        {knowledgeBases.map((knowledgebase) => (
-          <KnowledgeBaseCard key={knowledgebase.id} knowledgeBase={knowledgebase} />
-        ))}
-      </PageSection>
+    <PageSection>
+      <KnowledgeBaseList />
     </PageSection>
   );
 }

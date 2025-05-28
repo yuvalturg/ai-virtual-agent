@@ -28,9 +28,11 @@ export function AgentList() {
       )}
       {!isLoadingAgents && !agentsError && agents && agents.length > 0 && (
         <Flex direction={{ default: 'column' }}>
-          {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
-          ))}
+          {agents
+            .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
+            .map((agent) => (
+              <AgentCard key={agent.id} agent={agent} />
+            ))}
         </Flex>
       )}
     </div>
