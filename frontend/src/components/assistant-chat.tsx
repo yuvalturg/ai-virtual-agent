@@ -99,7 +99,6 @@ export function AssistantChat() {
   const scrollToBottomRef = React.useRef<HTMLDivElement>(null);
   const historyRef = React.useRef<HTMLButtonElement>(null);
 
-
   const displayMode = ChatbotDisplayMode.embedded;
 
   const onSelectModel = (
@@ -135,7 +134,7 @@ export function AssistantChat() {
     const fetchModels = async () => {
       try {
         const response = await fetch(`${baseUrl}/llama_stack/llms`);
-        const models = await response.json();
+        const models = (await response.json()) as LlamaModel[];
         const llmModels = models.filter((model: LlamaModel) => model.model_type === 'llm');
         setAvailableModels(llmModels);
         if (llmModels.length > 0) {
@@ -146,7 +145,7 @@ export function AssistantChat() {
         setAnnouncement('Failed to load LLM models');
       }
     };
-    fetchModels();
+    void fetchModels();
   }, []);
 
   const handleSend = async (message: string) => {
@@ -236,7 +235,8 @@ export function AssistantChat() {
                   if (lastMsg) {
                     // Add space after sentence endings if needed
                     const currentContent = lastMsg.content || '';
-                    const needsSpace = currentContent.match(/[.!?]$/) && text && !text.startsWith(' ');
+                    const needsSpace =
+                      currentContent.match(/[.!?]$/) && text && !text.startsWith(' ');
                     lastMsg.content = currentContent + (needsSpace ? ' ' : '') + text;
                     lastMsg.isLoading = false;
                   }
@@ -303,7 +303,7 @@ export function AssistantChat() {
               <ChatbotHeaderActions>
                 <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
                   <DropdownList>
-                    {availableModels.map(model => (
+                    {availableModels.map((model) => (
                       <DropdownItem value={model.id} key={model.id}>
                         {model.name}
                       </DropdownItem>
@@ -341,7 +341,9 @@ export function AssistantChat() {
             </ChatbotContent>
             <ChatbotFooter>
               <MessageBar
-                onSendMessage={(message) => handleSend(message as string)}
+                onSendMessage={(message) => {
+                  void handleSend(message as string);
+                }}
                 hasMicrophoneButton
                 isSendButtonDisabled={isSendButtonDisabled}
               />

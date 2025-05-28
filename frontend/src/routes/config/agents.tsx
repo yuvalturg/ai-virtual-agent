@@ -1,5 +1,6 @@
 import { AgentList } from '@/components/agent-list';
 import { NewAgentCard } from '@/components/new-agent-card';
+import { ToolAssociationInfo } from '@/types';
 import { Flex, FlexItem, PageSection, Title } from '@patternfly/react-core';
 import { createFileRoute } from '@tanstack/react-router';
 
@@ -9,7 +10,7 @@ export interface Agent {
   name: string;
   model_name: string;
   prompt: string;
-  tool_ids: string[];
+  tools: ToolAssociationInfo[];
   knowledge_base_ids: string[];
   created_by: string;
   created_at: string;
@@ -22,7 +23,7 @@ export interface NewAgent {
   name: string;
   model_name: string;
   prompt: string;
-  tool_ids: string[];
+  tools: ToolAssociationInfo[];
   knowledge_base_ids: string[];
 }
 
@@ -36,9 +37,7 @@ export function Agents() {
     <PageSection>
       <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
         <FlexItem>
-          <Title headingLevel="h1" className="pf-v5-u-mb-lg">
-            Configure AI Agents
-          </Title>
+          <Title headingLevel="h1">Agents</Title>
         </FlexItem>
         <FlexItem>
           <NewAgentCard />

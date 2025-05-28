@@ -1,11 +1,12 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
-import { KnowledgeBase, Model, Tool } from '@/types';
+import { UpdateAgentProps } from '@/services/agents';
+import { KnowledgeBase, Model, ToolGroup, ToolAssociationInfo } from '@/types';
 import {
   ActionGroup,
-  Alert,
   Button,
   Form,
   FormGroup,
+  FormHelperText,
   FormSelect,
   FormSelectOption,
   TextArea,
@@ -28,7 +29,7 @@ interface KnowledgeBasesFieldProps {
 }
 
 interface ToolsFieldProps {
-  tools: Tool[];
+  tools: ToolGroup[];
   isLoadingTools: boolean;
   toolsError: Error | null;
 }
@@ -38,10 +39,64 @@ interface AgentFormProps {
   modelsProps: ModelsFieldProps;
   knowledgeBasesProps: KnowledgeBasesFieldProps;
   toolsProps: ToolsFieldProps;
-  onSubmit: (values: NewAgent | Agent) => void;
+  onSubmit: (values: UpdateAgentProps) => void;
   isSubmitting: boolean;
   onCancel: () => void;
 }
+
+// Form interface for internal form state (user-friendly)
+interface AgentFormData {
+  name: string;
+  model_name: string;
+  prompt: string;
+  knowledge_base_ids: string[];
+  tool_ids: string[]; // Internal form uses tool IDs for easier UI handling
+}
+
+// Helper functions to convert between formats
+const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
+  if (!agent) {
+    return {
+      name: '',
+      model_name: '',
+      prompt: '',
+      knowledge_base_ids: [],
+      tool_ids: [],
+    };
+  }
+
+  // Convert ToolAssociationInfo array to tool_ids array for form
+  const tool_ids = agent.tools.map((tool) => tool.toolgroup_id);
+
+  return {
+    name: agent.name,
+    model_name: agent.model_name,
+    prompt: agent.prompt,
+    knowledge_base_ids: agent.knowledge_base_ids,
+    tool_ids,
+  };
+};
+
+const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): NewAgent => {
+  // Convert tool_ids back to ToolAssociationInfo array
+  const toolAssociations: ToolAssociationInfo[] = formData.tool_ids.map((toolId) => {
+    const tool = tools.find((t) => t.toolgroup_id === toolId);
+    if (!tool) {
+      throw new Error(`Tool with toolgroup_id ${toolId} not found`);
+    }
+    return {
+      toolgroup_id: tool.toolgroup_id,
+    };
+  });
+
+  return {
+    name: formData.name,
+    model_name: formData.model_name,
+    prompt: formData.prompt,
+    knowledge_base_ids: formData.knowledge_base_ids,
+    tools: toolAssociations,
+  };
+};
 
 export function AgentForm({
   defaultAgentProps,
@@ -56,18 +111,16 @@ export function AgentForm({
   const { knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError } = knowledgeBasesProps;
   const { tools, isLoadingTools, toolsError } = toolsProps;
 
-  const initialAgentData: NewAgent = defaultAgentProps ?? {
-    name: '',
-    model_name: '',
-    prompt: '',
-    knowledge_base_ids: [],
-    tool_ids: [],
-  };
+  const agent_id = defaultAgentProps?.id ?? undefined;
+
+  const initialAgentData: AgentFormData = convertAgentToFormData(defaultAgentProps);
 
   const form = useForm({
     defaultValues: initialAgentData,
-    onSubmit: async ({ value }) => {
-      onSubmit(value);
+    onSubmit: ({ value }) => {
+      console.log('Test');
+      const convertedAgent = convertFormDataToAgent(value, tools);
+      onSubmit({ agent_id, agentProps: convertedAgent });
     },
   });
 
@@ -108,9 +161,9 @@ export function AgentForm({
       ];
     }
     return knowledgeBases.map((kb) => ({
-      value: kb.id ?? '', // The ID will be stored in form.knowledge_base_ids
-      children: kb.id, // The name will be displayed
-      id: `kb-option-${kb.id}`, // Unique ID for React key and ARIA
+      value: kb.vector_db_name, // Use vector_db_name as the primary key
+      children: kb.name, // The name will be displayed
+      id: `kb-option-${kb.vector_db_name}`, // Unique ID for React key and ARIA
     }));
   }, [knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError]);
 
@@ -119,7 +172,7 @@ export function AgentForm({
       return [
         {
           value: 'loading_tools',
-          children: 'Loading tools...',
+          children: 'Loading tool groups...',
           isDisabled: true,
           id: 'loading_tools_opt',
         },
@@ -129,7 +182,7 @@ export function AgentForm({
       return [
         {
           value: 'error_tools',
-          children: 'Error loading tools',
+          children: 'Error loading tool groups',
           isDisabled: true,
           id: 'error_tools_opt',
         },
@@ -139,16 +192,16 @@ export function AgentForm({
       return [
         {
           value: 'no_tools_options',
-          children: 'No tools available',
+          children: 'No tool groups available',
           isDisabled: true,
           id: 'no_tools_options_opt',
         },
       ];
     }
     return tools.map((tool) => ({
-      value: tool.id, // The ID will be stored in form.tools_ids
-      children: tool.id, // The name will be displayed
-      id: `tools-option-${tool.id}`, // Unique ID for React key and ARIA
+      value: tool.toolgroup_id, // Use toolgroup_id as the primary key
+      children: tool.name, // The name will be displayed
+      id: `tools-option-${tool.toolgroup_id}`, // Unique ID for React key and ARIA
     }));
   }, [tools, isLoadingTools, toolsError]);
 
@@ -157,12 +210,16 @@ export function AgentForm({
       onSubmit={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        form.handleSubmit();
+        void form.handleSubmit();
       }}
     >
       <form.Field
         name="name"
-        children={(field) => (
+        validators={{
+          onChange: ({ value }) => (!value ? 'Name is required' : undefined),
+        }}
+      >
+        {(field) => (
           <FormGroup label="Agent Name" isRequired fieldId="agent-name">
             <TextInput
               isRequired
@@ -171,14 +228,32 @@ export function AgentForm({
               name={field.name}
               value={field.state.value}
               onBlur={field.handleBlur}
-              onChange={(_event, value) => field.handleChange(value)}
+              onChange={(_event, value) => {
+                field.handleChange(value);
+              }}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : !field.state.meta.isValid
+                    ? 'error'
+                    : 'success'
+              }
             />
+            {!field.state.meta.isValid && (
+              <FormHelperText className="pf-v6-u-text-color-status-danger">
+                {field.state.meta.errors.join(', ')}
+              </FormHelperText>
+            )}
           </FormGroup>
         )}
-      />
+      </form.Field>
       <form.Field
         name="model_name"
-        children={(field) => (
+        validators={{
+          onChange: ({ value }) => (!value ? 'Model is required' : undefined),
+        }}
+      >
+        {(field) => (
           <FormGroup label="Select AI Model" isRequired fieldId="ai-model">
             <FormSelect
               id="ai-model"
@@ -188,6 +263,13 @@ export function AgentForm({
               onChange={(_event, value) => field.handleChange(value)}
               aria-label="Select AI Model"
               isDisabled={isLoadingModels || !!modelsError}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : !field.state.meta.isValid
+                    ? 'error'
+                    : 'success'
+              }
             >
               {isLoadingModels ? (
                 <FormSelectOption key="loading" value="" label="Loading models..." isDisabled />
@@ -197,18 +279,30 @@ export function AgentForm({
                 <Fragment>
                   <FormSelectOption key="placeholder" value="" label="Select a model" isDisabled />
                   {models.map((model) => (
-                    <FormSelectOption key={model.name} value={model.name} label={model.name} />
+                    <FormSelectOption
+                      key={model.model_name}
+                      value={model.model_name}
+                      label={model.model_name}
+                    />
                   ))}
                 </Fragment>
               )}
             </FormSelect>
+            {!field.state.meta.isValid && (
+              <FormHelperText className="pf-v6-u-text-color-status-danger">
+                {field.state.meta.errors.join(', ')}
+              </FormHelperText>
+            )}
           </FormGroup>
         )}
-      />
-
+      </form.Field>
       <form.Field
         name="prompt"
-        children={(field) => (
+        validators={{
+          onChange: ({ value }) => (!value ? 'Prompt is required' : undefined),
+        }}
+      >
+        {(field) => (
           <FormGroup label="Agent Prompt" isRequired fieldId="prompt">
             <TextArea
               isRequired
@@ -218,13 +312,24 @@ export function AgentForm({
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(_event, value) => field.handleChange(value)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : !field.state.meta.isValid
+                    ? 'error'
+                    : 'success'
+              }
             />
+            {!field.state.meta.isValid && (
+              <FormHelperText className="pf-v6-u-text-color-status-danger">
+                {field.state.meta.errors.join(', ')}
+              </FormHelperText>
+            )}
           </FormGroup>
         )}
-      />
-      <form.Field
-        name="knowledge_base_ids" // This field expects string[]
-        children={(field) => (
+      </form.Field>
+      <form.Field name="knowledge_base_ids">
+        {(field) => (
           <FormGroup
             label="Select Knowledge Bases"
             fieldId="knowledge-bases-multiselect" // Unique ID for the FormGroup
@@ -248,52 +353,49 @@ export function AgentForm({
             />
           </FormGroup>
         )}
-      />
-      <form.Field
-        name="tool_ids" // This field expects string[]
-        children={(field) => (
+      </form.Field>
+      <form.Field name="tool_ids">
+        {(field) => (
           <FormGroup
-            label="Select Tools"
+            label="Select Tool Groups"
             fieldId="tools-multiselect" // Unique ID for the FormGroup
           >
             <MultiSelect
               id="tools-multiselect-component" // Unique ID for the MultiSelect component itself
-              value={field.state.value} // Pass the array of IDs
+              value={field.state.value || []} // Ensure it's always an array
               options={toolsOptions} // Pass the prepared options
               onBlur={field.handleBlur}
               onChange={(selectedIds) => field.handleChange(selectedIds)} // Pass the new array directly
-              ariaLabel="Select Tools"
+              ariaLabel="Select Tool Groups"
               isDisabled={
                 isLoadingTools ||
                 toolsError != null ||
                 (tools && tools.length === 0 && !isLoadingTools && !toolsError)
               }
-              placeholder="Type or select tools..."
+              placeholder="Type or select tool groups..."
             />
           </FormGroup>
         )}
-      />
-
+      </form.Field>
       <ActionGroup>
-        <Button
-          variant="primary"
-          type="submit"
-          isLoading={isSubmitting}
-          isDisabled={isSubmitting || !form.state.canSubmit}
+        <form.Subscribe
+          selector={(state) => [state.canSubmit, state.isSubmitting, state.isPristine]}
         >
-          Create Agent
-        </Button>
+          {([canSubmit, isSubmitting]) => (
+            <Button
+              variant="primary"
+              type="submit"
+              isLoading={isSubmitting}
+              isDisabled={isSubmitting || !canSubmit}
+            >
+              Submit
+            </Button>
+          )}
+        </form.Subscribe>
         <Button variant="link" onClick={handleCancel} isDisabled={isSubmitting}>
           Cancel
         </Button>
       </ActionGroup>
-      {form.state.submissionAttempts > 0 &&
-        !form.state.isSubmitted &&
-        form.state.errors.length > 0 && (
-          <Alert variant="danger" title="Form submission failed" className="pf-v5-u-mt-md">
-            Please check the form for errors.
-          </Alert>
-        )}
     </Form>
   );
 }

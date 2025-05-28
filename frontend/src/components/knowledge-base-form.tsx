@@ -1,100 +1,69 @@
+import { useForm } from '@tanstack/react-form';
+import { EmbeddingModel, KnowledgeBase, Provider } from '@/types';
+import { Button, ActionGroup, Form, FormGroup, TextInput, Alert } from '@patternfly/react-core';
 import {
-  ActionGroup,
-  Button,
-  Card,
-  CardBody,
-  CardExpandableContent,
-  CardHeader,
-  CardTitle,
-  Checkbox,
-  Dropdown,
-  DropdownItem,
-  DropdownList,
-  Form,
-  FormGroup,
   FormSelect,
   FormSelectOption,
-  Grid,
-  InputGroup,
-  MenuToggle,
-  MenuToggleElement,
-  TextArea,
-  TextInput,
-} from '@patternfly/react-core';
-import { EditIcon, EllipsisVIcon, TrashIcon } from '@patternfly/react-icons';
-import { Fragment, useEffect, useState } from 'react';
-// import axios from '../../../admin/src/api/axios';
-import { KnowledgeBase } from '@/types';
-import baseUrl from '../config/api';
+} from '@patternfly/react-core/dist/esm/components/FormSelect';
+import { Fragment } from 'react';
 
-export const FormBasic: React.FunctionComponent = () => {
-  const [kbs, setKbs] = useState<KnowledgeBase[]>([]);
-  const [form, setForm] = useState<KnowledgeBase>({
-    name: '',
-    version: '',
-    embedding_model: '',
-    provider_id: '',
-    vector_db_name: '',
-    is_external: false,
-    source: '',
-    source_configuration: '{}',
-  });
+// Form interface with string source_configuration for the form input
+interface KnowledgeBaseFormData extends Omit<KnowledgeBase, 'source_configuration'> {
+  source_configuration: string;
+}
 
-  const [s3Inputs, setS3Inputs] = useState({
-    ACCESS_KEY_ID: '',
-    SECRET_ACCESS_KEY: '',
-    ENDPOINT_URL: '',
-    BUCKET_NAME: '',
-    REGION: '',
-  });
+// Define source options at the top for easy configuration
+const KB_SOURCE_OPTIONS = [
+  { value: '', label: 'Select a source', disabled: true },
+  { value: 'S3', label: 'S3', disabled: false },
+  { value: 'GITHUB', label: 'GITHUB', disabled: false },
+  { value: 'URL', label: 'URL', disabled: false },
+];
 
-  const [githubInputs, setGithubInputs] = useState({
-    url: '',
-    path: '',
-    token: '',
-    branch: '',
-  });
+interface EmbeddingModelsFieldProps {
+  models: EmbeddingModel[];
+  isLoadingModels: boolean;
+  modelsError: Error | null;
+}
 
-  const [urlInputs, setUrlInputs] = useState<string[]>(['']);
-  useEffect(() => {
-    if (form.source === 'S3') {
-      const sourceConfig = JSON.stringify(s3Inputs, null, 2);
-      setForm((f) => ({ ...f, source_configuration: sourceConfig }));
-    } else if (form.source === 'GITHUB') {
-      const sourceConfig = JSON.stringify(githubInputs, null, 2);
-      setForm((f) => ({ ...f, source_configuration: sourceConfig }));
-    } else if (form.source === 'URL') {
-      const sourceConfig = JSON.stringify(urlInputs.filter(Boolean), null, 2);
-      setForm((f) => ({ ...f, source_configuration: sourceConfig }));
-    }
-  }, [s3Inputs, githubInputs, urlInputs, form.source]);
+interface ProvidersFieldProps {
+  providers: Provider[];
+  isLoadingProviders: boolean;
+  providersError: Error | null;
+}
 
-  // Fetch available models on mount
-  useEffect(() => {
-    const fetchKbs = async () => {
-      try {
-        const response = await fetch(`${baseUrl}/knowledge_bases`);
-        const kbs = await response.json();
+interface KnowledgeBaseFormProps {
+  embeddingModelProps: EmbeddingModelsFieldProps;
+  providersProps: ProvidersFieldProps;
+  defaultKnowledgeBase?: KnowledgeBase;
+  isSubmitting: boolean;
+  onSubmit: (values: KnowledgeBase) => void;
+  onCancel: () => void;
+  error?: Error | null;
+}
 
-        setKbs(kbs);
-      } catch (err) {
-        console.error('Error fetching models:', err);
+export function KnowledgeBaseForm({
+  embeddingModelProps,
+  providersProps,
+  defaultKnowledgeBase,
+  isSubmitting,
+  onSubmit,
+  onCancel,
+  error,
+}: KnowledgeBaseFormProps) {
+  const { models, isLoadingModels, modelsError } = embeddingModelProps;
+  const { providers, isLoadingProviders, providersError } = providersProps;
+
+  const initialData: KnowledgeBaseFormData = defaultKnowledgeBase
+    ? {
+        ...defaultKnowledgeBase,
+        source_configuration: JSON.stringify(
+          defaultKnowledgeBase.source_configuration || {},
+          null,
+          2
+        ),
       }
-    };
-    fetchKbs();
-  }, []);
-
-  const handleSubmit = async () => {
-    try {
-      const parsedConfig = JSON.parse(form.source_configuration || '{}');
-      const payload = { ...form, source_configuration: parsedConfig };
-      if (form.id) {
-        await axios.put(`/knowledge_bases/${form.id}`, payload);
-      } else {
-        await axios.post('/knowledge_bases', payload);
-      }
-      console.log(payload);
-      setForm({
+    : {
         name: '',
         version: '',
         embedding_model: '',
@@ -103,350 +72,278 @@ export const FormBasic: React.FunctionComponent = () => {
         is_external: false,
         source: '',
         source_configuration: '{}',
-      });
-      setS3Inputs({
-        ACCESS_KEY_ID: '',
-        SECRET_ACCESS_KEY: '',
-        ENDPOINT_URL: '',
-        BUCKET_NAME: '',
-        REGION: '',
-      });
-      setGithubInputs({ url: '', path: '', token: '', branch: '' });
-      setUrlInputs(['']);
-      fetchKbs();
-    } catch (err) {
-      alert('Invalid JSON in source configuration field.');
-    }
-  };
+      };
 
-  // const handleDelete = async (id: string) => {
-  //   await axios.delete(`/knowledge_bases/${id}`);
-  //   void fetchKbs();
-  // };
-
-  // const handleEdit = (kb: KnowledgeBase) => {
-  //   setForm({ ...kb, source_configuration: JSON.stringify(kb.source_configuration, null, 2) });
-  //   try {
-  //     const parsed = JSON.parse(kb.source_configuration || '{}');
-  //     if (kb.source === 'URL' && Array.isArray(parsed)) {
-  //       setUrlInputs(parsed);
-  //     } else if (kb.source === 'S3' && typeof parsed === 'object') {
-  //       setS3Inputs(parsed);
-  //     } else if (kb.source === 'GITHUB' && typeof parsed === 'object') {
-  //       setGithubInputs(parsed);
-  //     }
-  //   } catch (e) {
-  //     console.error('Failed to parse source configuration', e);
-  //   }
-  // };
-
-  const options = [
-    { value: '', label: 'Select a source', disabled: true, isPlaceholder: true },
-    { value: 'S3', label: 'S3', disabled: false, isPlaceholder: false },
-    { value: 'GITHUB', label: 'GITHUB', disabled: false, isPlaceholder: false },
-    { value: 'URL', label: 'URL', disabled: false, isPlaceholder: false },
-  ];
+  const form = useForm({
+    defaultValues: initialData,
+    onSubmit: ({ value }) => {
+      // Parse source_configuration JSON string into object before submitting
+      try {
+        const parsedValue = {
+          ...value,
+          source_configuration: JSON.parse(value.source_configuration || '{}') as Record<
+            string,
+            unknown
+          >,
+        };
+        onSubmit(parsedValue);
+      } catch (error) {
+        console.error('Invalid JSON in source_configuration:', error);
+        // Don't submit if JSON is invalid - let the form validation handle it
+      }
+    },
+  });
 
   return (
-    <Form>
-      <FormGroup label="Name" isRequired fieldId="simple-form-name-01">
-        <TextInput
-          isRequired
-          type="text"
-          id="simple-form-name-01"
-          name="simple-form-name-01"
-          aria-describedby="simple-form-name-01-helper"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
-        />
-      </FormGroup>
-      <FormGroup label="Version" isRequired fieldId="simple-form-version-01">
-        <TextInput
-          isRequired
-          type="text"
-          id="simple-form-version-01"
-          name="simple-form-version-01"
-          value={form.version}
-          onChange={(e) => setForm({ ...form, version: e.currentTarget.value })}
-        />
-      </FormGroup>
-      <FormGroup label="Embedding Model" isRequired fieldId="simple-form-embeddingmodel-01">
-        <TextInput
-          isRequired
-          type="text"
-          id="simple-form-embeddingmodel-01"
-          name="simple-form-embeddingmodel-01"
-          value={form.embedding_model}
-          onChange={(e) => setForm({ ...form, embedding_model: e.currentTarget.value })}
-        />
-      </FormGroup>
-      <FormGroup label="Provider ID" isRequired fieldId="simple-form-providerID-01">
-        <TextInput
-          isRequired
-          type="text"
-          id="simple-form-providerID-01"
-          name="simple-form-providerID-01"
-          value={form.provider_id}
-          onChange={(e) => setForm({ ...form, provider_id: e.currentTarget.value })}
-        />
-      </FormGroup>
-      <FormGroup label="Vector DB Name" isRequired fieldId="simple-form-vectordb-01">
-        <TextInput
-          isRequired
-          type="text"
-          id="simple-form-vectordb-01"
-          name="simple-form-vectordb-01"
-          value={form.vector_db_name}
-          onChange={(e) => setForm({ ...form, vector_db_name: e.currentTarget.value })}
-        />
-      </FormGroup>
-      <FormGroup role="group" isInline fieldId="basic-form-checkbox-group" label="">
-        <Checkbox
-          label="External"
-          aria-label="External"
-          id="inlinecheck01"
-          checked={form.is_external}
-          onClick={(e) => setForm({ ...form, is_external: e.currentTarget.checked })}
-        />
-      </FormGroup>
-      <FormSelect
-        value={form.source}
-        onChange={(e) => setForm({ ...form, source: e.currentTarget.value })}
-        aria-label="FormSelect Input"
-        ouiaId="BasicFormSelect"
+    <Form
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void form.handleSubmit();
+      }}
+    >
+      {error && <Alert variant="danger" title={error.message} />}
+      <form.Field
+        name="name"
+        validators={{ onChange: ({ value }) => (!value ? 'Name is required' : undefined) }}
       >
-        {options.map((option, index) => (
-          <FormSelectOption
-            isDisabled={option.disabled}
-            key={index}
-            value={option.value}
-            aria-label={option.label}
-            label={option.label}
-          />
-        ))}
-      </FormSelect>
-
-      {form.source === 'S3' && !form.is_external && (
-        <Grid hasGutter md={6}>
-          <FormGroup label="ACCESS_KEY_ID" isRequired fieldId="grid-form-access-key-01">
+        {(field) => (
+          <FormGroup label="Name" isRequired fieldId="kb-form-name">
             <TextInput
-              className="border p-2 rounded"
-              placeholder="ACCESS_KEY_ID"
-              aria-label="ACCESS_KEY_ID"
-              value={s3Inputs.ACCESS_KEY_ID}
-              onChange={(e) => setS3Inputs({ ...s3Inputs, ACCESS_KEY_ID: e.currentTarget.value })}
-            />
-          </FormGroup>
-          <FormGroup
-            label="SECRET_ACCESS_KEY_ID"
-            isRequired
-            aria-label="SECRET_ACCESS_KEY_ID"
-            fieldId="grid-form-secret-access-key-01"
-          >
-            <TextInput
-              className="border p-2 rounded"
-              placeholder="SECRET_ACCESS_KEY"
-              aria-label="SECRET_ACCESS_KEY"
-              value={s3Inputs.SECRET_ACCESS_KEY}
-              onChange={(e) =>
-                setS3Inputs({ ...s3Inputs, SECRET_ACCESS_KEY: e.currentTarget.value })
+              isRequired
+              id="kb-form-name"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
               }
             />
           </FormGroup>
-          <FormGroup label="ENDPOINT_URL" isRequired fieldId="grid-form-endpoint-01">
+        )}
+      </form.Field>
+      <form.Field
+        name="version"
+        validators={{ onChange: ({ value }) => (!value ? 'Version is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Version" isRequired fieldId="kb-form-version">
             <TextInput
-              className="border p-2 rounded"
-              placeholder="ENDPOINT_URL"
-              aria-label="ENDPOINT_URL"
-              value={s3Inputs.ENDPOINT_URL}
-              onChange={(e) => setS3Inputs({ ...s3Inputs, ENDPOINT_URL: e.currentTarget.value })}
+              isRequired
+              id="kb-form-version"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
             />
           </FormGroup>
-          <FormGroup label="BUCKET_NAME" isRequired fieldId="grid-form-bucket-name-01">
+        )}
+      </form.Field>
+      <form.Field
+        name="embedding_model"
+        validators={{
+          onChange: ({ value }) => (!value ? 'Embedding Model is required' : undefined),
+        }}
+      >
+        {(field) => (
+          <FormGroup label="Embedding Model" isRequired fieldId="kb-form-embedding-model">
+            <FormSelect
+              isRequired
+              id="kb-form-embedding-model"
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Embedding Model"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            >
+              {isLoadingModels ? (
+                <FormSelectOption key="loading" value="" label="Loading models..." isDisabled />
+              ) : modelsError ? (
+                <FormSelectOption key="error" value="" label="Error loading models" isDisabled />
+              ) : (
+                <Fragment>
+                  <FormSelectOption key="placeholder" value="" label="Select a model" isDisabled />
+                  {models.map((opt) => (
+                    <FormSelectOption key={opt.name} value={opt.name} label={opt.name} />
+                  ))}
+                </Fragment>
+              )}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="provider_id"
+        validators={{ onChange: ({ value }) => (!value ? 'Provider ID is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Provider" isRequired fieldId="kb-form-provider-id">
+            <FormSelect
+              isRequired
+              id="kb-form-provider-id"
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Provider"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            >
+              {isLoadingProviders ? (
+                <FormSelectOption key="loading" value="" label="Loading providers..." isDisabled />
+              ) : providersError ? (
+                <FormSelectOption key="error" value="" label="Error loading providers" isDisabled />
+              ) : (
+                <Fragment>
+                  <FormSelectOption
+                    key="placeholder"
+                    value=""
+                    label="Select a provider"
+                    isDisabled
+                  />
+                  {providers.map((provider) => (
+                    <FormSelectOption
+                      key={provider.provider_id}
+                      value={provider.provider_id}
+                      label={`${provider.provider_id} (${provider.provider_type})`}
+                    />
+                  ))}
+                </Fragment>
+              )}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="vector_db_name"
+        validators={{
+          onChange: ({ value }) => (!value ? 'Vector DB Name is required' : undefined),
+        }}
+      >
+        {(field) => (
+          <FormGroup label="Vector DB Name" isRequired fieldId="kb-form-vector-db-name">
             <TextInput
-              className="border p-2 rounded"
-              placeholder="BUCKET_NAME"
-              aria-label="BUCKET_NAME"
-              value={s3Inputs.BUCKET_NAME}
-              onChange={(e) => setS3Inputs({ ...s3Inputs, BUCKET_NAME: e.currentTarget.value })}
+              isRequired
+              id="kb-form-vector-db-name"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
             />
           </FormGroup>
-          <FormGroup label="REGION" isRequired fieldId="grid-form-region-01">
-            <TextInput
-              className="border p-2 rounded"
-              placeholder="REGION"
-              aria-label="REGION"
-              value={s3Inputs.REGION}
-              onChange={(e) => setS3Inputs({ ...s3Inputs, REGION: e.currentTarget.value })}
-            />
-          </FormGroup>
-        </Grid>
-      )}
-
-      {form.source === 'GITHUB' && !form.is_external && (
-        <Grid hasGutter md={6}>
-          <FormGroup label="URL" isRequired fieldId="grid-form-github-url-01">
-            <TextInput
-              className="border p-2 rounded"
-              placeholder="URL"
-              aria-label="URL"
-              value={githubInputs.url}
-              onChange={(e) => setGithubInputs({ ...githubInputs, url: e.currentTarget.value })}
-            />
-          </FormGroup>
-          <FormGroup label="PATH" isRequired fieldId="grid-form-github-path-01">
-            <TextInput
-              className="border p-2 rounded"
-              placeholder="Path"
-              aria-label="Path"
-              value={githubInputs.path}
-              onChange={(e) => setGithubInputs({ ...githubInputs, path: e.currentTarget.value })}
-            />
-          </FormGroup>
-          <FormGroup label="TOKEN" isRequired fieldId="grid-form-github-token-01">
-            <TextInput
-              className="border p-2 rounded"
-              placeholder="Token"
-              aria-label="Token"
-              value={githubInputs.token}
-              onChange={(e) => setGithubInputs({ ...githubInputs, token: e.currentTarget.value })}
-            />
-          </FormGroup>
-          <FormGroup label="BRANCH" isRequired fieldId="grid-form-github-branch-01">
-            <TextInput
-              className="border p-2 rounded"
-              placeholder="Branch"
-              aria-label="Branch"
-              value={githubInputs.branch}
-              onChange={(e) => setGithubInputs({ ...githubInputs, branch: e.currentTarget.value })}
-            />
-          </FormGroup>
-        </Grid>
-      )}
-
-      {form.source === 'URL' && !form.is_external && (
-        <Grid hasGutter md={6}>
-          {urlInputs.map((url, index) => (
-            <FormGroup key={index} label="URL" isRequired fieldId="grid-form-url-01">
-              <InputGroup key={index} label="URL" required>
-                <TextInput
-                  className="flex-grow border p-2 rounded"
-                  placeholder={`URL ${index + 1}`}
-                  aria-label={`URL ${index + 1}`}
-                  value={url}
-                  onChange={(e) => {
-                    const updated = [...urlInputs];
-                    updated[index] = e.currentTarget.value;
-                    setUrlInputs(updated);
-                  }}
+        )}
+      </form.Field>
+      <form.Field
+        name="source"
+        validators={{ onChange: ({ value }) => (!value ? 'Source is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Source" isRequired fieldId="kb-form-source">
+            <FormSelect
+              isRequired
+              id="kb-form-source"
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Source"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            >
+              {KB_SOURCE_OPTIONS.map((opt) => (
+                <FormSelectOption
+                  key={opt.value}
+                  value={opt.value}
+                  label={opt.label}
+                  isDisabled={opt.disabled}
                 />
-                <Button
-                  variant="control"
-                  className="mt-2 text-blue-600 hover:underline"
-                  onClick={() => setUrlInputs([...urlInputs, ''])}
-                >
-                  + Add URL
-                </Button>
-              </InputGroup>
-            </FormGroup>
-          ))}
-        </Grid>
-      )}
-      <FormGroup label="Source Configuration (JSON format)" fieldId="simple-form-note-01">
-        <TextArea
-          type="text"
-          id="simple-form-note-01"
-          name="simple-form-number"
-          value={form.source_configuration}
-          rows={4}
-          disabled={
-            form.is_external ||
-            form.source === 'S3' ||
-            form.source === 'GITHUB' ||
-            form.source === 'URL'
-          }
-          onChange={(e) => setForm({ ...form, source_configuration: e.currentTarget.value })}
-        />
-      </FormGroup>
+              ))}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="source_configuration"
+        validators={{
+          onChange: ({ value }) => {
+            if (!value) return 'Source Configuration is required';
+            try {
+              JSON.parse(value);
+              return undefined;
+            } catch {
+              return 'Source Configuration must be valid JSON';
+            }
+          },
+        }}
+      >
+        {(field) => (
+          <FormGroup label="Source Configuration (JSON)" isRequired fieldId="kb-form-source-config">
+            <TextInput
+              isRequired
+              id="kb-form-source-config"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              isDisabled={form.state.values.is_external}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            />
+          </FormGroup>
+        )}
+      </form.Field>
       <ActionGroup>
-        <Button variant="primary" onClick={() => void handleSubmit()}>
-          Create
+        <form.Subscribe
+          selector={(state) => [state.canSubmit, state.isSubmitting, state.isPristine]}
+        >
+          {([canSubmit, isSubmitting, isPristine]) => (
+            <Button
+              type="submit"
+              variant="primary"
+              isDisabled={!canSubmit || isSubmitting || isPristine}
+              isLoading={isSubmitting}
+            >
+              Save
+            </Button>
+          )}
+        </form.Subscribe>
+        <Button variant="link" onClick={onCancel} isDisabled={isSubmitting}>
+          Cancel
         </Button>
-        <Button variant="link">Cancel</Button>
       </ActionGroup>
     </Form>
-  );
-};
-
-export function KnowledgeBaseForm() {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  //   const [isToggleRightAligned, setIsToggleRightAligned] = useState<boolean>(false);
-
-  const onSelect = () => {
-    setIsOpen(!isOpen);
-  };
-
-  const onExpand = (_event: React.MouseEvent, id: string) => {
-    console.log(id);
-    setIsExpanded(!isExpanded);
-  };
-
-  const dropdownItems = (
-    <>
-      <DropdownItem icon={<EditIcon />} value={0} key="edit">
-        Edit
-      </DropdownItem>
-      <DropdownItem isDanger icon={<TrashIcon />} value={1} key="delete">
-        Delete
-      </DropdownItem>
-    </>
-  );
-  const headerActions = (
-    <>
-      <Dropdown
-        onSelect={onSelect}
-        toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-          <MenuToggle
-            ref={toggleRef}
-            isExpanded={isOpen}
-            onClick={() => setIsOpen(!isOpen)}
-            variant="plain"
-            aria-label="Card expandable example kebab toggle"
-            icon={<EllipsisVIcon />}
-          />
-        )}
-        isOpen={isOpen}
-        onOpenChange={(isOpen: boolean) => setIsOpen(isOpen)}
-      >
-        <DropdownList>{dropdownItems}</DropdownList>
-      </Dropdown>
-    </>
-  );
-
-  return (
-    <Fragment>
-      <Card id="expandable-card" isExpanded={isExpanded}>
-        <CardHeader
-          actions={{ actions: headerActions }}
-          onExpand={onExpand}
-          //   isToggleRightAligned={isToggleRightAligned}
-          toggleButtonProps={{
-            id: 'toggle-button1',
-            'aria-label': 'Details',
-            'aria-labelledby': 'expandable-card-title toggle-button1',
-            'aria-expanded': isExpanded,
-          }}
-        >
-          <CardTitle id="expandable-card-title">Add a Knowledge Base</CardTitle>
-        </CardHeader>
-        <CardExpandableContent>
-          <CardBody>
-            <FormBasic />
-          </CardBody>
-        </CardExpandableContent>
-      </Card>
-      <br></br>
-    </Fragment>
   );
 }
