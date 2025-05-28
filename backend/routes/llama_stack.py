@@ -1,18 +1,8 @@
-import asyncio
-
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
-#from llama_stack_client.types import UserMessage, SystemMessage, CompletionMessage, Tool
-from typing import List, Dict, Any, Literal, Optional, AsyncIterable
+from typing import List, Dict, Any, Literal, Optional
 import logging
 from pydantic import BaseModel
-import json
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from backend.models import VirtualAssistant, VirtualAssistantTool, VirtualAssistantKnowledgeBase, KnowledgeBase
-from backend.database import get_db
-from uuid import UUID
-import time
 from .chat import Chat
 from ..api.llamastack import client
 
