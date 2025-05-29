@@ -13,6 +13,12 @@
 
 1. Run the following command to start the PostgreSQL
 
+    To delete the database before restarting PostgreSql db
+
+    ```bash
+    podman compose down && podman volume rm ai-virtual-assistant_pgdata
+    ```
+
     ```bash
     podman compose --file compose.yaml up --detach
     ```
@@ -28,6 +34,14 @@
     ```
 
 2. Start Server
+
+    Initialize db
+
+    ```bash
+    cd backend
+    alembic upgrade head
+    cd ..
+    ```
 
     ```bash
     ./venv/bin/uvicorn backend.main:app
