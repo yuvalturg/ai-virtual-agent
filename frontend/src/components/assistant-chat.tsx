@@ -19,7 +19,7 @@ import {
   MessageProps,
 } from '@patternfly/chatbot';
 import { DropdownItem, DropdownList } from '@patternfly/react-core';
-import baseUrl, { CHAT_API_ENDPOINT, LLMS_API_ENDPOINT } from '../config/api';
+import { CHAT_API_ENDPOINT, LLMS_API_ENDPOINT } from '../config/api';
 // import botAvatar from "../assets/img/bot-avatar.svg";
 // import userAvatar from "../assets/img/user-avatar.svg";
 import React, { Fragment, useEffect } from 'react';

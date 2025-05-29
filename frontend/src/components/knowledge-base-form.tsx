@@ -243,19 +243,19 @@ export function KnowledgeBaseForm({
 
       // Remove the individual source fields from the final value
       const {
-        s3_access_key_id,
-        s3_secret_access_key,
-        s3_endpoint_url,
-        s3_bucket_name,
-        s3_region,
-        github_url,
-        github_path,
-        github_token,
-        github_branch,
+        s3_access_key_id: _s3_access_key_id,
+        s3_secret_access_key: _s3_secret_access_key,
+        s3_endpoint_url: _s3_endpoint_url,
+        s3_bucket_name: _s3_bucket_name,
+        s3_region: _s3_region,
+        github_url: _github_url,
+        github_path: _github_path,
+        github_token: _github_token,
+        github_branch: _github_branch,
         ...cleanValue
-      } = finalValue as any;
+      } = finalValue as unknown as Record<string, unknown>;
 
-      onSubmit(cleanValue);
+      onSubmit(cleanValue as unknown as KnowledgeBase);
     },
   });
 
@@ -293,7 +293,7 @@ export function KnowledgeBaseForm({
   // Generate preview of the configuration JSON
   const generatePreviewJson = () => {
     const currentValues = form.state.values;
-    let previewConfig: any = {
+    const previewConfig: Record<string, unknown> = {
       name: currentValues.name || '',
       version: currentValues.version || '',
       embedding_model: currentValues.embedding_model || '',
