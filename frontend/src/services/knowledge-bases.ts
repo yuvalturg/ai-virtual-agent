@@ -1,4 +1,7 @@
-import { KNOWLEDGE_BASES_API_ENDPOINT } from '@/config/api';
+import {
+  KNOWLEDGE_BASES_API_ENDPOINT,
+  LLAMA_STACK_KNOWLEDGE_BASES_API_ENDPOINT,
+} from '@/config/api';
 import { KnowledgeBase, KnowledgeBaseWithStatus } from '@/types';
 import { mergeKnowledgeBasesWithStatus } from '@/utils/knowledge-base-status';
 
@@ -73,7 +76,7 @@ export const fetchKnowledgeBasesWithStatus = async (): Promise<KnowledgeBaseWith
 };
 
 async function fetchLlamaStackKnowledgeBases() {
-  const response = await fetch('http://localhost:8000/llama_stack/knowledge_bases');
+  const response = await fetch(LLAMA_STACK_KNOWLEDGE_BASES_API_ENDPOINT);
   if (!response.ok) {
     throw new Error('Failed to fetch LlamaStack knowledge bases');
   }
