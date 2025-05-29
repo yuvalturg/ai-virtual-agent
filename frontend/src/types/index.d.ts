@@ -47,6 +47,7 @@ export interface Provider {
   provider_id: string;
   provider_type: string;
   config: Record<string, unknown>;
+  api: string;
 }
 
 export type KnowledgeBaseStatus = 'ready' | 'pending' | 'orphaned';

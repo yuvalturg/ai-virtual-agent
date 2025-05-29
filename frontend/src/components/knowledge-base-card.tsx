@@ -37,7 +37,7 @@ export function KnowledgeBaseCard({
   isDeleting = false,
 }: KnowledgeBaseCardProps) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
 
   const onExpand = () => setIsExpanded(!isExpanded);

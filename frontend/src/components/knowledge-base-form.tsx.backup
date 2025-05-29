@@ -1,0 +1,781 @@
+import { useForm } from '@tanstack/react-form';
+import { EmbeddingModel, KnowledgeBase, Provider } from '@/types';
+import { Button, ActionGroup, Form, FormGroup, TextInput, Alert } from '@patternfly/react-core';
+import {
+  FormSelect,
+  FormSelectOption,
+} from '@patternfly/react-core/dist/esm/components/FormSelect';
+import { Fragment, useState, useEffect } from 'react';
+import { PaperPlaneIcon, TrashIcon } from '@patternfly/react-icons';
+
+// Form data type - same as KnowledgeBase with additional source configuration fields
+type KnowledgeBaseFormData = KnowledgeBase & {
+  s3_access_key_id?: string;
+  s3_secret_access_key?: string;
+  s3_endpoint_url?: string;
+  s3_bucket_name?: string;
+  s3_region?: string;
+  github_url?: string;
+  github_path?: string;
+  github_token?: string;
+  github_branch?: string;
+};
+
+// Define source options at the top for easy configuration
+const KB_SOURCE_OPTIONS = [
+  { value: '', label: 'Select a source', disabled: true },
+  { value: 'S3', label: 'S3', disabled: false },
+  { value: 'GITHUB', label: 'GITHUB', disabled: false },
+  { value: 'URL', label: 'URL', disabled: false },
+];
+
+interface EmbeddingModelsFieldProps {
+  models: EmbeddingModel[];
+  isLoadingModels: boolean;
+  modelsError: Error | null;
+}
+
+interface ProvidersFieldProps {
+  providers: Provider[];
+  isLoadingProviders: boolean;
+  providersError: Error | null;
+}
+
+interface KnowledgeBaseFormProps {
+  embeddingModelProps: EmbeddingModelsFieldProps;
+  providersProps: ProvidersFieldProps;
+  defaultKnowledgeBase?: KnowledgeBase;
+  isSubmitting: boolean;
+  onSubmit: (values: KnowledgeBase) => void;
+  onCancel: () => void;
+  error?: Error | null;
+}
+
+export function KnowledgeBaseForm({
+  embeddingModelProps,
+  providersProps,
+  defaultKnowledgeBase,
+  isSubmitting,
+  onSubmit,
+  onCancel,
+  error,
+}: KnowledgeBaseFormProps) {
+  const { models, isLoadingModels, modelsError } = embeddingModelProps;
+  const { providers, isLoadingProviders, providersError } = providersProps;
+
+  // State for URL inputs (special case since it's an array)
+  const [urlInputs, setUrlInputs] = useState<string[]>(['']);
+
+  // Validation functions
+  const validateS3Field = (fieldName: string, value: string): string | undefined => {
+    switch (fieldName) {
+      case 'ACCESS_KEY_ID':
+        if (!value.trim()) return 'Access Key ID is required';
+        if (value.length < 16) return 'Access Key ID must be at least 16 characters';
+        if (!/^[A-Z0-9]+$/.test(value)) return 'Access Key ID should contain only uppercase letters and numbers';
+        return undefined;
+      case 'SECRET_ACCESS_KEY':
+        if (!value.trim()) return 'Secret Access Key is required';
+        if (value.length < 40) return 'Secret Access Key must be at least 40 characters';
+        return undefined;
+      case 'ENDPOINT_URL':
+        if (!value.trim()) return 'Endpoint URL is required';
+        try {
+          new URL(value);
+          if (!value.startsWith('https://')) return 'Endpoint URL should use HTTPS';
+        } catch {
+          return 'Please enter a valid URL';
+        }
+        return undefined;
+      case 'BUCKET_NAME':
+        if (!value.trim()) return 'Bucket name is required';
+        if (value.length < 3 || value.length > 63) return 'Bucket name must be 3-63 characters';
+        if (!/^[a-z0-9.-]+$/.test(value)) return 'Bucket name can only contain lowercase letters, numbers, dots, and hyphens';
+        if (value.startsWith('.') || value.endsWith('.') || value.startsWith('-') || value.endsWith('-')) {
+          return 'Bucket name cannot start or end with dots or hyphens';
+        }
+        return undefined;
+      case 'REGION':
+        if (!value.trim()) return 'Region is required';
+        if (!/^[a-z0-9-]+$/.test(value)) return 'Region should contain only lowercase letters, numbers, and hyphens';
+        return undefined;
+      default:
+        return undefined;
+    }
+  };
+
+  const validateGithubField = (fieldName: string, value: string): string | undefined => {
+    switch (fieldName) {
+      case 'url':
+        if (!value.trim()) return 'Repository URL is required';
+        try {
+          const url = new URL(value);
+          if (!url.hostname.includes('github.com')) return 'Must be a GitHub repository URL';
+          if (!value.match(/github\.com\/[\w.-]+\/[\w.-]+/)) return 'Invalid GitHub repository format';
+        } catch {
+          return 'Please enter a valid URL';
+        }
+        return undefined;
+      case 'path':
+        // Path is optional, but if provided should be valid
+        if (value && (value.includes('..') || value.startsWith('/'))) {
+          return 'Path should be relative and not contain ".."';
+        }
+        return undefined;
+      case 'token':
+        // Token is optional for public repos
+        if (value && (value.length < 10 || !/^[a-zA-Z0-9_]+$/.test(value))) {
+          return 'Invalid token format';
+        }
+        return undefined;
+      case 'branch':
+        // Branch is optional, defaults to main
+        if (value && !/^[a-zA-Z0-9/_.-]+$/.test(value)) {
+          return 'Invalid branch name format';
+        }
+        return undefined;
+      default:
+        return undefined;
+    }
+  };
+
+  const validateUrl = (url: string): string | undefined => {
+    if (!url.trim()) return 'URL is required';
+    try {
+      new URL(url);
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return 'URL must start with http:// or https://';
+      }
+    } catch {
+      return 'Please enter a valid URL';
+    }
+    return undefined;
+  };
+
+  const initialData: KnowledgeBaseFormData = defaultKnowledgeBase
+    ? {
+        ...defaultKnowledgeBase,
+      }
+    : {
+        name: '',
+        version: '',
+        embedding_model: '',
+        provider_id: '',
+        vector_db_name: '',
+        is_external: false,
+        source: '',
+        source_configuration: {},
+        // Individual source configuration fields
+        s3_access_key_id: '',
+        s3_secret_access_key: '',
+        s3_endpoint_url: '',
+        s3_bucket_name: '',
+        s3_region: '',
+        github_url: '',
+        github_path: '',
+        github_token: '',
+        github_branch: '',
+      };
+
+  const form = useForm({
+    defaultValues: initialData,
+    onSubmit: ({ value }) => {
+      // Transform individual source configuration fields into the source_configuration object
+      let finalValue: KnowledgeBase;
+
+      if (value.source === 'S3') {
+        finalValue = {
+          ...value,
+          source_configuration: {
+            ACCESS_KEY_ID: value.s3_access_key_id || '',
+            SECRET_ACCESS_KEY: value.s3_secret_access_key || '',
+            ENDPOINT_URL: value.s3_endpoint_url || '',
+            BUCKET_NAME: value.s3_bucket_name || '',
+            REGION: value.s3_region || '',
+          },
+        };
+      } else if (value.source === 'GITHUB') {
+        finalValue = {
+          ...value,
+          source_configuration: {
+            url: value.github_url || '',
+            path: value.github_path || '',
+            token: value.github_token || '',
+            branch: value.github_branch || '',
+          },
+        };
+      } else if (value.source === 'URL') {
+        // For URLs, use the array directly
+        const filteredUrls = urlInputs.filter((url) => url.trim() !== '');
+        finalValue = {
+          ...value,
+          source_configuration: filteredUrls as unknown as Record<string, unknown>,
+        };
+      } else {
+        finalValue = value;
+      }
+
+      // Remove the individual source fields from the final value
+      const {
+        s3_access_key_id,
+        s3_secret_access_key,
+        s3_endpoint_url,
+        s3_bucket_name,
+        s3_region,
+        github_url,
+        github_path,
+        github_token,
+        github_branch,
+        ...cleanValue
+      } = finalValue as any;
+
+      onSubmit(cleanValue);
+    },
+  });
+
+  // Initialize structured inputs when defaultKnowledgeBase changes
+  useEffect(() => {
+    if (defaultKnowledgeBase?.source_configuration) {
+      const config = defaultKnowledgeBase.source_configuration;
+      if (
+        defaultKnowledgeBase.source === 'S3' &&
+        typeof config === 'object' &&
+        !Array.isArray(config)
+      ) {
+        const s3Config = config as Record<string, string>;
+        form.setFieldValue('s3_access_key_id', s3Config.ACCESS_KEY_ID || '');
+        form.setFieldValue('s3_secret_access_key', s3Config.SECRET_ACCESS_KEY || '');
+        form.setFieldValue('s3_endpoint_url', s3Config.ENDPOINT_URL || '');
+        form.setFieldValue('s3_bucket_name', s3Config.BUCKET_NAME || '');
+        form.setFieldValue('s3_region', s3Config.REGION || '');
+      } else if (
+        defaultKnowledgeBase.source === 'GITHUB' &&
+        typeof config === 'object' &&
+        !Array.isArray(config)
+      ) {
+        const githubConfig = config as Record<string, string>;
+        form.setFieldValue('github_url', githubConfig.url || '');
+        form.setFieldValue('github_path', githubConfig.path || '');
+        form.setFieldValue('github_token', githubConfig.token || '');
+        form.setFieldValue('github_branch', githubConfig.branch || '');
+      } else if (defaultKnowledgeBase.source === 'URL' && Array.isArray(config)) {
+        setUrlInputs(config as string[]);
+      }
+    }
+  }, [defaultKnowledgeBase, form]);
+
+  return (
+    <Form
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void form.handleSubmit();
+      }}
+    >
+      {error && <Alert variant="danger" title={error.message} />}
+      <form.Field
+        name="name"
+        validators={{ onChange: ({ value }) => (!value ? 'Name is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Name" isRequired fieldId="kb-form-name">
+            <TextInput
+              isRequired
+              id="kb-form-name"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            />
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="version"
+        validators={{ onChange: ({ value }) => (!value ? 'Version is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Version" isRequired fieldId="kb-form-version">
+            <TextInput
+              isRequired
+              id="kb-form-version"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            />
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="embedding_model"
+        validators={{
+          onChange: ({ value }) => (!value ? 'Embedding Model is required' : undefined),
+        }}
+      >
+        {(field) => (
+          <FormGroup label="Embedding Model" isRequired fieldId="kb-form-embedding-model">
+            <FormSelect
+              isRequired
+              id="kb-form-embedding-model"
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Embedding Model"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            >
+              {isLoadingModels ? (
+                <FormSelectOption key="loading" value="" label="Loading models..." isDisabled />
+              ) : modelsError ? (
+                <FormSelectOption key="error" value="" label="Error loading models" isDisabled />
+              ) : (
+                <Fragment>
+                  <FormSelectOption key="placeholder" value="" label="Select a model" isDisabled />
+                  {models.map((opt) => (
+                    <FormSelectOption key={opt.name} value={opt.name} label={opt.name} />
+                  ))}
+                </Fragment>
+              )}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="provider_id"
+        validators={{ onChange: ({ value }) => (!value ? 'Provider ID is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Provider" isRequired fieldId="kb-form-provider-id">
+            <FormSelect
+              isRequired
+              id="kb-form-provider-id"
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Provider"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            >
+              {isLoadingProviders ? (
+                <FormSelectOption key="loading" value="" label="Loading providers..." isDisabled />
+              ) : providersError ? (
+                <FormSelectOption key="error" value="" label="Error loading providers" isDisabled />
+              ) : (
+                <Fragment>
+                  <FormSelectOption
+                    key="placeholder"
+                    value=""
+                    label="Select a provider"
+                    isDisabled
+                  />
+                  {providers.map((provider) => (
+                    <FormSelectOption
+                      key={provider.provider_id}
+                      value={provider.provider_id}
+                      label={`${provider.provider_id} (${provider.provider_type})`}
+                    />
+                  ))}
+                </Fragment>
+              )}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="vector_db_name"
+        validators={{
+          onChange: ({ value }) => (!value ? 'Vector DB Name is required' : undefined),
+        }}
+      >
+        {(field) => (
+          <FormGroup label="Vector DB Name" isRequired fieldId="kb-form-vector-db-name">
+            <TextInput
+              isRequired
+              id="kb-form-vector-db-name"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            />
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field
+        name="source"
+        validators={{ onChange: ({ value }) => (!value ? 'Source is required' : undefined) }}
+      >
+        {(field) => (
+          <FormGroup label="Source" isRequired fieldId="kb-form-source">
+            <FormSelect
+              isRequired
+              id="kb-form-source"
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => {
+                field.handleChange(value);
+                // Reset URL inputs when source changes
+                if (value === 'URL') {
+                  setUrlInputs(['']);
+                }
+              }}
+              aria-label="Select Source"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+            >
+              {KB_SOURCE_OPTIONS.map((opt) => (
+                <FormSelectOption
+                  key={opt.value}
+                  value={opt.value}
+                  label={opt.label}
+                  isDisabled={opt.disabled}
+                />
+              ))}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+
+      {/* Add source_configuration validation field */}
+      <form.Field
+        name="source_configuration"
+        validators={{
+          onChange: ({ value, fieldApi }) => {
+            const source = fieldApi.form.state.values.source;
+            if (!source || fieldApi.form.state.values.is_external) return undefined;
+            
+            if (source === 'S3') {
+              const hasS3Errors = Object.values(s3Errors).some(error => error !== '');
+              const hasEmptyRequiredFields = Object.values(s3Inputs).some(val => !val.trim());
+              if (hasS3Errors || hasEmptyRequiredFields) return 'Please fix S3 configuration errors';
+            } else if (source === 'GITHUB') {
+              const hasGithubErrors = Object.values(githubErrors).some(error => error !== '');
+              const missingRequiredUrl = !githubInputs.url.trim();
+              if (hasGithubErrors || missingRequiredUrl) return 'Please fix GitHub configuration errors';
+            } else if (source === 'URL') {
+              const hasUrlErrors = urlErrors.some(error => error !== '');
+              const hasEmptyUrls = urlInputs.every(url => !url.trim());
+              if (hasUrlErrors || hasEmptyUrls) return 'Please fix URL configuration errors';
+            }
+            
+            return undefined;
+          }
+        }}
+      >
+        {() => null}
+      </form.Field>
+
+      {/* S3 Configuration Fields */}
+      {form.state.values.source === 'S3' && !form.state.values.is_external && (
+        <>
+          <FormGroup 
+            label="ACCESS_KEY_ID" 
+            isRequired 
+            fieldId="kb-form-s3-access-key"
+          >
+            <TextInput
+              isRequired
+              id="kb-form-s3-access-key"
+              value={s3Inputs.ACCESS_KEY_ID}
+              onChange={(_e, v) => {
+                setS3Inputs((prev) => ({ ...prev, ACCESS_KEY_ID: v }));
+                const error = validateS3Field('ACCESS_KEY_ID', v);
+                setS3Errors((prev) => ({ ...prev, ACCESS_KEY_ID: error }));
+              }}
+              placeholder="Your access key ID"
+              validated={s3Errors.ACCESS_KEY_ID ? 'error' : 'default'}
+            />
+            {s3Errors.ACCESS_KEY_ID && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {s3Errors.ACCESS_KEY_ID}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup 
+            label="SECRET_ACCESS_KEY" 
+            isRequired 
+            fieldId="kb-form-s3-secret-key"
+          >
+            <TextInput
+              isRequired
+              type="password"
+              id="kb-form-s3-secret-key"
+              value={s3Inputs.SECRET_ACCESS_KEY}
+              onChange={(_e, v) => {
+                setS3Inputs((prev) => ({ ...prev, SECRET_ACCESS_KEY: v }));
+                const error = validateS3Field('SECRET_ACCESS_KEY', v);
+                setS3Errors((prev) => ({ ...prev, SECRET_ACCESS_KEY: error }));
+              }}
+              placeholder="Your secret access key"
+              validated={s3Errors.SECRET_ACCESS_KEY ? 'error' : 'default'}
+            />
+            {s3Errors.SECRET_ACCESS_KEY && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {s3Errors.SECRET_ACCESS_KEY}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup 
+            label="ENDPOINT_URL" 
+            isRequired 
+            fieldId="kb-form-s3-endpoint"
+          >
+            <TextInput
+              isRequired
+              id="kb-form-s3-endpoint"
+              value={s3Inputs.ENDPOINT_URL}
+              onChange={(_e, v) => {
+                setS3Inputs((prev) => ({ ...prev, ENDPOINT_URL: v }));
+                const error = validateS3Field('ENDPOINT_URL', v);
+                setS3Errors((prev) => ({ ...prev, ENDPOINT_URL: error }));
+              }}
+              placeholder="https://s3.amazonaws.com or custom endpoint"
+              validated={s3Errors.ENDPOINT_URL ? 'error' : 'default'}
+            />
+            {s3Errors.ENDPOINT_URL && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {s3Errors.ENDPOINT_URL}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup 
+            label="BUCKET_NAME" 
+            isRequired 
+            fieldId="kb-form-s3-bucket"
+          >
+            <TextInput
+              isRequired
+              id="kb-form-s3-bucket"
+              value={s3Inputs.BUCKET_NAME}
+              onChange={(_e, v) => {
+                setS3Inputs((prev) => ({ ...prev, BUCKET_NAME: v }));
+                const error = validateS3Field('BUCKET_NAME', v);
+                setS3Errors((prev) => ({ ...prev, BUCKET_NAME: error }));
+              }}
+              placeholder="my-knowledge-base-bucket"
+              validated={s3Errors.BUCKET_NAME ? 'error' : 'default'}
+            />
+            {s3Errors.BUCKET_NAME && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {s3Errors.BUCKET_NAME}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup 
+            label="REGION" 
+            isRequired 
+            fieldId="kb-form-s3-region"
+          >
+            <TextInput
+              isRequired
+              id="kb-form-s3-region"
+              value={s3Inputs.REGION}
+              onChange={(_e, v) => {
+                setS3Inputs((prev) => ({ ...prev, REGION: v }));
+                const error = validateS3Field('REGION', v);
+                setS3Errors((prev) => ({ ...prev, REGION: error }));
+              }}
+              placeholder="us-east-1"
+              validated={s3Errors.REGION ? 'error' : 'default'}
+            />
+            {s3Errors.REGION && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {s3Errors.REGION}
+              </div>
+            )}
+          </FormGroup>
+        </>
+      )}
+
+      {/* GitHub Configuration Fields */}
+      {form.state.values.source === 'GITHUB' && !form.state.values.is_external && (
+        <>
+          <FormGroup label="Repository URL" isRequired fieldId="kb-form-github-url">
+            <TextInput
+              isRequired
+              id="kb-form-github-url"
+              value={githubInputs.url}
+              onChange={(_e, v) => {
+                setGithubInputs((prev) => ({ ...prev, url: v }));
+                const error = validateGithubField('url', v);
+                setGithubErrors((prev) => ({ ...prev, url: error }));
+              }}
+              placeholder="https://github.com/owner/repo"
+              validated={githubErrors.url ? 'error' : 'default'}
+            />
+            {githubErrors.url && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {githubErrors.url}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup label="Path" fieldId="kb-form-github-path">
+            <TextInput
+              id="kb-form-github-path"
+              value={githubInputs.path}
+              onChange={(_e, v) => {
+                setGithubInputs((prev) => ({ ...prev, path: v }));
+                const error = validateGithubField('path', v);
+                setGithubErrors((prev) => ({ ...prev, path: error }));
+              }}
+              placeholder="docs/ (optional)"
+              validated={githubErrors.path ? 'error' : 'default'}
+            />
+            {githubErrors.path && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {githubErrors.path}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup label="Access Token" fieldId="kb-form-github-token">
+            <TextInput
+              type="password"
+              id="kb-form-github-token"
+              value={githubInputs.token}
+              onChange={(_e, v) => {
+                setGithubInputs((prev) => ({ ...prev, token: v }));
+                const error = validateGithubField('token', v);
+                setGithubErrors((prev) => ({ ...prev, token: error }));
+              }}
+              placeholder="Optional for public repos"
+              validated={githubErrors.token ? 'error' : 'default'}
+            />
+            {githubErrors.token && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {githubErrors.token}
+              </div>
+            )}
+          </FormGroup>
+          <FormGroup label="Branch" fieldId="kb-form-github-branch">
+            <TextInput
+              id="kb-form-github-branch"
+              value={githubInputs.branch}
+              onChange={(_e, v) => {
+                setGithubInputs((prev) => ({ ...prev, branch: v }));
+                const error = validateGithubField('branch', v);
+                setGithubErrors((prev) => ({ ...prev, branch: error }));
+              }}
+              placeholder="main (default)"
+              validated={githubErrors.branch ? 'error' : 'default'}
+            />
+            {githubErrors.branch && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {githubErrors.branch}
+              </div>
+            )}
+          </FormGroup>
+        </>
+      )}
+
+      {/* URL Configuration Fields */}
+      {form.state.values.source === 'URL' && !form.state.values.is_external && (
+        <FormGroup label="URLs" isRequired fieldId="kb-form-urls">
+          {urlInputs.map((url, index) => (
+            <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ flex: 1 }}>
+                <TextInput
+                  isRequired={index === 0}
+                  value={url}
+                  onChange={(_e, v) => {
+                    const updated = [...urlInputs];
+                    updated[index] = v;
+                    setUrlInputs(updated);
+                    
+                    const error = validateUrl(v);
+                    const updatedErrors = [...urlErrors];
+                    updatedErrors[index] = error;
+                    setUrlErrors(updatedErrors);
+                  }}
+                  placeholder={`URL ${index + 1}`}
+                  validated={urlErrors[index] ? 'error' : 'default'}
+                />
+                {urlErrors[index] && (
+                  <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                    {urlErrors[index]}
+                  </div>
+                )}
+              </div>
+              {urlInputs.length > 1 && (
+                <Button
+                  icon={<TrashIcon />}
+                  variant="danger"
+                  onClick={() => {
+                    const updated = urlInputs.filter((_, i) => i !== index);
+                    setUrlInputs(updated);
+                    const updatedErrors = urlErrors.filter((_, i) => i !== index);
+                    setUrlErrors(updatedErrors);
+                  }}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+          ))}
+          <Button 
+            variant="link" 
+            onClick={() => {
+              setUrlInputs([...urlInputs, '']);
+              setUrlErrors([...urlErrors, '']);
+            }}
+          >
+            + Add URL
+          </Button>
+        </FormGroup>
+      )}
+
+      <ActionGroup>
+        <form.Subscribe
+          selector={(state) => [state.canSubmit, state.isSubmitting, state.isPristine]}
+        >
+          {([canSubmit, isSubmitting, isPristine]) => (
+            <Button
+              icon={<PaperPlaneIcon />}
+              type="submit"
+              variant="primary"
+              isDisabled={!canSubmit || isSubmitting || isPristine}
+              isLoading={isSubmitting}
+            >
+              Submit
+            </Button>
+          )}
+        </form.Subscribe>
+        <Button variant="link" onClick={onCancel} isDisabled={isSubmitting}>
+          Cancel
+        </Button>
+      </ActionGroup>
+    </Form>
+  );
+}

@@ -15,6 +15,7 @@ import {
 import { useForm } from '@tanstack/react-form';
 import { Fragment, useMemo } from 'react';
 import { CustomSelectOptionProps, MultiSelect } from './multi-select';
+import { PaperPlaneIcon } from '@patternfly/react-icons';
 
 interface ModelsFieldProps {
   models: Model[];
@@ -383,6 +384,7 @@ export function AgentForm({
         >
           {([canSubmit, isSubmitting]) => (
             <Button
+              icon={<PaperPlaneIcon />}
               variant="primary"
               type="submit"
               isLoading={isSubmitting}

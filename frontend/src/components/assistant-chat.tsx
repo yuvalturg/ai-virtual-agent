@@ -19,7 +19,7 @@ import {
   MessageProps,
 } from '@patternfly/chatbot';
 import { DropdownItem, DropdownList } from '@patternfly/react-core';
-import baseUrl from '../config/api';
+import { CHAT_API_ENDPOINT, LLMS_API_ENDPOINT } from '../config/api';
 // import botAvatar from "../assets/img/bot-avatar.svg";
 // import userAvatar from "../assets/img/user-avatar.svg";
 import React, { Fragment, useEffect } from 'react';
@@ -133,7 +133,7 @@ export function AssistantChat() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch(`${baseUrl}/llama_stack/llms`);
+        const response = await fetch(LLMS_API_ENDPOINT);
         const models = (await response.json()) as LlamaModel[];
         const llmModels = models.filter((model: LlamaModel) => model.model_type === 'llm');
         setAvailableModels(llmModels);
@@ -192,7 +192,7 @@ export function AssistantChat() {
         }));
 
       // Stream response from LlamaStack
-      const response = await fetch(`${baseUrl}/llama_stack/chat`, {
+      const response = await fetch(CHAT_API_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

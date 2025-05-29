@@ -44,6 +44,17 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname, // Should resolve to 'frontend/'
       },
     },
+    rules: {
+      ...(config.rules || {}), // Preserve original rules
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
   })),
 
   // Additional configuration for React within TS/TSX files
