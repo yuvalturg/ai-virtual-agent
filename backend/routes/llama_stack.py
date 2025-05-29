@@ -163,6 +163,7 @@ async def get_providers():
             "provider_id": str(provider.provider_id),
             "provider_type": provider.provider_type,
             "config": provider.config if hasattr(provider, 'config') else {},
+            "api": provider.api
         } for provider in providers]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
