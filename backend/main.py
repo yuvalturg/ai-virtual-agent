@@ -50,15 +50,15 @@ async def on_startup():
         except Exception as e:
             print(f"Failed to sync knowledge bases on startup: {str(e)}")
 
-app.include_router(users.router)
-app.include_router(mcp_servers.router)
-app.include_router(tools.router)
-app.include_router(knowledge_bases.router)
-app.include_router(virtual_assistants.router)
-app.include_router(chat_history.router)
-app.include_router(guardrails.router)
-app.include_router(model_servers.router)
-app.include_router(llama_stack.router)
+app.include_router(users.router, prefix="/api")
+app.include_router(mcp_servers.router, prefix="/api")
+app.include_router(tools.router, prefix="/api")
+app.include_router(knowledge_bases.router, prefix="/api")
+app.include_router(virtual_assistants.router, prefix="/api")
+app.include_router(chat_history.router, prefix="/api")
+app.include_router(guardrails.router, prefix="/api")
+app.include_router(model_servers.router, prefix="/api")
+app.include_router(llama_stack.router, prefix="/api")
 
 # Serve React App (frontend)
 class SPAStaticFiles(StaticFiles):
