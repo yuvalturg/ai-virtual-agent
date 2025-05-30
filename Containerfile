@@ -26,19 +26,21 @@ USER root
 # Set working directory
 WORKDIR /app
 
+RUN dnf install -y nmap-ncat && dnf clean all
+
 # Copy backend and install dependencies
 COPY backend/ ./backend/
+COPY entrypoint.sh .
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy built frontend to backend's static files (adjust path if needed)
+# Copy built frontend to backend's static files
 COPY --from=frontend-builder /app/frontend/dist ./backend/public/
 
-RUN ls ./backend/public/
 
 USER 1001
 # Expose FastAPI port
 EXPOSE 8000
 
 # Start FastAPI server
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./entrypoint.sh"]
