@@ -59,33 +59,6 @@ class KnowledgeBase(Base):
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     creator = relationship("User", back_populates="knowledge_bases")
     va_links = relationship("VirtualAssistantKnowledgeBase", back_populates="knowledge_base")
-
-class VirtualAssistant(Base):
-    __tablename__ = "virtual_assistants"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    prompt = Column(Text, nullable=False)
-    model_name = Column(String(255), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
-    creator = relationship("User", back_populates="virtual_assistants")
-    knowledge_bases = relationship("VirtualAssistantKnowledgeBase", back_populates="virtual_assistant", cascade="all, delete-orphan")
-    tools = relationship("VirtualAssistantTool", back_populates="virtual_assistant", cascade="all, delete-orphan")
-    chat_histories = relationship("ChatHistory", back_populates="virtual_assistant")
-
-class VirtualAssistantKnowledgeBase(Base):
-    __tablename__ = "virtual_assistant_knowledge_bases"
-    virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
-    virtual_assistant = relationship("VirtualAssistant", back_populates="knowledge_bases")
-    vector_db_name = Column(String(255), ForeignKey("knowledge_bases.vector_db_name"), primary_key=True)
-    knowledge_base = relationship("KnowledgeBase", back_populates="va_links")
-
-class VirtualAssistantTool(Base):
-    __tablename__ = "virtual_assistant_tools"
-    virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id", ondelete="CASCADE"), primary_key=True)
-    virtual_assistant = relationship("VirtualAssistant", back_populates="tools")
-    toolgroup_id = Column(String(255), primary_key=True)
     
 
 class ChatHistory(Base):
