@@ -73,13 +73,32 @@ class KnowledgeBaseRead(KnowledgeBaseBase):
 class ToolAssociationInfo(BaseModel):
     toolgroup_id: str # This refers to MCPServer.toolgroup_id or BuiltInTool.toolgroup_id
 
+# class Strategy(BaseModel):
+#     type: Optional[str] = "greedy"
+#     temperature: Optional [float] = 0.1
+#     top_p: Optional [float] = 0.95
+
+# class SamplingParams(BaseModel):
+#     max_tokens: int = 4096
+#     repetition_penalty: float = 1.0
+#     strategy: Optional[Strategy] = None
+
 # VirtualAssistant Schemas
 class VirtualAssistantBase(BaseModel):
     name: str
-    prompt: str
-    model_name: str
-    knowledge_base_ids: List[str] = [] # Now expecting list of vector_db_names
-    tools: List[ToolAssociationInfo] = [] # Changed from tool_ids: List[str]
+    prompt: Optional [str] = None
+    model_name: Optional [str] = None
+    input_shields:  Optional [List[str]] = [] 
+    output_shields: Optional [List[str]] = [] 
+    temperature: Optional [float] = 0.1
+    repetition_penalty: Optional [float] = 1.0
+    max_tokens: Optional [int] = 4096
+    top_p: Optional [float] = 0.95
+    knowledge_base_ids: Optional [List[str]] = [] # Now expecting list of vector_db_names
+    tools: Optional [List[ToolAssociationInfo]] = [] # Changed from tool_ids: List[str]
+    max_infer_iters: Optional[int] = 10
+    enable_session_persistence: Optional[bool] = False
+
 
 class VirtualAssistantCreate(VirtualAssistantBase):
     pass
@@ -93,11 +112,7 @@ class VirtualAssistantUpdate(VirtualAssistantBase):
 
 
 class VirtualAssistantRead(VirtualAssistantBase):
-    id: UUID4
-    created_by: Optional[UUID4] = None
-    created_at: Any
-    updated_at: Any
-
+    id: str
     class Config:
         orm_mode = True
 

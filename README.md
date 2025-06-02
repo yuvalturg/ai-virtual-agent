@@ -16,6 +16,7 @@
     To delete the database before restarting PostgreSql db
 
     ```bash
+    podman volume ls
     podman compose down && podman volume rm ai-virtual-assistant_pgdata
     ```
 
