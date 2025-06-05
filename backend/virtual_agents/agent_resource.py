@@ -13,6 +13,8 @@ from llama_stack_client._wrappers import DataWrapper
 from llama_stack_client._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
 from llama_stack_client._base_client import make_request_options
 from llama_stack_client.resources.agents import AgentsResource
+from .session_resource import EnhancedSessionResource
+
 
 __all__ = ["VirtualAgentsResource"]
 
@@ -70,3 +72,7 @@ class VirtualAgentsResource(AgentsResource):
             ),
             cast_to=cast(Type[VirtualAgentListResponse], DataWrapper[VirtualAgentListResponse]),
         )
+    
+    @property
+    def session(self) -> EnhancedSessionResource:
+        return EnhancedSessionResource(self._client)

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from .database import engine, Base, AsyncSessionLocal
-from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers, llama_stack, tools
+from .routes import users, mcp_servers, knowledge_bases, virtual_assistants, chat_history, guardrails, model_servers, llama_stack, tools, chat_sessions
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -59,6 +59,7 @@ app.include_router(chat_history.router, prefix="/api")
 app.include_router(guardrails.router, prefix="/api")
 app.include_router(model_servers.router, prefix="/api")
 app.include_router(llama_stack.router, prefix="/api")
+app.include_router(chat_sessions.router, prefix="/api")
 
 # Serve React App (frontend)
 class SPAStaticFiles(StaticFiles):

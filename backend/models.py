@@ -22,10 +22,8 @@ class User(Base):
     role = Column(Enum(RoleEnum, name="role"), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
-    chat_histories = relationship("ChatHistory", back_populates="user")
     mcp_servers = relationship("MCPServer", back_populates="creator")
     knowledge_bases = relationship("KnowledgeBase", back_populates="creator")
-    virtual_assistants = relationship("VirtualAssistant", back_populates="creator")
     guardrails = relationship("Guardrail", back_populates="creator")
 
 class ToolTypeEnum(enum.Enum):
@@ -58,19 +56,19 @@ class KnowledgeBase(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     creator = relationship("User", back_populates="knowledge_bases")
-    va_links = relationship("VirtualAssistantKnowledgeBase", back_populates="knowledge_base")
     
 
-class ChatHistory(Base):
-    __tablename__ = "chat_history"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    virtual_assistant_id = Column(UUID(as_uuid=True), ForeignKey("virtual_assistants.id"))
-    virtual_assistant = relationship("VirtualAssistant", back_populates="chat_histories")
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    user = relationship("User", back_populates="chat_histories")
-    message = Column(Text, nullable=False)
-    response = Column(Text, nullable=False)
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+    id = Column(String(255), primary_key=True)
+    session_state = Column(JSON, default=dict)
+    
+    # New fields for sidebar display
+    title = Column(String(500), nullable=True)  # Generated summary/title
+    agent_name = Column(String(255), nullable=True)  # Agent display name
+
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
 class Guardrail(Base):
     __tablename__ = "guardrails"
@@ -90,14 +88,3 @@ class ModelServer(Base):
     model_name = Column(String(255), nullable=False)
     endpoint_url = Column(String(255), nullable=False)
     token = Column(String(255), nullable=True)
-
-class ChatSession(Base):
-    __tablename__ = "chat_sessions"
-    id = Column(String(255), primary_key=True)
-    # session_id = Column(UUID, unique=True)
-    # user_id = Column(UUID, ForeignKey("users.id"))
-    # assistant_id = Column(UUID, ForeignKey("assistants.id"))
-    # messages = Column(JSONB, default=list)
-    session_state = Column(JSON, default=dict)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())

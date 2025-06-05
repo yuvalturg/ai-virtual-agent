@@ -117,7 +117,7 @@ class VirtualAssistantRead(VirtualAssistantBase):
         orm_mode = True
 
 class ChatHistoryBase(BaseModel):
-    virtual_assistant_id: UUID4
+    agent_id: Optional[str] = None  # Changed from virtual_assistant_id to agent_id
     user_id: UUID4
     message: str
     response: str

@@ -1,3 +1,4 @@
+import React, { Fragment, useEffect, useState } from 'react';
 import {
   Chatbot,
   ChatbotContent,
@@ -11,7 +12,6 @@ import {
   ChatbotHeaderMenu,
   ChatbotHeaderSelectorDropdown,
   ChatbotHeaderTitle,
-  ChatbotWelcomePrompt,
   Conversation,
   Message,
   MessageBar,
@@ -19,15 +19,10 @@ import {
   MessageProps,
 } from '@patternfly/chatbot';
 import { DropdownItem, DropdownList } from '@patternfly/react-core';
-import { CHAT_API_ENDPOINT, LLMS_API_ENDPOINT } from '../config/api';
-// import botAvatar from "../assets/img/bot-avatar.svg";
-// import userAvatar from "../assets/img/user-avatar.svg";
-import React, { Fragment, useEffect } from 'react';
-
-interface LlamaMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+import { Agent } from '@/routes/config/agents';
+import { fetchAgents } from '@/services/agents';
+import { useSimpleLlamaChat } from '@/hooks/useSimpleLlamaChat';
+import { fetchChatSessions, createChatSession, ChatSessionSummary } from '@/services/chat-sessions';
 
 const footnoteProps = {
   label: 'ChatBot uses AI. Check for mistakes.',
@@ -51,214 +46,213 @@ const footnoteProps = {
   },
 };
 
-const fillerWelcomePrompts = [
-  {
-    title: 'Set up account',
-    message: 'Choose the necessary settings and preferences for your account.',
-  },
-  {
-    title: 'Troubleshoot issue',
-    message: 'Find documentation and instructions to resolve your issue.',
-  },
-];
-
-const fillerInitialConversations: Conversation[] = [
-  { id: '1', text: 'Hello, can you give me an example of what you can do?' },
-  {
-    id: '2',
-    text: 'Enterprise Linux installation and setup',
-  },
-  { id: '3', text: 'Troubleshoot system crash' },
-  { id: '4', text: 'Ansible security and updates' },
-  { id: '5', text: 'Red Hat certification' },
-  { id: '6', text: 'Lightspeed user documentation' },
-  { id: '7', text: 'Crashing pod assistance' },
-  { id: '8', text: 'OpenShift AI pipelines' },
-  { id: '9', text: 'Updating subscription plan' },
-  { id: '10', text: 'Red Hat licensing options' },
-  { id: '11', text: 'RHEL system performance' },
-  { id: '12', text: 'Manage user accounts' },
-];
-
-interface LlamaModel {
-  id: string;
-  name: string;
-  model_type: string;
-}
-
 export function AssistantChat() {
-  const [messages, setMessages] = React.useState<MessageProps[]>([]);
-  const [availableModels, setAvailableModels] = React.useState<LlamaModel[]>([]);
-  const [selectedModel, setSelectedModel] = React.useState('');
-  const [isSendButtonDisabled, setIsSendButtonDisabled] = React.useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
-  const [conversations, setConversations] = React.useState<
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [conversations, setConversations] = useState<
     Conversation[] | { [key: string]: Conversation[] }
-  >(fillerInitialConversations);
-  const [announcement, setAnnouncement] = React.useState<string>();
+  >([]);
+  const [announcement, setAnnouncement] = useState<string>('');
+  const [chatSessions, setChatSessions] = useState<ChatSessionSummary[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const scrollToBottomRef = React.useRef<HTMLDivElement>(null);
   const historyRef = React.useRef<HTMLButtonElement>(null);
 
+  // Use our custom hook for chat functionality
+  const {
+    messages: chatMessages,
+    input,
+    handleInputChange,
+    append,
+    isLoading,
+    resetSession,
+    loadSession,
+  } = useSimpleLlamaChat(selectedAgent || 'default', {
+    onError: (error: Error) => {
+      console.error('Chat error:', error);
+      setAnnouncement(`Error: ${error.message}`);
+    },
+    onFinish: () => {
+      setAnnouncement(`Message from assistant complete`);
+      if (scrollToBottomRef.current) {
+        scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    },
+  });
+
+  // Convert our chat messages to PatternFly format
+  const messages = React.useMemo(
+    () =>
+      chatMessages.map(
+        (msg): MessageProps => ({
+          id: msg.id,
+          role: msg.role === 'user' ? 'user' : 'bot',
+          content: msg.content,
+          name: msg.role === 'user' ? 'You' : 'Assistant',
+          timestamp: msg.timestamp.toLocaleString(),
+          avatar: '',
+          avatarProps: { isBordered: true },
+          isLoading:
+            msg.role === 'assistant' &&
+            isLoading &&
+            msg.id === chatMessages[chatMessages.length - 1]?.id,
+        })
+      ),
+    [chatMessages, isLoading]
+  );
+
   const displayMode = ChatbotDisplayMode.embedded;
 
-  const onSelectModel = (
+  const onSelectAgent = async (
     _event: React.MouseEvent<Element, MouseEvent> | undefined,
     value: string | number | undefined
   ) => {
-    setSelectedModel(value as string);
-  };
-  const findMatchingItems = (targetValue: string) => {
-    const filteredConversations = fillerInitialConversations.filter((convo) =>
-      convo.text.includes(targetValue)
-    );
-
-    // append message if no items are found
-    if (filteredConversations.length === 0) {
-      filteredConversations.push({
-        id: '13',
-        noIcon: true,
-        text: 'No results found',
-      });
+    if (value) {
+      const agentId = value.toString();
+      setSelectedAgent(agentId);
+      // Reset chat when changing agents
+      resetSession();
+      setSelectedSessionId(null);
+      // Fetch sessions for the new agent
+      await fetchSessionsData(agentId);
     }
-    return filteredConversations;
   };
 
-  //TODO: REPLACE THIS WITH ACTUAL IDs
-  const generateId = () => {
-    const id = Date.now() + Math.random();
-    return id.toString();
-  };
-
-  // Fetch available models on mount
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch(LLMS_API_ENDPOINT);
-        const models = (await response.json()) as LlamaModel[];
-        const llmModels = models.filter((model: LlamaModel) => model.model_type === 'llm');
-        setAvailableModels(llmModels);
-        if (llmModels.length > 0) {
-          setSelectedModel(llmModels[0].id);
-        }
-      } catch (err) {
-        console.error('Error fetching models:', err);
-        setAnnouncement('Failed to load LLM models');
-      }
-    };
-    void fetchModels();
-  }, []);
-
-  const handleSend = async (message: string) => {
-    if (!selectedModel || !message.trim()) return;
-
-    setIsSendButtonDisabled(true);
-    const newMessages: MessageProps[] = [];
-
-    // Add user message
-    newMessages.push({
-      id: generateId(),
-      role: 'user',
-      content: message,
-      name: 'You',
-      timestamp: new Date().toLocaleString(),
-      avatar: '',
-      avatarProps: { isBordered: true },
-    });
-
-    // Add assistant message
-    const assistantMessageId = generateId();
-    newMessages.push({
-      id: assistantMessageId,
-      role: 'bot',
-      content: '',
-      name: 'Assistant',
-      isLoading: true,
-      timestamp: new Date().toLocaleString(),
-      avatar: '',
-      avatarProps: { isBordered: true },
-    });
-
-    // Update messages state
-    setMessages((prevMessages) => [...prevMessages, ...newMessages]);
+  const onSelectActiveItem = async (_e: any, selectedItem: string | number | undefined) => {
+    if (!selectedItem || typeof selectedItem !== 'string') return;
 
     try {
-      // Convert messages to LlamaStack format
-      const llamaMessages: LlamaMessage[] = messages
-        .concat(newMessages)
-        .filter((msg) => !msg.isLoading)
-        .map((msg) => ({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content || '',
-        }));
-
-      // Stream response from LlamaStack
-      const response = await fetch(CHAT_API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: llamaMessages,
-          stream: true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          // Decode the chunk and process any complete SSE messages
-          const chunk = new TextDecoder().decode(value, { stream: true });
-          const lines = chunk.split('\n\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const text = line.slice(6);
-              if (text.trim() === '[DONE]') {
-                break;
-              } else if (text.trim().startsWith('Error:')) {
-                throw new Error(text.trim().slice(7));
-              } else if (text) {
-                // Update message content
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastMsg = updated.find((msg) => msg.id === assistantMessageId);
-                  if (lastMsg) {
-                    // Add space after sentence endings if needed
-                    const currentContent = lastMsg.content || '';
-                    const needsSpace =
-                      currentContent.match(/[.!?]$/) && text && !text.startsWith(' ');
-                    lastMsg.content = currentContent + (needsSpace ? ' ' : '') + text;
-                    lastMsg.isLoading = false;
-                  }
-                  return updated;
-                });
-
-                // Scroll to bottom
-                if (scrollToBottomRef.current) {
-                  scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' });
-                }
-              }
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-      setAnnouncement(`Message from Bot: API response goes here`);
-      setIsSendButtonDisabled(false);
+      setSelectedSessionId(selectedItem);
+      await loadSession(selectedItem);
+      setIsDrawerOpen(false); // Close sidebar after selection
     } catch (error) {
-      console.error('Error sending message:', error);
-      setAnnouncement('Failed to send message');
+      console.error('Error loading session:', error);
+      setAnnouncement('Failed to load chat session');
+    }
+  };
+
+  const onNewChat = async () => {
+    if (!selectedAgent) return;
+
+    try {
+      // Create a new session for the current agent
+      const newSession = await createChatSession(selectedAgent);
+      setSelectedSessionId(newSession.id);
+
+      // Reset chat messages
+      resetSession();
+
+      // Refresh sessions list to include the new session
+      await fetchSessionsData(selectedAgent);
+
+      setIsDrawerOpen(false);
+    } catch (error) {
+      console.error('Error creating new session:', error);
+      setAnnouncement('Failed to create new chat session');
+    }
+  };
+
+  const findMatchingItems = (targetValue: string) => {
+    const filteredConversations = chatSessions.filter((session) =>
+      session.title.toLowerCase().includes(targetValue.toLowerCase())
+    );
+
+    // Convert to PatternFly conversation format
+    const conversations = filteredConversations.map((session) => ({
+      id: session.id,
+      text: session.title,
+      description: session.agent_name,
+      timestamp: new Date(session.updated_at).toLocaleDateString(),
+    }));
+
+    // append message if no items are found
+    if (conversations.length === 0) {
+      conversations.push({
+        id: '13',
+        text: 'No results found',
+        description: '',
+        timestamp: '',
+      });
+    }
+    return conversations;
+  };
+
+  const fetchSessionsData = async (agentId?: string) => {
+    try {
+      const sessions = await fetchChatSessions(agentId);
+      setChatSessions(sessions);
+
+      // Convert to PatternFly conversation format
+      const conversations = sessions.map((session) => ({
+        id: session.id,
+        text: session.title,
+        description: session.agent_name,
+        timestamp: new Date(session.updated_at).toLocaleDateString(),
+      }));
+
+      setConversations(conversations);
+
+      // Auto-select most recent session if none selected and sessions exist
+      if (!selectedSessionId && sessions.length > 0) {
+        const mostRecentSession = sessions[0]; // They're ordered by updated_at desc
+        setSelectedSessionId(mostRecentSession.id);
+        await loadSession(mostRecentSession.id);
+      } else if (sessions.length === 0 && agentId) {
+        // Create a new session if agent has no sessions
+        try {
+          const newSession = await createChatSession(agentId);
+          setSelectedSessionId(newSession.id);
+          // The session starts empty so no need to load messages
+          // Just refresh the sessions list
+          await fetchSessionsData(agentId);
+        } catch (error) {
+          console.error('Error creating initial session:', error);
+          setAnnouncement('Failed to create initial session');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching chat sessions:', error);
+    }
+  };
+
+  // Fetch available agents on mount
+  useEffect(() => {
+    const fetchAgentsData = async () => {
+      try {
+        const agents = await fetchAgents();
+        setAvailableAgents(agents);
+        if (agents.length > 0) {
+          const firstAgent = agents[0].id;
+          setSelectedAgent(firstAgent);
+          // Fetch sessions for the first agent
+          await fetchSessionsData(firstAgent);
+        }
+      } catch (err) {
+        console.error('Error fetching agents:', err);
+        setAnnouncement('Failed to load agents');
+      }
+    };
+
+    void fetchAgentsData();
+  }, []);
+
+  // Handle message sending
+  const handleSendMessage = (message: string | number) => {
+    console.log('handleSendMessage called with:', message, 'selectedAgent:', selectedAgent);
+    if (typeof message === 'string' && message.trim() && selectedAgent) {
+      console.log('Sending message via append:', message);
+      // Add the message to the chat
+      append({
+        role: 'user',
+        content: message.toString(),
+      });
+    } else {
+      console.log('Message not sent - conditions not met:', {
+        messageType: typeof message,
+        messageLength: typeof message === 'string' ? message.trim().length : 0,
+        selectedAgent: selectedAgent,
+      });
     }
   };
 
@@ -272,20 +266,20 @@ export function AssistantChat() {
         isDrawerOpen={isDrawerOpen}
         setIsDrawerOpen={setIsDrawerOpen}
         activeItemId="1"
-        onSelectActiveItem={(_e, selectedItem) =>
-          console.log(`Selected history item with id ${selectedItem}`)
-        }
+        onSelectActiveItem={onSelectActiveItem}
         conversations={conversations}
-        onNewChat={() => {
-          setIsDrawerOpen(!isDrawerOpen);
-          setMessages([]);
-        }}
+        onNewChat={onNewChat}
         handleTextInputChange={(value: string) => {
           if (value === '') {
-            setConversations(fillerInitialConversations);
+            // Convert sessions to conversations format
+            const conversations = chatSessions.map((session) => ({
+              id: session.id,
+              text: session.title,
+              description: session.agent_name,
+              timestamp: new Date(session.updated_at).toLocaleDateString(),
+            }));
+            setConversations(conversations);
           }
-          // this is where you would perform search on the items in the drawer
-          // and update the state
           const newConversations = findMatchingItems(value);
           setConversations(newConversations);
         }}
@@ -301,11 +295,18 @@ export function AssistantChat() {
                 <ChatbotHeaderTitle>Chat</ChatbotHeaderTitle>
               </ChatbotHeaderMain>
               <ChatbotHeaderActions>
-                <ChatbotHeaderSelectorDropdown value={selectedModel} onSelect={onSelectModel}>
+                <ChatbotHeaderSelectorDropdown
+                  value={
+                    availableAgents.find((agent) => agent.id === selectedAgent)?.name ||
+                    'Select Agent'
+                  }
+                  onSelect={onSelectAgent}
+                  tooltipContent="Select Agent"
+                >
                   <DropdownList>
-                    {availableModels.map((model) => (
-                      <DropdownItem value={model.id} key={model.id}>
-                        {model.name}
+                    {availableAgents.map((agent) => (
+                      <DropdownItem value={agent.id} key={agent.id}>
+                        {agent.name}
                       </DropdownItem>
                     ))}
                   </DropdownList>
@@ -313,19 +314,7 @@ export function AssistantChat() {
               </ChatbotHeaderActions>
             </ChatbotHeader>
             <ChatbotContent>
-              {/* Update the announcement prop on MessageBox whenever a new message is sent
-                 so that users of assistive devices receive sufficient context  */}
               <MessageBox announcement={announcement}>
-                <ChatbotWelcomePrompt
-                  title="Hi, ChatBot User!"
-                  description="How can I help you today?"
-                  prompts={fillerWelcomePrompts}
-                />
-                {/* This code block enables scrolling to the top of the last message.
-                  You can instead choose to move the div with scrollToBottomRef on it below 
-                  the map of messages, so that users are forced to scroll to the bottom.
-                  If you are using streaming, you will want to take a different approach; 
-                  see: https://github.com/patternfly/chatbot/issues/201#issuecomment-2400725173 */}
                 {messages.map((message, index) => {
                   if (index === messages.length - 1) {
                     return (
@@ -341,11 +330,11 @@ export function AssistantChat() {
             </ChatbotContent>
             <ChatbotFooter>
               <MessageBar
-                onSendMessage={(message) => {
-                  void handleSend(message as string);
-                }}
+                onSendMessage={handleSendMessage as (message: string | number) => void}
                 hasMicrophoneButton
-                isSendButtonDisabled={isSendButtonDisabled}
+                isSendButtonDisabled={isLoading || !selectedAgent}
+                value={input}
+                onChange={handleInputChange}
               />
               <ChatbotFootnote {...footnoteProps} />
             </ChatbotFooter>

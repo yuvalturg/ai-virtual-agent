@@ -5,15 +5,14 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from backend.models import VirtualAssistant
 from backend.database import get_db
-from typing import List, Dict, Any, Literal, Optional
 import logging
 from pydantic import BaseModel
 from .chat import Chat
 from ..api.llamastack import client
 from .. import models
 from fastapi import BackgroundTasks
+from .virtual_assistants import read_virtual_assistant
 
 class Message(BaseModel):
     role: Literal['user', 'assistant', 'system']
@@ -179,78 +178,54 @@ async def chat(request: ChatRequest, background_task: BackgroundTasks, db: Async
     """Chat endpoint that streams responses from LlamaStack"""
     try:
         log.info(f"Received request: {request.model_dump()}")
-        # Get the list of available virtual assistants from the database
-        result = await db.execute(select(models.VirtualAssistant))
-        assistants = result.scalars().all()
-        selectedAssistant = VirtualAssistant()
         
-        # If the requested virtual assistant is available, use it
-        for va in assistants:
-            log.info(f"Requested virtual assistant: {request.virtualAssistantId}")
-            log.info(f"Processing virtual assistant: {va.id}")
-            if str(va.id) == request.virtualAssistantId:
-                log.info(f"Found virtual assistant: {va.id}")
-                selectedAssistant = va
-                break
-
-        if not selectedAssistant:
+        # Get the agent directly from LlamaStack
+        try:
+            agent = client.agents.retrieve(agent_id=request.virtualAssistantId)
+            log.info(f"Found agent: {agent.agent_id}")
+        except Exception as e:
+            log.error(f"Agent {request.virtualAssistantId} not found in LlamaStack: {str(e)}")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Requested virtual assistant {request.virtualAssistantId} not available"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Virtual assistant {request.virtualAssistantId} not found"
             )
 
-        log.info(f"Selected virtual assistant: {selectedAssistant.name}")
+        # Use the agent_id directly from LlamaStack 
+        agent_id = request.virtualAssistantId
+        
+        # Session ID is required - no session creation in chat endpoint
+        session_id = request.sessionId
+        if not session_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Session ID is required. Please select or create a session first."
+            )
+        
+        log.info(f"Using agent: {agent_id} with session: {session_id}")
 
-        session_id = "session_not_set"
-        if request.sessionId:
-            session_id = request.sessionId
-
-        # Fetch the session_id from the session_state stored in the database.
-        session_state = None
-        if session_id != "session_not_set":
-            result = await db.execute(select(models.ChatSession).where(models.ChatSession.id == session_id))
-            session = result.scalar_one_or_none()
-            if session:
-                session_state = json.loads(session.session_state)
-                # TODO: Might need to resolve scenarios with divergence in session_ids
-                # Overriding request session_id with the one stored in the session_state
-                if "agent_session_id" in session_state:
-                    session_id = session_state["agent_session_id"]
-                log.info(f"Got Session state with session_id: {session_id} from the database")
-            else:
-                log.info(f"Session {session_id} not found in the database")
-
-        # TODO: Define whether we want to prioritize message history from the database or from the ui ?
-        # TODO: Currently llama stack in agent mode does not accept message history from the ui
-        # Uncomment below to use message history from the ui
-        # session_state["messages"] = request.messages
-
-        chat = Chat(session_state, selectedAssistant, log)
+        # Create stateless Chat instance (no longer needs assistant or session_state)
+        chat = Chat(log)
         
         def generate_response():
             try:
-                # Can check if there is last message and role is user
+                # Get the last user message
                 if len(request.messages) > 0:
-                    last_message = request.messages.pop()
-                    for chunk in chat.stream(last_message.content):
-                        # Escape text so it can be sent as json
-                        text = json.dumps(chunk)
-                        yield f"data: {{\"type\":\"text\",\"content\":{text}}}\n\n"
-
-                    # Send session ID as an event
-                    log.info(f"Sending Session ID: {chat.session_id}")
-                    yield f"data: {{\"type\":\"session\",\"sessionId\":\"{chat.session_id}\"}}\n\n"
+                    last_message = request.messages[-1]  # Get last message instead of popping
+                    # Stream response using new stateless interface
+                    for chunk in chat.stream(agent_id, session_id, last_message.content):
+                        # Send the chunk directly since it's already properly formatted JSON
+                        yield f"data: {chunk}\n\n"
 
                 # End of stream
                 yield f"data: [DONE]\n\n"
+                
+                # Save session metadata to database
+                background_task.add_task(save_session_metadata, db, session_id, agent_id, request.messages)
 
             except Exception as e:
                 log.error(f"Error in stream: {str(e)}")
-                #yield f"data: Error: {str(e)}\n\n"
-                yield f"data: Error  {str(e)}\n\n"
+                yield f"data: {{\"type\":\"error\",\"content\":\"Error: {str(e)}\"}}\n\n"
 
-        # Save session state to db
-        background_task.add_task(save_session_state, chat, db)
         
         return StreamingResponse(
             generate_response(),
@@ -265,16 +240,50 @@ async def chat(request: ChatRequest, background_task: BackgroundTasks, db: Async
             detail=str(e)
         )
 
-async def save_session_state(chat: Chat, db: AsyncSession): 
-    #Save session state to the database
-    log.info(f"Saving session_state with session id: {chat.session_id}")
-    insert_stmt = insert(ChatSession).values(
-        id = chat.session_id,
-        session_state=json.dumps(chat.session_state)
-    )
-    update_stmt = insert_stmt.on_conflict_do_update(
-        index_elements=[ChatSession.id],
-        set_=dict(session_state=json.dumps(chat.session_state))
-    )
-    await db.execute(update_stmt)
-    await db.commit()
+async def save_session_metadata(db: AsyncSession, session_id: str, agent_id: str, messages: list):
+    """Save session metadata to database for sidebar display"""
+    try:
+        # Generate title from first user message
+        title = "New Chat"
+        if messages:
+            # Find first user message for title
+            for msg in messages:
+                if msg.role == "user":
+                    content = msg.content
+                    title = content[:50] + "..." if len(content) > 50 else content
+                    break
+        
+        # Get agent name
+        agent_name = "Unknown Agent"
+        try:
+            # Fetch agent details from LlamaStack
+            agent_details = await read_virtual_assistant(agent_id)
+            agent_name = agent_details.get("name", f"Agent {agent_id[:8]}...")
+        except Exception as e:
+            log.error(f"Error fetching agent details: {e}")
+            agent_name = f"Agent {agent_id[:8]}..."
+        
+        
+        # Insert or update session metadata
+        stmt = insert(models.ChatSession).values(
+            id=session_id,
+            title=title,
+            agent_name=agent_name,
+            session_state=json.dumps({"agent_id": agent_id, "session_id": session_id})
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['id'],
+            set_=dict(
+                title=stmt.excluded.title,
+                agent_name=stmt.excluded.agent_name,
+                updated_at=stmt.excluded.updated_at
+            )
+        )
+        
+        await db.execute(stmt)
+        await db.commit()
+        log.info(f"Saved session metadata for {session_id}")
+        
+    except Exception as e:
+        log.error(f"Error saving session metadata: {e}")
+        await db.rollback()

@@ -1,6 +1,6 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
 import { UpdateAgentProps } from '@/services/agents';
-import { KnowledgeBase, Model, ToolGroup, ToolAssociationInfo } from '@/types';
+import { KnowledgeBase, Model, ToolGroup, ToolAssociationInfo, LSKnowledgeBase } from '@/types';
 import {
   ActionGroup,
   Button,
@@ -24,7 +24,7 @@ interface ModelsFieldProps {
 }
 
 interface KnowledgeBasesFieldProps {
-  knowledgeBases: KnowledgeBase[];
+  knowledgeBases: LSKnowledgeBase[];
   isLoadingKnowledgeBases: boolean;
   knowledgeBasesError: Error | null;
 }
@@ -162,9 +162,9 @@ export function AgentForm({
       ];
     }
     return knowledgeBases.map((kb) => ({
-      value: kb.vector_db_name, // Use vector_db_name as the primary key
-      children: kb.name, // The name will be displayed
-      id: `kb-option-${kb.vector_db_name}`, // Unique ID for React key and ARIA
+      value: kb.kb_name, // Use vector_db_name as the primary key
+      children: kb.kb_name, // The name will be displayed
+      id: `kb-option-${kb.kb_name}`, // Unique ID for React key and ARIA
     }));
   }, [knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError]);
 

@@ -17,162 +17,124 @@ class AgentType(enum.Enum):
 class Chat:
 
     """
-    A class representing a chatbot.
+    A stateless class for handling chat interactions with LlamaStack.
+    
+    This class no longer maintains local state and instead retrieves
+    everything from LlamaStack APIs using agent_id and session_id.
 
     Args:
-        config (dict): Configuration settings for the chatbot.
         logger: Logger object for logging messages.
-
-    Attributes:
-        logger: Logger object for logging messages.
-        config (dict): Configuration settings for the chatbot.
-        model_kwargs (dict): Keyword arguments for the model.
-        embeddings: HuggingFaceEmbeddings object for handling embeddings.
-        prompt_template: Template for the chatbot's prompt.
 
     Methods:
-        _format_sources: Formats the list of sources.
-        stream: Streams the chatbot's response based on the query and other parameters.
+        stream: Streams the chatbot's response based on agent_id, session_id, and prompt.
     """
 
-    def __init__(self, session_state, assistant, logger):
+    def __init__(self, logger):
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
-        # Initialize session_state if needed
-        self.session_state = None
-        if not session_state:
-            self.session_state = {}
-            self.session_state["agent_type"] = str(AgentType.REGULAR)
-            self.session_state["messages"] = []
-        else:
-            self.session_state = session_state
-
-        # Set a temporary session_id if not yet created
-        self.session_id = "session_not_set"
-        if "agent_session_id" in self.session_state:
-            self.session_id = self.session_state["agent_session_id"]
-        
-        self.model = assistant.model_name
-        # TODO: Tools need to be assembled from builtins, kbs and mcp servers
-        self.kbs = []
-        self.mcp_servers = []
-        self.tools = []
         self.log = logger
-        
-    def _reset_agent(self):
-        self.session_state.clear()
-        # st.cache_resource.clear()
-        pass
-
     def _get_client(self):
         return client
 
-    def _get_tools(self):
-        # get the list of tools from the knowledge bases and mcp servers
-        # tool_groups = self._get_client().toolgroups.list()
-        # tool_groups_list = [tool_group.identifier for tool_group in tool_groups]
-        # mcp_tools_list = [tool for tool in tool_groups_list if tool.startswith("mcp::")]
-        # builtin_tools_list = [tool for tool in tool_groups_list if not tool.startswith("mcp::")]
+    def _get_agent_config(self, agent_id: str):
+        """Retrieve agent configuration from LlamaStack."""
+        try:
+            agent_config = self._get_client().agents.get(agent_id=agent_id)
+            return agent_config
+        except Exception as e:
+            self.log.error(f"Error retrieving agent config for {agent_id}: {e}")
+            return None
 
-        # toolgroup_selection = tool_groups_list
-        # selected_vector_dbs = self._get_client().vector_dbs.list() or []
+    def _get_tools_for_agent(self, agent_id: str):
+        """Retrieve tools configuration for an agent from LlamaStack."""
+        try:
+            agent_config = self._get_agent_config(agent_id)
+            if agent_config and hasattr(agent_config, 'tool_config') and agent_config.tool_config:
+                return agent_config.tool_config.tools
+            return []
+        except Exception as e:
+            self.log.error(f"Error retrieving tools for agent {agent_id}: {e}")
+            return []
 
-        # for i, tool_name in enumerate(toolgroup_selection):
-        #     if tool_name == "builtin::rag":
-        #         tool_dict = dict(
-        #             name="builtin::rag",
-        #             args={
-        #                 "vector_db_ids": list(selected_vector_dbs),
-        #             },
-        #         )
-        #         toolgroup_selection[i] = tool_dict
-
-        # return toolgroup_selection
-        return self.tools
-
-
-    def _get_model(self):
-        
-        # models = self._get_client().models.list()
-        # model_list = [model.identifier for model in models if model.api_model_type == "llm"]
-        # return model_list[0]
-        return self.model
+    def _get_model_for_agent(self, agent_id: str):
+        """Retrieve model configuration for an agent from LlamaStack."""
+        try:
+            agent_config = self._get_agent_config(agent_id)
+            if agent_config and hasattr(agent_config, 'model'):
+                return agent_config.model
+            # Fallback to default model if not found
+            models = self._get_client().models.list()
+            model_list = [model.identifier for model in models if model.api_model_type == "llm"]
+            return model_list[0] if model_list else "llama-3.1-8b-instruct"
+        except Exception as e:
+            self.log.error(f"Error retrieving model for agent {agent_id}: {e}")
+            return "llama-3.1-8b-instruct"
 
 
-    def _create_agent(self, 
-                    agent_type: AgentType,
-                    model: str,
-                    tools: list,
-                    max_tokens: int):
-        
+    def _create_agent_with_existing_id(self, agent_id: str, session_id: str):
+        """Create an agent instance using an existing agent_id from LlamaStack."""
+        try:
+            agent_config = self._get_agent_config(agent_id)
+            if not agent_config:
+                raise Exception(f"Agent {agent_id} not found")
+            
+            model = self._get_model_for_agent(agent_id)
+            tools = self._get_tools_for_agent(agent_id)
+            
+            # Determine agent type from config (default to REGULAR)
+            agent_type = AgentType.REGULAR
+            
+            # Create agent instance using existing ID
+            if agent_type == AgentType.REACT:
+                return ExistingReActAgent(
+                    self._get_client(),
+                    agent_id=agent_id,
+                    model=model,
+                    tools=tools,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": ReActOutput.model_json_schema(),
+                    },
+                    sampling_params={"strategy": {"type": "greedy"}, "max_tokens": 512},
+                )
+            else:
+                return ExistingAgent(
+                    self._get_client(),
+                    agent_id=agent_id,
+                    model=model,
+                    instructions="You are a helpful assistant. When you use a tool always respond with a summary of the result.",
+                    tools=tools,
+                    sampling_params={"strategy": {"type": "greedy"}, "max_tokens": 512},
+                )
+        except Exception as e:
+            self.log.error(f"Error creating agent with ID {agent_id}: {e}")
+            raise
+
+    def _response_generator(self, turn_response, session_id: str, agent_type: AgentType):
         if agent_type == AgentType.REACT:
-            return ReActAgent(
-                self._get_client(),
-                model=model,
-                tools=tools,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": ReActOutput.model_json_schema(),
-                },
-                sampling_params={"strategy": {"type": "greedy"}, "max_tokens": max_tokens},
-            )
+            return self._handle_react_response(turn_response, session_id)
         else:
-            return Agent(
-                self._get_client(),
-                model=model,
-                instructions="You are a helpful assistant. When you use a tool always respond with a summary of the result.",
-                tools=tools,
-                sampling_params={"strategy": {"type": "greedy"}, "max_tokens": max_tokens},
-            )
+            return self._handle_regular_response(turn_response, session_id)
 
-    def _create_agent_with_id(self,
-                           agent_type: AgentType,
-                           agent_id: str,
-                           model: str,
-                           tools: list,
-                           max_tokens: int):
-        """Create an agent with an existing agent_id without calling initialize()."""
-
-        if agent_type == AgentType.REACT:
-            return ExistingReActAgent(
-                self._get_client(),
-                agent_id=agent_id,
-                model=model,
-                tools=tools,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": ReActOutput.model_json_schema(),
-                },
-                sampling_params={"strategy": {"type": "greedy"}, "max_tokens": max_tokens},
-            )
-        else:
-            return ExistingAgent(
-                self._get_client(),
-                agent_id=agent_id,
-                model=model,
-                instructions="You are a helpful assistant. When you use a tool always respond with a summary of the result.",
-                tools=tools,
-                sampling_params={"strategy": {"type": "greedy"}, "max_tokens": max_tokens},
-            )
-
-    def _response_generator(self, turn_response):
-        if self.session_state.get("agent_type") == AgentType.REACT:
-            return self._handle_react_response(turn_response)
-        else:
-            return self._handle_regular_response(turn_response)
-
-    def _handle_react_response(self, turn_response):
+    def _handle_react_response(self, turn_response, session_id: str):
         current_step_content = ""
         final_answer = None
         tool_results = []
+        
+        # Send session ID first to help client initialize the connection
+        yield json.dumps({"type": "session", "sessionId": session_id})
 
         for response in turn_response:
             if not hasattr(response.event, "payload"):
-                yield (
-                    "\n\n🚨 :red[_Llama Stack server Error:_]\n"
-                    "The response received is missing an expected `payload` attribute.\n"
+                error_msg = (
+                    "\n\n🚨 Llama Stack server Error: "
+                    "The response received is missing an expected `payload` attribute. "
                     "This could indicate a malformed response or an internal issue within the server.\n\n"
                     f"Error details: {response}"
                 )
+                yield json.dumps({
+                    "type": "error",
+                    "content": error_msg
+                })
                 return
 
             payload = response.event.payload
@@ -185,7 +147,8 @@ class Chat:
                 step_details = payload.step_details
 
                 if step_details.step_type == "inference":
-                    yield from self._process_inference_step(current_step_content, tool_results, final_answer)
+                    for chunk in self._process_inference_step_json(current_step_content, tool_results, final_answer):
+                        yield chunk
                     current_step_content = ""
                 elif step_details.step_type == "tool_execution":
                     tool_results = self._process_tool_execution(step_details, tool_results)
@@ -194,9 +157,11 @@ class Chat:
                     current_step_content = ""
 
         if not final_answer and tool_results:
-            yield from self._format_tool_results_summary(tool_results)
+            for chunk in self._format_tool_results_summary_json(tool_results):
+                yield chunk
 
     def _process_inference_step(self, current_step_content, tool_results, final_answer):
+        """Original method for backward compatibility"""
         try:
             react_output_data = json.loads(current_step_content)
             thought = react_output_data.get("thought")
@@ -224,6 +189,58 @@ class Chat:
             yield f"\n\nFailed to parse ReAct step content:\n```json\n{current_step_content}\n```"
         except Exception as e:
             yield f"\n\nFailed to process ReAct step: {e}\n```json\n{current_step_content}\n```"
+
+        return final_answer
+        
+    def _process_inference_step_json(self, current_step_content, tool_results, final_answer):
+        """JSON-emitting version for AI SDK compatibility"""
+        try:
+            react_output_data = json.loads(current_step_content)
+            thought = react_output_data.get("thought")
+            action = react_output_data.get("action")
+            answer = react_output_data.get("answer")
+
+            if answer and answer != "null" and answer is not None:
+                final_answer = answer
+
+            # Emit thought as reasoning
+            if thought:
+                yield json.dumps({
+                    "type": "reasoning",
+                    "content": thought
+                })
+
+            # Emit action as tool
+            if action and isinstance(action, dict):
+                tool_name = action.get("tool_name")
+                tool_params = action.get("tool_params")
+                if tool_name:
+                    yield json.dumps({
+                        "type": "tool",
+                        "content": f'Using "{tool_name}" tool',
+                        "tool": {
+                            "name": tool_name,
+                            "params": tool_params
+                        }
+                    })
+                    
+            # Emit final answer
+            if answer and answer != "null" and answer is not None:
+                yield json.dumps({
+                    "type": "text",
+                    "content": f"Final Answer: {answer}"
+                })
+
+        except json.JSONDecodeError:
+            yield json.dumps({
+                "type": "error",
+                "content": f"Failed to parse ReAct step content: {current_step_content}"
+            })
+        except Exception as e:
+            yield json.dumps({
+                "type": "error",
+                "content": f"Failed to process ReAct step: {e} - {current_step_content}"
+            })
 
         return final_answer
 
@@ -316,83 +333,146 @@ class Chat:
                 first_value = next(iter(item.values()))
                 if isinstance(first_value, str) and len(first_value) < 100:
                     yield f"- {first_value}\n"
+                    
+    def _format_tool_results_summary_json(self, tool_results):
+        """JSON-emitting version of tool results summary for AI SDK compatibility"""
+        summary_text = "Here's what I found:\n"
+        
+        for tool_name, content in tool_results:
+            try:
+                parsed_content = json.loads(content)
 
-    def _handle_regular_response(self, turn_response):
+                if tool_name == "web_search" and "top_k" in parsed_content:
+                    # Format web search results
+                    for i, result in enumerate(parsed_content["top_k"], 1):
+                        if i <= 3:
+                            title = result.get("title", "Untitled")
+                            url = result.get("url", "")
+                            content_text = result.get("content", "").strip()
+                            summary_text += f"\n- **{title}**\n  {content_text}\n  [Source]({url})\n"
+                
+                elif "results" in parsed_content and isinstance(parsed_content["results"], list):
+                    # Format results list
+                    for i, result in enumerate(parsed_content["results"], 1):
+                        if i <= 3:
+                            if isinstance(result, dict):
+                                name = result.get("name", result.get("title", "Result " + str(i)))
+                                description = result.get("description", result.get("content", result.get("summary", "")))
+                                summary_text += f"\n- **{name}**\n  {description}\n"
+                            else:
+                                summary_text += f"\n- {result}\n"
+                
+                elif isinstance(parsed_content, dict) and len(parsed_content) > 0:
+                    # Format dictionary results
+                    summary_text += "\n```\n"
+                    for key, value in list(parsed_content.items())[:5]:
+                        if isinstance(value, str) and len(value) < 100:
+                            summary_text += f"{key}: {value}\n"
+                        else:
+                            summary_text += f"{key}: [Complex data]\n"
+                    summary_text += "```\n"
+                
+                elif isinstance(parsed_content, list) and len(parsed_content) > 0:
+                    # Format list results
+                    summary_text += "\n"
+                    for _, item in enumerate(parsed_content[:3], 1):
+                        if isinstance(item, str):
+                            summary_text += f"- {item}\n"
+                        elif isinstance(item, dict) and "text" in item:
+                            summary_text += f"- {item['text']}\n"
+                        elif isinstance(item, dict) and len(item) > 0:
+                            first_value = next(iter(item.values()))
+                            if isinstance(first_value, str) and len(first_value) < 100:
+                                summary_text += f"- {first_value}\n"
+                
+            except json.JSONDecodeError:
+                summary_text += f"\n**{tool_name}** was used but returned complex data.\n"
+            except (TypeError, AttributeError, KeyError, IndexError) as e:
+                summary_text += f"\n**{tool_name}** was used but encountered an error: {type(e).__name__}\n"
+        
+        # Return as JSON object with type and content
+        yield json.dumps({
+            "type": "text",
+            "content": summary_text
+        })
+
+    def _handle_regular_response(self, turn_response, session_id: str):
+        # Send session ID first to help client initialize the connection
+        yield json.dumps({"type": "session", "sessionId": session_id})
+        
         for response in turn_response:
             if hasattr(response.event, "payload"):
                 print(response.event.payload)
                 if response.event.payload.event_type == "step_progress":
                     if hasattr(response.event.payload.delta, "text"):
-                        yield response.event.payload.delta.text
+                        # Format as JSON for AI SDK compatibility
+                        yield json.dumps({
+                            "type": "text",
+                            "content": response.event.payload.delta.text
+                        })
                 if response.event.payload.event_type == "step_complete":
                     # if response.event.payload.step_details.step_type == "inference":
                     #     # TODO: Save assistant responses in session_state ?
                     #     if hasattr(response.event.payload.step_details, "api_model_response"):
                     #         completion_message = response.event.payload.step_details.api_model_response
                     #         self.session_state["messages"].append(completion_message.to_json())
-                    #         yield "\n\nend_of_turn\n\n"
+                    #         yield json.dumps({"type": "end", "content": "end_of_turn"})
                     if response.event.payload.step_details.step_type == "tool_execution":
                         if response.event.payload.step_details.tool_calls:
                             tool_name = str(response.event.payload.step_details.tool_calls[0].tool_name)
-                            yield f'\n\n🛠 :grey[_Using "{tool_name}" tool:_]\n\n'
+                            yield json.dumps({
+                                "type": "tool",
+                                "content": f'Using "{tool_name}" tool:',
+                                "tool": {
+                                    "name": tool_name
+                                }
+                            })
                         else:
-                            yield "No tool_calls present in step_details"
+                            yield json.dumps({
+                                "type": "text",
+                                "content": "No tool_calls present in step_details"
+                            })
             else:
-                yield f"Error occurred in the Llama Stack Cluster: {response}"
+                yield json.dumps({
+                    "type": "error",
+                    "content": f"Error occurred in the Llama Stack Cluster: {response}"
+                })
 
-    def stream(self, prompt: str):
-        # Force defaulting to REGULAR agent type
-        agent_type = AgentType.REGULAR
-        self.session_state["agent_type"] = str(agent_type)
-        max_tokens = 512 # 4096
-
-        # Create agent if not present in session state
-        if "agent_id" not in self.session_state:
-            # Create agent
-            agent = self._create_agent(agent_type, self._get_model(), self._get_tools(), max_tokens)
-            # Save agent id in session state so it can be used to retrieve the agent from registry
-            self.session_state["agent_id"] = agent.agent_id
-            self.log.info(f"Created a new agent: {self.session_state['agent_id']}")
-        else:
-            try:
-                # Attempt to re-use existing agent
-                agent = self._create_agent_with_id(agent_type, self.session_state["agent_id"],self._get_model(), self._get_tools(), max_tokens)
-                self.log.info(f"Using existing agent: {agent.agent_id}")
-            except Exception as e:
-                self.log.error(f"Error getting existing agent: {str(e)}")
-
-                # Invalidate old agent_session_id
-                del self.session_state["agent_session_id"]
-                del self.session_state["messages"]
-
-                # Create new agent
-                agent = self._create_agent(agent_type, self._get_model(), self._get_tools(), max_tokens)
-                # Save agent id in session state so it can be re-used
-                self.session_state["agent_id"] = agent.agent_id
-                self.log.info(f"Created a new agent: {self.session_state['agent_id']}")
-
-        # Create session if not present in session state
-        if "agent_session_id" not in self.session_state:
-            self.session_state["agent_session_id"] = agent.create_session(session_name=f"tool_demo_{uuid.uuid4()}")
-            self.log.info(f"Created a new session: {self.session_state['agent_session_id']}")
-        else:
-            self.log.info(f"Using existing session: {self.session_state['agent_session_id']}")
-
-        # "Export" session_id so that the background task can save it to the database when the stream ends
-        self.session_id = self.session_state["agent_session_id"]
-
-        # Reinitialize messages array incase session was invalidated
-        if "messages" not in self.session_state:
-            self.session_state["messages"] = []
-
-        # Append user message to session
-        self.session_state["messages"].append({"role": "user", "content": prompt})
-
-        turn_response = agent.create_turn(
-            session_id=self.session_id,
-            messages=self.session_state["messages"],
-            stream=True,
-        )
-
-        yield from self._response_generator(turn_response)
+    def stream(self, agent_id: str, session_id: str, prompt: str):
+        """
+        Stream chat response using LlamaStack as the single source of truth.
         
+        Args:
+            agent_id: The ID of the agent from LlamaStack
+            session_id: The ID of the session from LlamaStack
+            prompt: The user's message
+        """
+        try:
+            # Create agent instance using existing agent_id
+            agent = self._create_agent_with_existing_id(agent_id, session_id)
+            self.log.info(f"Using agent: {agent_id} with session: {session_id}")
+            
+            # Get existing messages from the session
+            # Note: LlamaStack manages session state, so we don't need to maintain local state
+            messages = [{"role": "user", "content": prompt}]
+            
+            # Create turn with LlamaStack
+            turn_response = agent.create_turn(
+                session_id=session_id,
+                messages=messages,
+                stream=True,
+            )
+            
+            # Determine agent type (defaulting to REGULAR for now)
+            agent_type = AgentType.REGULAR
+            
+            # Stream the response
+            yield from self._response_generator(turn_response, session_id, agent_type)
+            
+        except Exception as e:
+            self.log.error(f"Error in stream for agent {agent_id}, session {session_id}: {e}")
+            yield json.dumps({
+                "type": "error",
+                "content": f"Error occurred while processing your request: {str(e)}"
+            })
+

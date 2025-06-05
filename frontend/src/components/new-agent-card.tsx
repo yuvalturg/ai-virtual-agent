@@ -1,9 +1,9 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
 import { createAgent, UpdateAgentProps } from '@/services/agents';
-import { fetchKnowledgeBases } from '@/services/knowledge-bases';
+import { fetchKnowledgeBases, fetchLlamaStackKnowledgeBases } from '@/services/knowledge-bases';
 import { fetchModels } from '@/services/models';
 import { fetchTools } from '@/services/tools';
-import { KnowledgeBase, Model, ToolGroup } from '@/types';
+import { KnowledgeBase, LSKnowledgeBase, Model, ToolGroup } from '@/types';
 import {
   Alert,
   Card,
@@ -39,9 +39,9 @@ export function NewAgentCard() {
     data: knowledgeBases,
     isLoading: isLoadingKnowledgeBases,
     error: knowledgeBasesError,
-  } = useQuery<KnowledgeBase[], Error>({
+  } = useQuery<LSKnowledgeBase[], Error>({
     queryKey: ['knowledgeBases'],
-    queryFn: fetchKnowledgeBases,
+    queryFn: fetchLlamaStackKnowledgeBases,
   });
   // Query for tools
   const {
