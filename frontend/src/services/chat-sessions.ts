@@ -30,19 +30,22 @@ export async function fetchChatSessions(agentId?: string): Promise<ChatSessionSu
   if (!response.ok) {
     throw new Error('Failed to fetch chat sessions');
   }
-  return response.json();
+  return response.json() as Promise<ChatSessionSummary[]>;
 }
 
-export async function fetchChatSession(sessionId: string): Promise<ChatSessionDetail> {
-  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}`);
+export async function fetchChatSession(
+  sessionId: string,
+  agentId: string
+): Promise<ChatSessionDetail> {
+  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?agent_id=${agentId}`);
   if (!response.ok) {
     throw new Error('Failed to fetch chat session');
   }
-  return response.json();
+  return response.json() as Promise<ChatSessionDetail>;
 }
 
-export async function deleteChatSession(sessionId: string): Promise<void> {
-  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}`, {
+export async function deleteChatSession(sessionId: string, agentId: string): Promise<void> {
+  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?agent_id=${agentId}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -68,5 +71,5 @@ export async function createChatSession(
   if (!response.ok) {
     throw new Error('Failed to create chat session');
   }
-  return response.json();
+  return response.json() as Promise<ChatSessionDetail>;
 }

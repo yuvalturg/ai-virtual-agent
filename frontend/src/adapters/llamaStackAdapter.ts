@@ -9,7 +9,7 @@ interface LlamaStackResponse {
   sessionId?: string;
   tool?: {
     name: string;
-    params?: Record<string, any>;
+    params?: Record<string, unknown>;
   };
 }
 
@@ -77,7 +77,7 @@ export const extractSessionId = (line: string): string | null => {
     if (json.type === 'session' && json.sessionId) {
       return json.sessionId;
     }
-  } catch (e) {
+  } catch {
     // Ignore parse errors for non-session messages
   }
   return null;

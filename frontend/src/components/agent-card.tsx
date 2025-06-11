@@ -127,15 +127,15 @@ export function AgentCard({ agent }: AgentCardProps) {
           Are you sure you want to delete this AI agent? This action cannot be undone.
         </ModalBody>
         <ModalFooter>
+          <Button variant="link" onClick={toggleModal}>
+            Cancel
+          </Button>
           <Button
             isLoading={deleteAgentMutation.isPending}
             onClick={handleDeleteAgent}
             variant="danger"
           >
             Delete
-          </Button>
-          <Button variant="link" onClick={toggleModal}>
-            Cancel
           </Button>
         </ModalFooter>
       </Modal>

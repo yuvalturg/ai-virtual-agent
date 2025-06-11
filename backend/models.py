@@ -1,17 +1,30 @@
+"""
+SQLAlchemy database models for the AI Virtual Assistant application.
+
+This module defines the database schema and relationships for:
+- Users and role-based access control
+- MCP servers and tool configurations
+- Knowledge bases for RAG functionality
+- Virtual assistants and chat sessions
+- Guardrails for AI safety
+- Model servers for LLM providers
+"""
+
 import enum
-from sqlalchemy import (
-    Column, String, Enum, TIMESTAMP, Boolean, ForeignKey, JSON, Text, func
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base, relationship
 import uuid
 
+from sqlalchemy import JSON, TIMESTAMP, Boolean, Column, Enum, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import declarative_base, relationship
+
 Base = declarative_base()
+
 
 class RoleEnum(enum.Enum):
     admin = "admin"
     devops = "devops"
     user = "user"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -21,14 +34,13 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(Enum(RoleEnum, name="role"), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     mcp_servers = relationship("MCPServer", back_populates="creator")
     knowledge_bases = relationship("KnowledgeBase", back_populates="creator")
     guardrails = relationship("Guardrail", back_populates="creator")
 
-class ToolTypeEnum(enum.Enum):
-    BUILTIN = "builtin"
-    MCP_SERVER = "mcp_server"
 
 class MCPServer(Base):
     __tablename__ = "mcp_servers"
@@ -39,8 +51,11 @@ class MCPServer(Base):
     configuration = Column(JSON)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     creator = relationship("User", back_populates="mcp_servers")
+
 
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_bases"
@@ -54,21 +69,26 @@ class KnowledgeBase(Base):
     source_configuration = Column(JSON)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     creator = relationship("User", back_populates="knowledge_bases")
-    
+
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
     id = Column(String(255), primary_key=True)
     session_state = Column(JSON, default=dict)
-    
+
     # New fields for sidebar display
     title = Column(String(500), nullable=True)  # Generated summary/title
     agent_name = Column(String(255), nullable=True)  # Agent display name
 
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
 
 class Guardrail(Base):
     __tablename__ = "guardrails"
@@ -77,8 +97,11 @@ class Guardrail(Base):
     rules = Column(JSON, nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     creator = relationship("User", back_populates="guardrails")
+
 
 class ModelServer(Base):
     __tablename__ = "model_servers"

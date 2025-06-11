@@ -31,29 +31,6 @@ export const createKnowledgeBase = async (
   return data as KnowledgeBase;
 };
 
-export interface UpdateKnowledgeBaseProps {
-  vectorDbName: string; // Changed to vector_db_name
-  knowledgeBaseProps: Omit<KnowledgeBase, 'created_at' | 'updated_at'>;
-}
-
-export const editKnowledgeBase = async ({
-  vectorDbName,
-  knowledgeBaseProps,
-}: UpdateKnowledgeBaseProps): Promise<KnowledgeBase> => {
-  const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT + vectorDbName, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(knowledgeBaseProps),
-  });
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-  const data: unknown = await response.json();
-  return data as KnowledgeBase;
-};
-
 export const deleteKnowledgeBase = async (vectorDbName: string): Promise<void> => {
   const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT + vectorDbName, {
     method: 'DELETE',

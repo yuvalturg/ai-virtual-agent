@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { LlamaStackParser, extractSessionId } from '../adapters/llamaStackAdapter';
 import { CHAT_API_ENDPOINT } from '../config/api';
-import { fetchChatSession, ChatSessionDetail } from '@/services/chat-sessions';
+import { fetchChatSession } from '@/services/chat-sessions';
 
 export interface ChatMessage {
   id: string;
@@ -18,26 +18,11 @@ export interface UseLlamaChatOptions {
 /**
  * Simple chat hook that directly handles LlamaStack without the AI SDK overhead
  */
-export function useSimpleLlamaChat(agentId: string, options?: UseLlamaChatOptions) {
+export function useChat(agentId: string, options?: UseLlamaChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-
-  // Load session ID from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(`chat-session-${agentId}`);
-    if (saved) {
-      setSessionId(saved);
-    }
-  }, [agentId]);
-
-  // Save session ID to localStorage when it changes
-  useEffect(() => {
-    if (sessionId) {
-      localStorage.setItem(`chat-session-${agentId}`, sessionId);
-    }
-  }, [sessionId, agentId]);
 
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, value?: string | number) => {
@@ -54,8 +39,12 @@ export function useSimpleLlamaChat(agentId: string, options?: UseLlamaChatOption
     async (sessionId: string) => {
       try {
         setIsLoading(true);
-        const sessionDetail = await fetchChatSession(sessionId);
-
+        console.log(`Loading session ${sessionId} for agent ${agentId}`);
+        const sessionDetail = await fetchChatSession(sessionId, agentId);
+        if (!sessionDetail) {
+          throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
+        }
+        console.log('Session detail:', sessionDetail);
         // Set the session ID
         setSessionId(sessionId);
 
@@ -70,7 +59,7 @@ export function useSimpleLlamaChat(agentId: string, options?: UseLlamaChatOption
         );
 
         setMessages(convertedMessages);
-
+        console.log('Loaded messages:', convertedMessages);
         // Update agent if different
         if (sessionDetail.agent_id && sessionDetail.agent_id !== agentId) {
           console.warn(`Loaded session for different agent: ${sessionDetail.agent_id}`);
@@ -208,7 +197,7 @@ export function useSimpleLlamaChat(agentId: string, options?: UseLlamaChatOption
     (event: React.FormEvent) => {
       event.preventDefault();
       if (input.trim()) {
-        sendMessage(input);
+        void sendMessage(input);
       }
     },
     [input, sendMessage]
@@ -216,15 +205,17 @@ export function useSimpleLlamaChat(agentId: string, options?: UseLlamaChatOption
 
   const append = useCallback(
     (message: { role: 'user' | 'assistant'; content: string }) => {
-      sendMessage(message.content);
+      void sendMessage(message.content);
     },
     [sendMessage]
   );
 
-  const resetSession = useCallback(() => {
-    setSessionId(null);
+  // Reset state when agentId changes
+  useEffect(() => {
     setMessages([]);
-    localStorage.removeItem(`chat-session-${agentId}`);
+    setInput('');
+    setIsLoading(false);
+    setSessionId(null);
   }, [agentId]);
 
   return {
@@ -234,7 +225,6 @@ export function useSimpleLlamaChat(agentId: string, options?: UseLlamaChatOption
     handleSubmit,
     append,
     isLoading,
-    resetSession,
     loadSession,
     sessionId,
   };
