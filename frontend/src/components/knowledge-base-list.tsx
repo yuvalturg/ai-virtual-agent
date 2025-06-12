@@ -91,30 +91,29 @@ export function KnowledgeBaseList() {
           {knowledgeBasesError.message}
         </Alert>
       )}
-      {!isLoadingKnowledgeBases &&
-        !knowledgeBasesError &&
-        knowledgeBases &&
-        knowledgeBases.length === 0 && <p>No knowledge bases configured yet.</p>}
-      {!isLoadingKnowledgeBases &&
-        !knowledgeBasesError &&
-        knowledgeBases &&
-        knowledgeBases.length > 0 && (
-          <Flex direction={{ default: 'column' }}>
-            <FlexItem>
-              <NewKnowledgeBaseCard />
-            </FlexItem>
-            {knowledgeBases
-              .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
-              .map((knowledgeBase) => (
-                <KnowledgeBaseCard
-                  key={knowledgeBase.vector_db_name}
-                  knowledgeBase={knowledgeBase}
-                  onDelete={handleDeleteKb}
-                  isDeleting={deleteKnowledgeBaseMutation.isPending}
-                />
-              ))}
-          </Flex>
-        )}
+      <Flex direction={{ default: 'column' }}>
+        <FlexItem>
+          <NewKnowledgeBaseCard />
+        </FlexItem>
+        {!isLoadingKnowledgeBases &&
+          !knowledgeBasesError &&
+          knowledgeBases &&
+          knowledgeBases.length > 0 &&
+          knowledgeBases
+            .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
+            .map((knowledgeBase) => (
+              <KnowledgeBaseCard
+                key={knowledgeBase.vector_db_name}
+                knowledgeBase={knowledgeBase}
+                onDelete={handleDeleteKb}
+                isDeleting={deleteKnowledgeBaseMutation.isPending}
+              />
+            ))}
+        {!isLoadingKnowledgeBases &&
+          !knowledgeBasesError &&
+          knowledgeBases &&
+          knowledgeBases.length === 0 && <p>No knowledge bases configured yet.</p>}
+      </Flex>
     </div>
   );
 }
