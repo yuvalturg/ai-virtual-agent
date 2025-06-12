@@ -65,6 +65,7 @@ class KnowledgeBase(Base):
     embedding_model = Column(String(255), nullable=False)
     provider_id = Column(String(255))
     is_external = Column(Boolean, nullable=False, default=False)
+    status = Column(String(50), nullable=True)
     source = Column(String(255))
     source_configuration = Column(JSON)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))

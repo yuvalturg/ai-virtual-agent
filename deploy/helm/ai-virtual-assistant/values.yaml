@@ -123,3 +123,25 @@ llama_stack_url: http://llamastack:8321
 
 sessionSecret: {}
  # value: "my-session-secret"
+
+sampleFileUpload:
+  enabled: true
+  bucket: documents
+  urls:
+  - https://raw.githubusercontent.com/rh-ai-kickstart/RAG/refs/heads/main/notebooks/Zippity_Zoo_Grand_Invention.pdf
+  - https://raw.githubusercontent.com/rh-ai-kickstart/RAG/refs/heads/main/notebooks/Zippity_Zoo_and_the_Town_of_Tumble_Town.pdf
+  - https://raw.githubusercontent.com/rh-ai-kickstart/RAG/refs/heads/main/notebooks/Zippity_Zoo_and_the_Town_of_Whispering_Willows.pdf
+
+# global:
+#   models:
+#     llama-3-1-8b-instruct:
+#       id: meta-llama/Llama-3.1-8B-Instruct
+#       enabled: true
+#       url: http://llama-3-1-8b-instruct-predictor.rag-demo-16.svc.cluster.local:8080/v1
+
+# llama-stack:
+#   secrets:
+#     TAVILY_SEARCH_API_KEY: "api-key"
+#   mcp-servers:
+#     mcp-weather:
+#       uri: http://rag-mcp-weather:8000/sse

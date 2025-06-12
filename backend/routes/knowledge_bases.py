@@ -52,6 +52,7 @@ async def create_knowledge_base(
         HTTPException: If creation fails or validation errors occur
     """
     db_kb = models.KnowledgeBase(**kb.model_dump(exclude_unset=True))
+    db_kb.status = "pending"
     db.add(db_kb)
     await db.commit()
     await db.refresh(db_kb)
