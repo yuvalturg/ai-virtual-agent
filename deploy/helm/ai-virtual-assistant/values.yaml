@@ -26,7 +26,7 @@ serviceAccount:
   # Automatically mount a ServiceAccount's API credentials?
   automount: true
   # Annotations to add to the service account
-  annotations: 
+  annotations:
     serviceaccounts.openshift.io/oauth-redirectreference.ai-virtual-assistant: '{"kind":"OAuthRedirectReference","apiVersion":"v1","reference":{"kind":"Route","name":"ai-virtual-assistant-authenticated"}}'
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
@@ -123,4 +123,3 @@ llama_stack_url: http://llamastack:8321
 
 sessionSecret: {}
  # value: "my-session-secret"
-
