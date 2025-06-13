@@ -38,6 +38,8 @@ import {
   ChatSessionSummary,
 } from '@/services/chat-sessions';
 import { useMutation } from '@tanstack/react-query';
+import botAvatar from "../assets/img/bot-avatar.svg";
+import userAvatar from "../assets/img/user-avatar.svg";
 
 const footnoteProps = {
   label: 'ChatBot uses AI. Check for mistakes.',
@@ -107,7 +109,7 @@ export function Chat() {
           content: msg.content,
           name: msg.role === 'user' ? 'You' : 'Assistant',
           timestamp: msg.timestamp.toLocaleString(),
-          avatar: '',
+          avatar: msg.role === 'user' ? userAvatar : botAvatar,
           avatarProps: { isBordered: true },
           isLoading:
             msg.role === 'assistant' &&

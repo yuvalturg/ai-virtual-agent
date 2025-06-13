@@ -20,7 +20,7 @@ The schemas follow a standard pattern:
 """
 
 import enum
-from typing import Any, Dict, List, Optional  # Added Dict for Guardrail rules
+from typing import Any, Dict, List, Optional, Union  # Added Dict for Guardrail rules
 
 from pydantic import UUID4, BaseModel, EmailStr
 
@@ -87,7 +87,9 @@ class KnowledgeBaseBase(BaseModel):
     provider_id: Optional[str] = None
     is_external: bool = False
     source: Optional[str] = None
-    source_configuration: Optional[Dict[str, Any]] = None  # More specific type
+    source_configuration: Optional[Union[List[str], Dict[str, Any]]] = (
+        None  # More specific type
+    )
 
 
 class KnowledgeBaseCreate(KnowledgeBaseBase):

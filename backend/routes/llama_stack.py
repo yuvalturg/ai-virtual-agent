@@ -168,8 +168,8 @@ async def get_knowledge_bases():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/mcp_servers", response_model=List[Dict[str, Any]])
-async def get_mcp_servers():
+@router.get("/tools", response_model=List[Dict[str, Any]])
+async def get_tools():
     """
     Retrieve all available MCP (Model Context Protocol) servers from LlamaStack.
 
@@ -193,6 +193,7 @@ async def get_mcp_servers():
                 "id": str(server.identifier),
                 "name": server.provider_resource_id,
                 "title": server.provider_id,
+                "toolgroup_id": str(server.identifier),
             }
             for server in servers
         ]
