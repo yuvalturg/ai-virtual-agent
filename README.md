@@ -1,10 +1,36 @@
-# AI Virtual Assistant
+# AI Virtual Agent
 
-A comprehensive platform for creating and managing AI-powered virtual assistants with knowledge base integration, built on top of LlamaStack.
+A comprehensive platform for creating and managing AI-powered virtual agents with knowledge base integration, built on top of LlamaStack.Use this to quickly create AI Virtual Agent for different user personas such as lawyer, accountants and marketers.
 
-## Overview
+To see how it's done, refer to the [installation guide](INSTALLING.md).
 
-The AI Virtual Assistant platform provides a complete solution for building intelligent conversational agents that can access and reason over your organization's knowledge. The system combines modern web technologies with powerful AI capabilities to deliver a seamless experience for both developers and end users.
+## Description
+
+The AI Virtual Agent platform provides a complete solution for building intelligent conversational agents that can access and reason over your organization's knowledge. The system combines modern web technologies with powerful AI capabilities to deliver a seamless experience for both developers and end users.
+
+### Use Cases
+
+- **Customer Support**: Create AI agents with access to product documentation and FAQ databases
+- **Internal Knowledge Management**: Build intelligent agents for employee onboarding and information access
+- **Document Q&A**: Enable natural language queries over large document collections
+- **Multi-modal Assistance**: Combine different AI capabilities through tool integration
+
+## Architecture
+
+The platform consists of several interconnected components:
+
+- **Frontend UI**: Modern React application for user interaction
+- **Backend API**: FastAPI server handling business logic and data persistence
+- **LlamaStack**: AI platform managing agents, models, and inference
+- **Knowledge Processing**: Kubernetes-based document ingestion pipeline
+- **Database Layer**: PostgreSQL with vector extension for data storage
+
+![AI Virtual Agent Architecture](docs/images/ai-virtual-agent.jpg)
+
+For detailed architecture information, see:
+
+- [Virtual Agents Architecture Guide](docs/virtual-agents-architecture.md)
+- [Knowledge Base Architecture Guide](docs/knowledge-base-architecture.md)
 
 ### Key Features
 
@@ -25,65 +51,17 @@ The AI Virtual Assistant platform provides a complete solution for building inte
 - **Document Processing**: Kubeflow Pipelines + Docling for ingestion
 - **Infrastructure**: Kubernetes + Helm + MinIO for object storage
 
-## Architecture
-
-The platform consists of several interconnected components:
-
-- **Frontend UI**: Modern React application for user interaction
-- **Backend API**: FastAPI server handling business logic and data persistence
-- **LlamaStack**: AI platform managing agents, models, and inference
-- **Knowledge Processing**: Kubernetes-based document ingestion pipeline
-- **Database Layer**: PostgreSQL with vector extension for data storage
-
-For detailed architecture information, see:
-- [Virtual Agents Architecture Guide](docs/virtual-agents-architecture.md)
-- [Knowledge Base Architecture Guide](docs/knowledge-base-architecture.md)
-
-## Quick Start
-
-Ready to get started? Check out our [Contributing Guide](CONTRIBUTING.md) for detailed setup instructions, development workflows, and deployment options.
-
-### Prerequisites
-
-- Python 3.10+
-- Node.js 18+
-- PostgreSQL 14+
-- Podman or Docker
-- LlamaStack instance
-
-### Basic Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/RHEcosystemAppEng/ai-virtual-assistant
-   cd ai-virtual-assistant
-   ```
-
-2. **Follow the setup guide**
-
-   See [CONTRIBUTING.md](CONTRIBUTING.md) for complete setup instructions including:
-   - Database configuration
-   - Backend server setup
-   - Frontend development server
-   - Container deployment
-
 ## Documentation
 
+- **[Installation Guide](INSTALLING.md)** - Install AI Virtual Agent
 - **[Contributing Guide](CONTRIBUTING.md)** - Setup, development, and contribution guidelines
 - **[Virtual Agents Architecture](docs/virtual-agents-architecture.md)** - How AI agents work in the platform
 - **[Knowledge Base Architecture](docs/knowledge-base-architecture.md)** - Document ingestion and RAG system
 - **[Backend README](backend/README.md)** - Backend API documentation and features
 
-## Use Cases
-
-- **Customer Support**: Create AI agents with access to product documentation and FAQ databases
-- **Internal Knowledge Management**: Build intelligent assistants for employee onboarding and information access
-- **Document Q&A**: Enable natural language queries over large document collections
-- **Multi-modal Assistance**: Combine different AI capabilities through tool integration
-
 ## Community & Support
 
-- **Issues**: Report bugs and request features via [GitHub Issues](https://github.com/RHEcosystemAppEng/ai-virtual-assistant/issues)
+- **Issues**: Report bugs and request features via [GitHub Issues](https://github.com/RHEcosystemAppEng/ai-virtual-agent/issues)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines
 
 ## License
