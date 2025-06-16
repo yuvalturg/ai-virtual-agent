@@ -61,6 +61,10 @@ helm_ingestion_args = \
 	--set configure-pipeline.notebook.create=false \
 	--set ingestion-pipeline.defaultPipeline.enabled=false
 
+helm_seed_admin_user_args = \
+    $(if $(ADMIN_USERNAME),--set seed.admin_user.username='$(ADMIN_USERNAME)',) \
+    $(if $(ADMIN_EMAIL),--set seed.admin_user.email='$(ADMIN_EMAIL)',)
+
 # Default target
 .PHONY: help
 help:
@@ -99,6 +103,7 @@ install: namespace depend
 	@$(eval LLM_SERVICE_ARGS := $(call helm_llm_service_args))
 	@$(eval LLAMA_STACK_ARGS := $(call helm_llama_stack_args))
 	@$(eval INGESTION_ARGS := $(call helm_ingestion_args))
+	@$(eval SEED_ADMIN_USER_ARGS := $(call helm_seed_admin_user_args))
 
 	@echo "Installing $(AI_VIRTUAL_ASSISTANT_CHART) helm chart"
 	@helm upgrade --install $(AI_VIRTUAL_ASSISTANT_CHART) $(AI_VIRTUAL_ASSISTANT_CHART) -n $(NAMESPACE) \
@@ -107,6 +112,7 @@ install: namespace depend
 		$(LLM_SERVICE_ARGS) \
 		$(LLAMA_STACK_ARGS) \
 		$(INGESTION_ARGS) \
+		$(SEED_ADMIN_USER_ARGS) \
 		$(EXTRA_HELM_ARGS)
 	@echo "Waiting for model services and llamastack to deploy. It may take around 10-15 minutes depending on the size of the model..."
 	@oc rollout status deploy/llamastack -n $(NAMESPACE)

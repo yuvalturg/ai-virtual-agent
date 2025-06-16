@@ -1,11 +1,15 @@
 import os
+import bcrypt
+import secrets
+import string
 from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.orm import Session
 
-from models import Base
+from models import Base, User, RoleEnum
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -51,6 +55,35 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+def generate_password(length=12):
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return password
+
+def seed_admin_user():
+    admin_username = os.getenv("ADMIN_USERNAME")
+    if admin_username is not None:
+        admin_email = os.getenv("ADMIN_EMAIL", "admin@change.me")
+
+        session = Session(bind=context.get_bind())
+        if session.query(User).filter(User.username == admin_username).count() > 0:
+            print("'" + admin_username + "' user already exists")
+        elif session.query(User).filter(User.email == admin_email).count() > 0:
+            print("user with '" + admin_email + "' email address already exists")
+        else:
+            admin_password = os.getenv("ADMIN_PASSWORD", generate_password())
+            hashed_password = bcrypt.hashpw(admin_password.encode("utf-8"),
+                bcrypt.gensalt()).decode("utf-8")
+            admin_user = User(
+                username=admin_username,
+                email=admin_email,
+                password_hash=hashed_password,
+                role=RoleEnum.admin,
+            )
+            session.add(admin_user)
+            session.commit()
+            print("admin user '" + admin_username + "' successfully seeded")
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -74,6 +107,7 @@ def run_migrations_offline() -> None:
 
     with context.begin_transaction():
         context.run_migrations()
+        seed_admin_user()
 
 
 def run_migrations_online() -> None:
@@ -94,6 +128,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+            seed_admin_user()
 
 
 if context.is_offline_mode():

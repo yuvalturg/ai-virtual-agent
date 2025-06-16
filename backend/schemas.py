@@ -32,9 +32,9 @@ class ToolTypeEnumSchema(str, enum.Enum):
 
 
 class RoleEnum(str, enum.Enum):
-    admin = "admin"
-    devops = "devops"
     user = "user"
+    devops = "devops"
+    admin = "admin"
 
 
 class UserBase(BaseModel):
