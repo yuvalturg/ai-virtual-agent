@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import List
+import os
 
 import httpx
 from fastapi import HTTPException
@@ -36,8 +37,9 @@ class EnhancedSessionResource(SessionResource):
 
             # Use direct HTTP request to avoid client parsing issues
             with httpx.Client() as http_client:
+                llamastack_url = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
                 response = http_client.get(
-                    f"http://localhost:8321/v1/agents/{agent_id}/sessions",
+                    f"{llamastack_url}/v1/agents/{agent_id}/sessions",
                     headers={"Accept": "application/json"},
                     timeout=30.0,
                 )
@@ -94,8 +96,9 @@ class EnhancedSessionResource(SessionResource):
 
             # Use direct HTTP request to delete session
             with httpx.Client() as http_client:
+                llamastack_url = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
                 response = http_client.delete(
-                    f"http://localhost:8321/v1/agents/{agent_id}/session/{session_id}",
+                    f"{llamastack_url}/v1/agents/{agent_id}/session/{session_id}",
                     headers={"Accept": "application/json"},
                     timeout=30.0,
                 )
