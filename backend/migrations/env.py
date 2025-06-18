@@ -1,7 +1,4 @@
 import os
-import bcrypt
-import secrets
-import string
 from logging.config import fileConfig
 
 from alembic import context
@@ -55,10 +52,6 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-def generate_password(length=12):
-    alphabet = string.ascii_letters + string.digits + string.punctuation
-    password = ''.join(secrets.choice(alphabet) for _ in range(length))
-    return password
 
 def seed_admin_user():
     admin_username = os.getenv("ADMIN_USERNAME")
@@ -71,13 +64,9 @@ def seed_admin_user():
         elif session.query(User).filter(User.email == admin_email).count() > 0:
             print("user with '" + admin_email + "' email address already exists")
         else:
-            admin_password = os.getenv("ADMIN_PASSWORD", generate_password())
-            hashed_password = bcrypt.hashpw(admin_password.encode("utf-8"),
-                bcrypt.gensalt()).decode("utf-8")
             admin_user = User(
                 username=admin_username,
                 email=admin_email,
-                password_hash=hashed_password,
                 role=RoleEnum.admin,
             )
             session.add(admin_user)

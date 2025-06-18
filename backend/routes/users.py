@@ -2,12 +2,11 @@
 User management API endpoints for authentication and user administration.
 
 This module provides CRUD operations for user accounts, including user creation,
-authentication, role management, and profile updates. It handles password hashing
-and role-based access control for the AI Virtual Assistant application.
+authentication, role management, and profile updates. It handles role-based access
+control for the AI Virtual Assistant application.
 
 Key Features:
 - User registration and profile management
-- Secure password hashing with bcrypt
 - Role-based access control (admin, user, etc.)
 - User lookup and management operations
 """
@@ -15,7 +14,6 @@ Key Features:
 from typing import List
 from uuid import UUID
 
-import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -27,31 +25,26 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
-async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+async def create_user(user: schemas.UserBase, db: AsyncSession = Depends(get_db)):
     """
-    Create a new user account with encrypted password.
+    Create a new user account.
 
-    This endpoint registers a new user in the system with secure password
-    hashing using bcrypt. The user's role determines their access permissions
-    within the application.
+    This endpoint registers a new user in the system. The user's role
+    determines their access permissions within the application.
 
     Args:
-        user: User creation data including username, email, password, and role
+        user: User creation data including username, email, and role
         db: Database session dependency
 
     Returns:
-        schemas.UserRead: The created user (without password hash)
+        schemas.UserRead: The created user
 
     Raises:
         HTTPException: If username/email already exists or validation fails
     """
-    hashed_password = bcrypt.hashpw(
-        user.password.encode("utf-8"), bcrypt.gensalt()
-    ).decode("utf-8")
     db_user = models.User(
         username=user.username,
         email=user.email,
-        password_hash=hashed_password,
         role=user.role,
     )
     db.add(db_user)
@@ -66,7 +59,7 @@ async def read_users(db: AsyncSession = Depends(get_db)):
     Retrieve all user accounts from the database.
 
     This endpoint returns a list of all registered users with their profile
-    information (excluding password hashes for security).
+    information.
 
     Args:
         db: Database session dependency
@@ -104,13 +97,13 @@ async def read_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
 
 @router.put("/{user_id}", response_model=schemas.UserRead)
 async def update_user(
-    user_id: UUID, user: schemas.UserCreate, db: AsyncSession = Depends(get_db)
+    user_id: UUID, user: schemas.UserBase, db: AsyncSession = Depends(get_db)
 ):
     """
     Update an existing user's profile information.
 
     This endpoint allows updating user details including username, email,
-    password, and role. The password will be re-hashed if provided.
+    and role.
 
     Args:
         user_id: The unique identifier of the user to update
@@ -129,7 +122,6 @@ async def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     db_user.username = user.username
     db_user.email = user.email
-    db_user.password_hash = user.password
     db_user.role = user.role
     await db.commit()
     await db.refresh(db_user)

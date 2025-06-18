@@ -43,10 +43,6 @@ class UserBase(BaseModel):
     role: RoleEnum
 
 
-class UserCreate(UserBase):
-    password: str
-
-
 class UserRead(UserBase):
     id: UUID4
     created_at: Any
