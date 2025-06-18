@@ -12,9 +12,10 @@ Key Features:
 - Vector database name as primary identifier for LlamaStack integration
 - Read-only operations after creation (knowledge bases cannot be modified)
 """
-
+import os
 from typing import List
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +52,7 @@ async def create_knowledge_base(
     Raises:
         HTTPException: If creation fails or validation errors occur
     """
+    await dispatch_ingestion_pipeline(kb)
     db_kb = models.KnowledgeBase(**kb.model_dump(exclude_unset=True))
     db_kb.status = "pending"
     db.add(db_kb)
@@ -192,6 +194,31 @@ async def sync_knowledge_bases_endpoint(db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
+async def dispatch_ingestion_pipeline(kb: schemas.KnowledgeBaseCreate):
+    """
+    Internal method that dispatches a new pipeline
+
+    This method takes in a KnowledgebaseCreate object and converts it
+    to a pipeline creation dictionary. It then calls the ingestion-pipeline
+    API service to add a new pipeline and trigger a run.
+
+    Args:
+        kb: KnowledgeBaseCreate with all the relevant source information
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If the ingestion-pipeline API call fails
+    """
+    add_pipeline = os.environ["INGESTION_PIPELINE_URL"] + "/add_pipeline"
+    data = kb.pipeline_model_dict()
+    logger.info(f"Dispatching pipeline to {add_pipeline} {data=}")
+    async with httpx.AsyncClient() as client:
+        response = await client.post(add_pipeline, json=data)
+        response.raise_for_status()
 
 
 async def sync_knowledge_bases(db: AsyncSession):

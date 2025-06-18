@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingestion-pipeline-script
-data:
-  ingestion.py: |
-{{ .Files.Get "files/ingestion.py" | indent 4 }}
