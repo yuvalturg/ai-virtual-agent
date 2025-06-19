@@ -1,10 +1,10 @@
-# Contributing to AI Virtual Assistant
+# Contributing to AI Virtual Agent
 
-Thank you for your interest in contributing to the AI Virtual Assistant platform! This guide will help you get set up for development and understand our contribution process.
+Thank you for your interest in contributing to the AI Virtual Agent platform! This guide will help you get set up for development and understand our contribution process.
 
 ## Table of Contents
 
-- [Contributing to AI Virtual Assistant](#contributing-to-ai-virtual-assistant)
+- [Contributing to AI Virtual Agent](#contributing-to-ai-virtual-agent)
   - [Table of Contents](#table-of-contents)
   - [Development Setup](#development-setup)
     - [Prerequisites](#prerequisites)
@@ -373,7 +373,7 @@ Before making significant changes, familiarize yourself with the system architec
 
 ### Key Concepts
 
-- **Virtual Agents**: AI assistants managed through LlamaStack
+- **Virtual Agents**: AI agents managed through LlamaStack
 - **Knowledge Bases**: Document collections processed for RAG
 - **Sessions**: Persistent chat conversations with context
 - **Tools**: Built-in and external capabilities (RAG, web search, MCP servers)
@@ -479,4 +479,4 @@ LLAMASTACK_URL=http://localhost:8321
 8. **Ensure all CI checks pass** - linting, formatting, type checking, and builds
 9. **Review code quality** - run `pre-commit run --all-files` (backend) and `npm run lint && npm run format:check` (frontend) before submitting PRs
 
-Thank you for contributing to AI Virtual Assistant! 🚀
+Thank you for contributing to AI Virtual Agent! 🚀
