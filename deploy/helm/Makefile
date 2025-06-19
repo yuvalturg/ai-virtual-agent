@@ -16,7 +16,6 @@ MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 AI_VIRTUAL_ASSISTANT_CHART := ai-virtual-assistant
-VECTORDB_INGESTION_MONIFTOR_CHART := vectordb-ingestion-monitor
 TOLERATIONS_TEMPLATE=[{"key":"$(1)","effect":"NoSchedule","operator":"Exists"}]
 
 #ingestion pipeline configuration
@@ -59,11 +58,8 @@ helm_llama_stack_args = \
     $(if $(LLAMA_STACK_ENV),--set-json llama-stack.secrets='$(LLAMA_STACK_ENV)',)
 
 helm_ingestion_args = \
-	$(if $(SOURCE),--set ingestion-pipeline.source='$(SOURCE)',) \
-	$(if $(EMBEDDING_MODEL),--set ingestion-pipeline.embedding_model='$(EMBEDDING_MODEL)',) \
-	$(if $(INGESTION_PIPELINE_NAME),--set ingestion-pipeline.name='$(INGESTION_PIPELINE_NAME)',) \
-	$(if $(INGESTION_PIPELINE_VERSION),--set ingestion-pipeline.version='$(INGESTION_PIPELINE_VERSION)',) \
-    $(if $(SOURCE),--set-json ingestion-pipeline.S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',)
+	--set configure-pipeline.notebook.create=false \
+	--set ingestion-pipeline.defaultPipeline.enabled=false
 
 # Default target
 .PHONY: help
@@ -116,19 +112,11 @@ install: namespace depend
 	@oc rollout status deploy/llamastack -n $(NAMESPACE)
 	@echo "$(AI_VIRTUAL_ASSISTANT_CHART) installed successfully"
 
-	@echo "Installing $(VECTORDB_INGESTION_MONIFTOR_CHART) helm chart"
-	@helm upgrade --install $(VECTORDB_INGESTION_MONIFTOR_CHART) $(VECTORDB_INGESTION_MONIFTOR_CHART) -n $(NAMESPACE)
-	@echo "Waiting for ingestion pipeline monitor to deploy..."
-	@oc rollout status deploy/ingestion-pipeline-monitor -n $(NAMESPACE)
-	@echo "$(VECTORDB_INGESTION_MONIFTOR_CHART) installed successfully"
-
 # Uninstall the deployment and clean up
 .PHONY: uninstall
 uninstall:
 	@echo "Uninstalling $(AI_VIRTUAL_ASSISTANT_CHART) helm chart"
 	@helm uninstall --ignore-not-found $(AI_VIRTUAL_ASSISTANT_CHART) -n $(NAMESPACE)
-	@echo "Uninstalling $(VECTORDB_INGESTION_MONIFTOR_CHART) helm chart"
-	@helm uninstall --ignore-not-found $(VECTORDB_INGESTION_MONIFTOR_CHART) -n $(NAMESPACE)
 	@echo "Removing pgvector and minio PVCs from $(NAMESPACE)"
 	@oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs -I {} oc delete pvc -n $(NAMESPACE) {} ||:
 	@echo "Deleting remaining pods in namespace $(NAMESPACE)"

@@ -93,7 +93,19 @@ class KnowledgeBaseBase(BaseModel):
 
 
 class KnowledgeBaseCreate(KnowledgeBaseBase):
-    pass
+
+    def pipeline_model_dict(self) -> Dict[str, Any]:
+        base = {
+            "name": self.name,
+            "version": self.version,
+            "source": self.source,
+            "embedding_model": self.embedding_model,
+            "vector_db_name": self.vector_db_name
+        }
+        if self.source == "URL":
+            return base | {"urls": self.source_configuration}
+
+        return base | {k.lower(): v for k, v in self.source_configuration.items()}
 
 
 class KnowledgeBaseRead(KnowledgeBaseBase):
