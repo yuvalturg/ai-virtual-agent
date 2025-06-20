@@ -124,6 +124,11 @@ llama_stack_url: http://llamastack:8321
 sessionSecret: {}
  # value: "my-session-secret"
 
+seed:
+  admin_user:
+    username: kubeadmin
+    # email: ""
+
 sampleFileUpload:
   enabled: true
   bucket: documents

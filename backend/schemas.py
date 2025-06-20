@@ -32,19 +32,15 @@ class ToolTypeEnumSchema(str, enum.Enum):
 
 
 class RoleEnum(str, enum.Enum):
-    admin = "admin"
-    devops = "devops"
     user = "user"
+    devops = "devops"
+    admin = "admin"
 
 
 class UserBase(BaseModel):
     username: str
     email: EmailStr
     role: RoleEnum
-
-
-class UserCreate(UserBase):
-    password: str
 
 
 class UserRead(UserBase):
