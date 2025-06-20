@@ -33,7 +33,7 @@ jobs:
       - name: Extract version from Chart.yaml
         id: version
         run: |
-          version=$(grep '^version:' ${{ matrix.chart }} | awk '{print $2}')
+          version=$(grep '^appVersion:' ${{ matrix.chart }} | awk '{print $2}')
           echo "tag=$version" >> $GITHUB_OUTPUT
 
       - name: Build and push ${{ matrix.name }}
