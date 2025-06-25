@@ -25,7 +25,6 @@ from .routes import (
     llama_stack,
     mcp_servers,
     model_servers,
-    profile,
     tools,
     users,
     virtual_assistants,
@@ -78,9 +77,6 @@ async def on_startup():
             logger.error(f"Failed to sync knowledge bases on startup: {str(e)}")
 
 
-# profile route must be declared before users in order to function within
-# the /api/users context
-app.include_router(profile.router, prefix="/api/users")
 app.include_router(users.router, prefix="/api")
 app.include_router(mcp_servers.router, prefix="/api")
 app.include_router(tools.router, prefix="/api")
