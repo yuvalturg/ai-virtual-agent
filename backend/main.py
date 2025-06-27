@@ -25,7 +25,6 @@ from .routes import (
     llama_stack,
     mcp_servers,
     model_servers,
-    profile,
     tools,
     users,
     virtual_assistants,
@@ -87,7 +86,6 @@ app.include_router(guardrails.router, prefix="/api")
 app.include_router(model_servers.router, prefix="/api")
 app.include_router(llama_stack.router, prefix="/api")
 app.include_router(chat_sessions.router, prefix="/api")
-app.include_router(profile.router, prefix="/api")
 
 
 # Serve React App (frontend)
