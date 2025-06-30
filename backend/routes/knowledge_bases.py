@@ -250,7 +250,7 @@ async def delete_ingestion_pipeline(vector_db_name: str):
     """
     del_pipeline = os.environ["INGESTION_PIPELINE_URL"] + "/delete"
     data = {"pipeline_name": vector_db_name}
-    logger.info(f"Deleteing pipeline with {del_pipeline} {data=}")
+    logger.info(f"Deleting pipeline with {del_pipeline} {data=}")
     async with httpx.AsyncClient() as client:
         response = await client.delete(del_pipeline, params=data)
         response.raise_for_status()
@@ -276,10 +276,13 @@ async def get_pipeline_status(pipeline_name: str) -> str:
     data = {"pipeline_name": pipeline_name}
     logger.info(f"Fetching pipeline status from {status_endpoint} {data=}")
     async with httpx.AsyncClient() as client:
-        response = await client.get(status_endpoint, params=data)
-        json = response.json()
-        logger.info(f"Received status {json=}")
-        return json.get("state", "unknown")
+        try:
+            response = await client.get(status_endpoint, params=data)
+            response.raise_for_status()
+            return response.json().get("state", "unknown")
+        except Exception as e:
+            logger.error(f"could not fetch pipeline status for {pipeline_name}: {str(e)}")
+            return "unknown"
 
 
 async def sync_knowledge_bases(db: AsyncSession):

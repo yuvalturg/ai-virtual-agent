@@ -9,7 +9,8 @@ interface LlamaStackKnowledgeBase {
 }
 
 /**
- * Determines the status of a knowledge base by comparing DB and LlamaStack states
+ * Determines the status of a knowledge base by comparing DB and LlamaStack states.
+ * If a knowledge base was found in our db, return its pipeline status.
  */
 function determineStatus(
   dbKb: KnowledgeBaseWithStatus | undefined,
