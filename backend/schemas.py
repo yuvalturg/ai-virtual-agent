@@ -66,8 +66,11 @@ class MCPServerBase(BaseModel):
     configuration: Dict[str, Any] = {}
 
 
-class MCPServerCreate(MCPServerBase):
-    pass
+class MCPServerCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    endpoint_url: str
+    configuration: Optional[Dict[str, Any]] = None
 
 
 class MCPServerRead(MCPServerBase):

@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, status
 from .. import schemas
 from ..api.llamastack import sync_client
 from ..utils.logging_config import get_logger
+import uuid
 
 logger = get_logger(__name__)
 
