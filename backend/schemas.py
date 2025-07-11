@@ -54,11 +54,11 @@ class UserRead(UserBase):
 
 # MCPServer Schemas
 class MCPServerBase(BaseModel):
-    toolgroup_id: str  # LlamaStack identifier (now PK)
+    toolgroup_id: str
     name: str
-    description: Optional[str] = None
+    description: str = ""
     endpoint_url: str
-    configuration: Optional[Dict[str, Any]] = None
+    configuration: Dict[str, Any] = {}
 
 
 class MCPServerCreate(MCPServerBase):
@@ -66,12 +66,7 @@ class MCPServerCreate(MCPServerBase):
 
 
 class MCPServerRead(MCPServerBase):
-    created_by: Optional[UUID4] = None
-    created_at: Any
-    updated_at: Any
-
-    class Config:
-        orm_mode = True
+    provider_id: str
 
 
 # KnowledgeBase Schemas
@@ -96,7 +91,7 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
             "version": self.version,
             "source": self.source,
             "embedding_model": self.embedding_model,
-            "vector_db_name": self.vector_db_name
+            "vector_db_name": self.vector_db_name,
         }
         if self.source == "URL":
             return base | {"urls": self.source_configuration}
