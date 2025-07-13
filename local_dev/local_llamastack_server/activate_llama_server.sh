@@ -15,6 +15,7 @@ else
 fi
 
 podman run -it --platform linux/amd64 \
+    --name llama-server \
     -p 8321:8321 \
     -v ~/.llama:/root/.llama \
     -v ./rum.yaml:/run.yaml \
