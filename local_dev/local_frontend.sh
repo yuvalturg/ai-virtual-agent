@@ -7,10 +7,12 @@ cd frontend
 
 if [[ -d "node_modules" ]]; then
     echo "node_modules directory exists"
-else
-    echo "node_modules directory does not exist"
-    npm install
-    npm run prepare
+    rm -rf node_modules
+    rm -rf node_modules/.vite
 fi
+
+npm install
+npm run prepare
+
 
 npm run dev
