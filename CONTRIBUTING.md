@@ -127,7 +127,7 @@ Before you begin, ensure you have the following installed:
    This step is optional, use it if you don't have an acticve llamastack server.
    Open a new terminal:
    ```bash
-   cd backend/local_llamastack_server/
+   cd local_dev/local_llamastack_server/
    chmod +x activate_llama_server.sh
    bash activate_llama_server.sh
    ```
