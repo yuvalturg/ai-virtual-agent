@@ -124,7 +124,7 @@ Before you begin, ensure you have the following installed:
 
 6. Start Local LLamaStack Server:
 
-   This step is optional, use it if you don't have an acticve llamastack server.
+   This step is optional, use it if you don't have an active llamastack server.
    Open a new terminal:
    ```bash
    cd local_dev/local_llamastack_server/
