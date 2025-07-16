@@ -18,7 +18,7 @@ podman run -it --platform linux/amd64 \
     --name llama-server \
     -p 8321:8321 \
     -v ~/.llama:/root/.llama \
-    -v ./rum.yaml:/run.yaml \
+    -v ./run.yaml:/run.yaml \
     llamastack/distribution-ollama \
     --yaml-config /run.yaml \
     --port 8321
