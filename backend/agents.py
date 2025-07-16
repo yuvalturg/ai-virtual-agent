@@ -27,7 +27,6 @@ class ExistingAgent(Agent):
         client_tools: Tuple[ClientTool, ...] = (),
         tool_parser: Optional[ToolParser] = None,
     ):
-        # Call parent's __init__ but skip the initialize() call
         super().__init__(
             client=client,
             model=model,
