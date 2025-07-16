@@ -2,8 +2,12 @@
 set -e # exit on error
 
 export DATABASE_URL=postgresql+asyncpg://admin:password@localhost:5432/ai_virtual_assistant
+# if you have LLamastack server deployed, you can use the following line:
+# oc port-forward svc/llamastack 8321
 export LLAMASTACK_URL=http://localhost:8321
-# export INGESTION_PIPELINE_URL= # TODO: add this @hacohen
+# Here as well:
+# oc port-forward svc/ds-pipeline-dspa 8888
+export INGESTION_PIPELINE_URL=http://localhost:8888
 
 # AI Virtual Agent Development Startup Script
 # This script creates a tmux session with 3 windows for backend, llamastack, and frontend
@@ -27,9 +31,9 @@ tmux send-keys -t $SESSION_NAME:backend "bash local_dev/local_backend.sh" C-m
 
 
 
-# Window 2: LlamaStack Server
-tmux new-window -t $SESSION_NAME -n "llamastack"
-tmux send-keys -t $SESSION_NAME:llamastack "bash local_dev/local_llamastack.sh" C-m
+# Window 2: LlamaStack Server - Unmask if you don't have LLamastack deployed.
+# tmux new-window -t $SESSION_NAME -n "llamastack"
+# tmux send-keys -t $SESSION_NAME:llamastack "bash local_dev/local_llamastack.sh" C-m
 
 
 # Window 3: Frontend
