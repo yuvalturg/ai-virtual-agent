@@ -11,6 +11,7 @@ Key Features:
 - User lookup and management operations
 """
 
+import logging
 from typing import List
 from uuid import UUID
 
@@ -20,6 +21,9 @@ from sqlalchemy.future import select
 
 from .. import models, schemas
 from ..database import get_db
+from ..services.user_service import UserService
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -160,9 +164,11 @@ async def update_user(
     db_user = result.scalar_one_or_none()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    db_user.username = user.username
-    db_user.email = user.email
-    db_user.role = user.role
+
+    # Update user attributes
+    for key, value in user.model_dump(exclude_unset=True).items():
+        setattr(db_user, key, value)
+
     await db.commit()
     await db.refresh(db_user)
     return db_user
@@ -193,3 +199,141 @@ async def delete_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
     await db.delete(db_user)
     await db.commit()
     return None
+
+
+@router.post("/{user_id}/agents", response_model=schemas.UserRead)
+async def update_user_agents(
+    user_id: UUID,
+    agent_assignment: schemas.UserAgentAssignment,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update the agents assigned to a user by cloning existing agents.
+
+    This endpoint clones existing agents from LlamaStack and assigns the cloned
+    agents to the specified user. Each agent is cloned with a unique name that
+    includes the user's username to avoid conflicts. The system prevents
+    duplicate agent assignments by checking if the user already has an agent
+    with similar configuration.
+
+    Args:
+        user_id: The unique identifier of the user
+        agent_assignment: Object containing the list of agent IDs to clone and assign
+        db: Database session dependency
+
+    Returns:
+        schemas.UserRead: The updated user profile with new cloned agent assignments
+
+    Raises:
+        HTTPException: 404 if the user is not found
+        HTTPException: 404 if any of the specified agents don't exist in LlamaStack
+        HTTPException: 500 if agent cloning fails
+    """
+    # Get the user from database
+    result = await db.execute(select(models.User).where(models.User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get current user agent assignments
+    current_agent_ids = getattr(db_user, "agent_ids", []) or []
+
+    # Use the service to clone and assign agents
+    new_cloned_agent_ids = await UserService.clone_and_assign_agents(
+        user_agent_ids=current_agent_ids,
+        username=str(db_user.username),
+        requested_agent_ids=agent_assignment.agent_ids,
+    )
+
+    # Update user's agent assignments with the new cloned agent IDs
+    setattr(db_user, "agent_ids", new_cloned_agent_ids)
+
+    await db.commit()
+    await db.refresh(db_user)
+
+    log.info(f"Updated agents for user {str(db_user.username)}: {new_cloned_agent_ids}")
+    return db_user
+
+
+@router.get("/{user_id}/agents", response_model=List[str])
+async def get_user_agents(user_id: UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Retrieve the list of agents assigned to a specific user.
+
+    This endpoint returns the list of virtual assistant agent IDs that are
+    currently assigned to the specified user.
+
+    Args:
+        user_id: The unique identifier of the user
+        db: Database session dependency
+
+    Returns:
+        List[str]: List of agent IDs assigned to the user
+
+    Raises:
+        HTTPException: 404 if the user is not found
+    """
+    result = await db.execute(select(models.User).where(models.User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User agents not found")
+
+    # Return agent_ids list, or empty list if None
+    return db_user.agent_ids or []
+
+
+@router.delete("/{user_id}/agents", response_model=schemas.UserRead)
+async def remove_user_agents(
+    user_id: UUID,
+    agent_assignment: schemas.UserAgentAssignment,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Remove agents from a user and cleanup orphaned cloned agents.
+
+    This endpoint removes specified agents from a user's assignment list and
+    automatically cleans up any orphaned cloned agents from LlamaStack.
+    Orphaned cloned agents are those that:
+    1. Were cloned specifically for this user (name contains " - username")
+    2. Are being removed from the user
+    3. Are not assigned to any other users
+
+    Args:
+        user_id: The unique identifier of the user
+        agent_assignment: Object containing the list of agent IDs to remove
+        db: Database session dependency
+
+    Returns:
+        schemas.UserRead: The updated user profile with remaining agent assignments
+
+    Raises:
+        HTTPException: 404 if the user is not found
+        HTTPException: 500 if agent removal or cleanup fails
+    """
+    # Get the user from database
+    result = await db.execute(select(models.User).where(models.User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get current user agent assignments
+    current_agent_ids = getattr(db_user, "agent_ids", []) or []
+
+    # Use the service to remove agents and cleanup orphaned ones
+    remaining_agent_ids = await UserService.remove_agents_from_user(
+        current_agent_ids=current_agent_ids,
+        username=str(db_user.username),
+        agents_to_remove=agent_assignment.agent_ids,
+    )
+
+    # Update user's agent assignments with the remaining agent IDs
+    setattr(db_user, "agent_ids", remaining_agent_ids)
+
+    await db.commit()
+    await db.refresh(db_user)
+
+    log.info(
+        f"Removed agents from {str(db_user.username)}: {agent_assignment.agent_ids}"
+    )
+    log.info(f"Remaining agents: {remaining_agent_ids}")
+    return db_user
