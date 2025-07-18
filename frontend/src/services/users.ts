@@ -30,9 +30,8 @@ export const fetchUserById = async (userId: string): Promise<User> => {
 };
 
 export const updateUserAgents = async (userId: string, agentIds: string[]): Promise<User> => {
-  // Note: This will clone the specified agents and assign the cloned agents to the user
-  // Each agent will be cloned with a unique name including the user's username
-  // Duplicate agents (same config) will be detected and prevented
+  // Note: This adds the specified agents to the user's agent list
+  // Agents are shared across users and duplicate agent IDs are prevented
   const response = await fetch(`${USERS_API_ENDPOINT}${userId}/agents`, {
     method: 'POST',
     headers: {
@@ -57,8 +56,8 @@ export const getUserAgents = async (userId: string): Promise<string[]> => {
 };
 
 export const removeUserAgents = async (userId: string, agentIds: string[]): Promise<User> => {
-  // Note: This will remove the specified agents from the user and cleanup orphaned cloned agents
-  // Orphaned cloned agents (those created specifically for this user) will be deleted from LlamaStack
+  // Note: This removes the specified agents from the user's agent list
+  // Agents remain in LlamaStack and can be assigned to other users
   const response = await fetch(`${USERS_API_ENDPOINT}${userId}/agents`, {
     method: 'DELETE',
     headers: {
