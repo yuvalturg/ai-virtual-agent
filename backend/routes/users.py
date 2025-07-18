@@ -208,26 +208,23 @@ async def update_user_agents(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Update the agents assigned to a user by cloning existing agents.
+    Add agents to a user's assignment list.
 
-    This endpoint clones existing agents from LlamaStack and assigns the cloned
-    agents to the specified user. Each agent is cloned with a unique name that
-    includes the user's username to avoid conflicts. The system prevents
-    duplicate agent assignments by checking if the user already has an agent
-    with similar configuration.
+    This endpoint assigns existing agents from LlamaStack to the specified user.
+    The system prevents duplicate agent assignments by checking if the user
+    already has the agent ID assigned.
 
     Args:
         user_id: The unique identifier of the user
-        agent_assignment: Object containing the list of agent IDs to clone and assign
+        agent_assignment: Object containing the list of agent IDs to assign
         db: Database session dependency
 
     Returns:
-        schemas.UserRead: The updated user profile with new cloned agent assignments
+        schemas.UserRead: The updated user profile with new agent assignments
 
     Raises:
         HTTPException: 404 if the user is not found
         HTTPException: 404 if any of the specified agents don't exist in LlamaStack
-        HTTPException: 500 if agent cloning fails
     """
     # Get the user from database
     result = await db.execute(select(models.User).where(models.User.id == user_id))
@@ -238,20 +235,19 @@ async def update_user_agents(
     # Get current user agent assignments
     current_agent_ids = getattr(db_user, "agent_ids", []) or []
 
-    # Use the service to clone and assign agents
-    new_cloned_agent_ids = await UserService.clone_and_assign_agents(
+    # Use the service to assign agents
+    updated_agent_ids = await UserService.assign_agents_to_user(
         user_agent_ids=current_agent_ids,
-        username=str(db_user.username),
         requested_agent_ids=agent_assignment.agent_ids,
     )
 
-    # Update user's agent assignments with the new cloned agent IDs
-    setattr(db_user, "agent_ids", new_cloned_agent_ids)
+    # Update user's agent assignments with the updated agent IDs
+    setattr(db_user, "agent_ids", updated_agent_ids)
 
     await db.commit()
     await db.refresh(db_user)
 
-    log.info(f"Updated agents for user {str(db_user.username)}: {new_cloned_agent_ids}")
+    log.info(f"Updated agents for user {str(db_user.username)}: {updated_agent_ids}")
     return db_user
 
 
@@ -289,14 +285,10 @@ async def remove_user_agents(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Remove agents from a user and cleanup orphaned cloned agents.
+    Remove agents from a user's assignment list.
 
-    This endpoint removes specified agents from a user's assignment list and
-    automatically cleans up any orphaned cloned agents from LlamaStack.
-    Orphaned cloned agents are those that:
-    1. Were cloned specifically for this user (name contains " - username")
-    2. Are being removed from the user
-    3. Are not assigned to any other users
+    This endpoint removes specified agents from a user's assignment list.
+    Since agents are now shared across users, no cleanup of agents is performed.
 
     Args:
         user_id: The unique identifier of the user
@@ -308,7 +300,6 @@ async def remove_user_agents(
 
     Raises:
         HTTPException: 404 if the user is not found
-        HTTPException: 500 if agent removal or cleanup fails
     """
     # Get the user from database
     result = await db.execute(select(models.User).where(models.User.id == user_id))
@@ -319,10 +310,9 @@ async def remove_user_agents(
     # Get current user agent assignments
     current_agent_ids = getattr(db_user, "agent_ids", []) or []
 
-    # Use the service to remove agents and cleanup orphaned ones
+    # Use the service to remove agents
     remaining_agent_ids = await UserService.remove_agents_from_user(
         current_agent_ids=current_agent_ids,
-        username=str(db_user.username),
         agents_to_remove=agent_assignment.agent_ids,
     )
 
