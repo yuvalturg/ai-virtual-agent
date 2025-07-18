@@ -79,7 +79,7 @@ export function Chat() {
   const historyRef = React.useRef<HTMLButtonElement>(null);
 
   // Get current user context
-  const { currentUser, isLoading: isUserLoading, error: userError } = useCurrentUser();
+  const { currentUser, isLoading: isUserLoading, error: userError, refetch: refetchUser } = useCurrentUser();
 
   // Use our custom hook for chat functionality - only when we have a valid agent
   const {
@@ -422,6 +422,9 @@ export function Chat() {
       <div>
         <p>Error loading user: {userError || 'User not found'}</p>
         <p>Please ensure at least one user exists in the database.</p>
+        <Button variant="primary" onClick={() => refetchUser()}>
+          Retry
+        </Button>
       </div>
     );
   }

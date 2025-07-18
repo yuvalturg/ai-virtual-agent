@@ -1,6 +1,6 @@
 import { fetchUsers, fetchUserById, updateUserAgents, removeUserAgents, User } from '@/services/users';
 import { fetchAgents } from '@/services/agents';
-import { Agent } from '@/routes/config/agents';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import {
   Card,
   CardBody,
@@ -30,11 +30,11 @@ import {
   MenuToggle,
   MenuToggleElement,
   Checkbox,
-  Divider
 } from '@patternfly/react-core';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { ArrowLeftIcon, TimesIcon } from '@patternfly/react-icons';
-import React, { useEffect, useState, useRef } from 'react';
+import { ArrowLeftIcon } from '@patternfly/react-icons';
+import { useState } from 'react';
+import type { Ref } from 'react';
 
 export const Route = createFileRoute('/config/users')({
   component: Users,
@@ -48,97 +48,92 @@ export const Route = createFileRoute('/config/users')({
 function Users() {
   const { userId } = Route.useSearch();
   const navigate = useNavigate({ from: '/config/users' });
-
-  const [users, setUsers] = useState<User[]>([]);
-  const [userProfile, setUserProfile] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Agent management state
-  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
-  const [agentLoading, setAgentLoading] = useState<{ [key: string]: boolean }>({});
-  const [agentErrors, setAgentErrors] = useState<{ [key: string]: string }>({});
-  const toggleRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
+  // Query for users list (when not viewing a specific user)
+  const {
+    data: users = [],
+    isLoading: isUsersLoading,
+    error: usersError,
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    enabled: !userId, // Only fetch when not viewing a specific user
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-      try {
-        if (userId) {
-          // Load specific user profile
-          const profile = await fetchUserById(userId);
-          setUserProfile(profile);
-        } else {
-          // Load users list
-          const usersData = await fetchUsers();
-          setUsers(usersData);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Query for specific user profile (when userId is provided)
+  const {
+    data: userProfile,
+    isLoading: isUserProfileLoading,
+    error: userProfileError,
+  } = useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => fetchUserById(userId!),
+    enabled: !!userId, // Only fetch when userId is provided
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-    loadData();
-  }, [userId]);
+  // Query for available agents (when in profile view)
+  const {
+    data: availableAgents = [],
+    isLoading: isAgentsLoading,
+    error: agentsError,
+  } = useQuery({
+    queryKey: ['agents'],
+    queryFn: fetchAgents,
+    enabled: !!userId, // Only fetch when viewing a user profile
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  // Load available agents when in profile view
-  useEffect(() => {
-    if (userId) {
-      const loadAgents = async () => {
-        try {
-          const agents = await fetchAgents();
-          setAvailableAgents(agents);
-        } catch (err) {
-          console.error('Error loading agents:', err);
-        }
-      };
-      loadAgents();
-    }
-  }, [userId]);
+  // Mutation for adding agents to user
+  const addAgentMutation = useMutation({
+    mutationFn: ({ userId, agentId }: { userId: string; agentId: string }) => {
+      const currentAgents = userProfile?.agent_ids || [];
+      return updateUserAgents(userId, [...currentAgents, agentId]);
+    },
+    onSuccess: () => {
+      // Invalidate user profile data to update the current view
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      // Invalidate users list to update agent counts on the users list page
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('Error adding agent:', error);
+    },
+  });
 
-  const handleAddAgent = async (agentId: string) => {
+  // Mutation for removing agents from user
+  const removeAgentMutation = useMutation({
+    mutationFn: ({ userId, agentId }: { userId: string; agentId: string }) => {
+      return removeUserAgents(userId, [agentId]);
+    },
+    onSuccess: () => {
+      // Invalidate user profile data to update the current view
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      // Invalidate users list to update agent counts on the users list page
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('Error removing agent:', error);
+    },
+  });
+
+  // Derive loading and error states from queries
+  const loading = isUsersLoading || isUserProfileLoading || isAgentsLoading;
+  const error = usersError?.message || userProfileError?.message || agentsError?.message || null;
+
+  const handleAddAgent = (agentId: string) => {
     if (!userProfile) return;
-
-    // Clear previous errors
-    setAgentErrors(prev => ({ ...prev, [agentId]: '' }));
-    setAgentLoading(prev => ({ ...prev, [agentId]: true }));
-
-    try {
-      // Add the agent to the user's current agents
-      const currentAgents = userProfile.agent_ids || [];
-      const updatedUser = await updateUserAgents(userProfile.id, [...currentAgents, agentId]);
-      setUserProfile(updatedUser);
-    } catch (err) {
-      setAgentErrors(prev => ({
-        ...prev,
-        [agentId]: err instanceof Error ? err.message : 'Failed to add agent'
-      }));
-    } finally {
-      setAgentLoading(prev => ({ ...prev, [agentId]: false }));
-    }
+    addAgentMutation.mutate({ userId: userProfile.id, agentId });
   };
 
-  const handleRemoveAgent = async (agentId: string) => {
+  const handleRemoveAgent = (agentId: string) => {
     if (!userProfile) return;
-
-    setAgentLoading(prev => ({ ...prev, [agentId]: true }));
-
-    try {
-      const updatedUser = await removeUserAgents(userProfile.id, [agentId]);
-      setUserProfile(updatedUser);
-    } catch (err) {
-      setAgentErrors(prev => ({
-        ...prev,
-        [agentId]: err instanceof Error ? err.message : 'Failed to remove agent'
-      }));
-    } finally {
-      setAgentLoading(prev => ({ ...prev, [agentId]: false }));
-    }
+    removeAgentMutation.mutate({ userId: userProfile.id, agentId });
   };
 
   const handleUserClick = (user: User) => {
@@ -215,7 +210,7 @@ function Users() {
                           <Dropdown
                             isOpen={agentDropdownOpen}
                             onOpenChange={(isOpen) => setAgentDropdownOpen(isOpen)}
-                            toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
+                            toggle={(toggleRef: Ref<MenuToggleElement>) => (
                               <MenuToggle
                                 ref={toggleRef}
                                 onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
@@ -229,8 +224,8 @@ function Users() {
                             <DropdownList>
                               {availableAgents.map((agent) => {
                                 const isAssigned = userProfile.agent_ids?.includes(agent.id);
-                                const isLoading = agentLoading[agent.id];
-                                const hasError = agentErrors[agent.id];
+                                const isLoading = addAgentMutation.isPending && addAgentMutation.variables?.agentId === agent.id;
+                                const hasError = addAgentMutation.isError && addAgentMutation.variables?.agentId === agent.id;
 
                                 return (
                                   <DropdownItem
@@ -259,7 +254,7 @@ function Users() {
                                         {isLoading && <Spinner size="sm" style={{ marginLeft: '8px' }} />}
                                         {hasError && (
                                           <span style={{ color: 'red', fontSize: '0.8em', marginLeft: '8px' }}>
-                                            {hasError}
+                                            {addAgentMutation.error?.message || 'Failed to add agent'}
                                           </span>
                                         )}
                                       </FlexItem>
@@ -275,7 +270,7 @@ function Users() {
                             <LabelGroup>
                               {userProfile.agent_ids.map((agentId) => {
                                 const agent = availableAgents.find(a => a.id === agentId);
-                                const isLoading = agentLoading[agentId];
+                                const isLoading = removeAgentMutation.isPending && removeAgentMutation.variables?.agentId === agentId;
 
                                 return (
                                   <Label
@@ -286,6 +281,11 @@ function Users() {
                                   >
                                     {agent?.name || agentId}
                                     {isLoading && <Spinner size="sm" style={{ marginLeft: '8px' }} />}
+                                    {removeAgentMutation.isError && removeAgentMutation.variables?.agentId === agentId && (
+                                      <span style={{ color: 'red', fontSize: '0.8em', marginLeft: '8px' }}>
+                                        Error
+                                      </span>
+                                    )}
                                   </Label>
                                 );
                               })}
