@@ -1,6 +1,6 @@
 import { PageSection } from '@patternfly/react-core';
 import { createFileRoute } from '@tanstack/react-router';
-import { MCPServerList } from '@/components/mcp-server-list';
+import { MCPServerList } from '@/components/MCPServerList';
 
 export const Route = createFileRoute('/config/mcp-servers')({
   component: MCPServers,

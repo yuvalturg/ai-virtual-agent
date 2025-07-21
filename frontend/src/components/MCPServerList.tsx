@@ -1,4 +1,3 @@
-import { MCPServerCard } from '@/components/mcp-server-card';
 import { fetchMCPServers, deleteMCPServer } from '@/services/mcp-servers';
 import { MCPServer } from '@/types';
 import { Alert, Button, Flex, FlexItem, Spinner, Title } from '@patternfly/react-core';
@@ -6,6 +5,7 @@ import { SyncIcon } from '@patternfly/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { NewMCPServerCard } from '@/components/NewMCPServerCard';
+import { MCPServerCard } from '@/components/MCPServerCard';
 
 export function MCPServerList() {
   const queryClient = useQueryClient();
