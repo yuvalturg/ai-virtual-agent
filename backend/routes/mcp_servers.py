@@ -20,9 +20,6 @@ from .. import schemas
 from ..api.llamastack import client
 from ..utils.logging_config import get_logger
 
-# Define the provider id for Model-Context-Protocol servers in a single place
-MCP_PROVIDER_ID = "model-context-protocol"
-
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/mcp_servers", tags=["mcp_servers"])
@@ -50,7 +47,7 @@ async def create_mcp_server(server: schemas.MCPServerCreate):
         # Register the toolgroup directly with LlamaStack
         client.toolgroups.register(
             toolgroup_id=server.toolgroup_id,
-            provider_id=MCP_PROVIDER_ID,
+            provider_id="model-context-protocol",
             args={
                 "name": server.name,
                 "description": server.description,
@@ -67,7 +64,7 @@ async def create_mcp_server(server: schemas.MCPServerCreate):
             description=server.description,
             endpoint_url=server.endpoint_url,
             configuration=server.configuration,
-            provider_id=MCP_PROVIDER_ID,
+            provider_id="model-context-protocol",
         )
 
     except Exception as e:
@@ -97,7 +94,7 @@ async def read_mcp_servers():
         for toolgroup in toolgroups:
             if (
                 hasattr(toolgroup, "provider_id")
-                and toolgroup.provider_id == MCP_PROVIDER_ID
+                and toolgroup.provider_id == "model-context-protocol"
             ):
                 raw_args = getattr(toolgroup, "args", {}) or {}
                 if isinstance(raw_args, dict):
@@ -166,7 +163,7 @@ async def read_mcp_server(toolgroup_id: str):
             if (
                 str(tg.identifier) == toolgroup_id
                 and hasattr(tg, "provider_id")
-                and tg.provider_id == MCP_PROVIDER_ID
+                and tg.provider_id == "model-context-protocol"
             ):
                 toolgroup = tg
                 break
@@ -235,7 +232,7 @@ async def update_mcp_server(
             if (
                 str(tg.identifier) == toolgroup_id
                 and hasattr(tg, "provider_id")
-                and tg.provider_id == MCP_PROVIDER_ID
+                and tg.provider_id == "model-context-protocol"
             ):
                 existing_toolgroup = tg
                 break
@@ -246,7 +243,7 @@ async def update_mcp_server(
         # Update by re-registering with new config
         client.toolgroups.register(
             toolgroup_id=server.toolgroup_id,
-            provider_id=MCP_PROVIDER_ID,
+            provider_id="model-context-protocol",
             args={
                 "name": server.name,
                 "description": server.description,
@@ -263,7 +260,7 @@ async def update_mcp_server(
             description=server.description,
             endpoint_url=server.endpoint_url,
             configuration=server.configuration,
-            provider_id=MCP_PROVIDER_ID,
+            provider_id="model-context-protocol",
         )
 
     except HTTPException:
@@ -298,7 +295,7 @@ async def delete_mcp_server(toolgroup_id: str):
             if (
                 str(tg.identifier) == toolgroup_id
                 and hasattr(tg, "provider_id")
-                and tg.provider_id == MCP_PROVIDER_ID
+                and tg.provider_id == "model-context-protocol"
             ):
                 existing_toolgroup = tg
                 break
