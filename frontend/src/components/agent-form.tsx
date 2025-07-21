@@ -1,5 +1,5 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
-import { Model, ToolGroup, ToolAssociationInfo, LSKnowledgeBase } from '@/types';
+import { Model, ToolGroup, ToolAssociationInfo, LSKnowledgeBase, samplingStrategy } from '@/types';
 import {
   ActionGroup,
   Button,
@@ -10,11 +10,21 @@ import {
   FormSelectOption,
   TextArea,
   TextInput,
+  Accordion,
+  AccordionItem,
+  AccordionToggle,
+  AccordionContent,
+  Tooltip,
+  Slider,
+  SliderOnChangeEvent,
 } from '@patternfly/react-core';
 import { useForm } from '@tanstack/react-form';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { CustomSelectOptionProps, MultiSelect } from './multi-select';
 import { PaperPlaneIcon } from '@patternfly/react-icons';
+import React from 'react';
+import FormFieldSlider from './FormFieldSlider';
+import { parameterFields } from '../config/samplingParametersConfig';
 
 interface ModelsFieldProps {
   models: Model[];
@@ -51,6 +61,13 @@ interface AgentFormData {
   prompt: string;
   knowledge_base_ids: string[];
   tool_ids: string[]; // Internal form uses tool IDs for easier UI handling
+  sampling_strategy: samplingStrategy;
+  temperature: number;
+  top_p: number;
+  top_k: number;
+  max_tokens: number;
+  repetition_penalty: number;
+  samplingAccordionExpanded: boolean; // Added for accordion state
 }
 
 // Helper functions to convert between formats
@@ -62,6 +79,13 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
       prompt: '',
       knowledge_base_ids: [],
       tool_ids: [],
+      sampling_strategy: 'greedy',
+      temperature: 0.1,
+      top_p: 0.95,
+      top_k: 40,
+      max_tokens: 512,
+      repetition_penalty: 0.0,
+      samplingAccordionExpanded: false, // Initialize accordion state
     };
   }
 
@@ -74,6 +98,13 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
     prompt: agent.prompt,
     knowledge_base_ids: agent.knowledge_base_ids,
     tool_ids,
+    sampling_strategy: agent.sampling_strategy ?? 'greedy',
+    temperature: agent.temperature ?? 0.0,
+    top_p: agent.top_p ?? 0.95,
+    top_k: agent.top_k ?? 40,
+    max_tokens: agent.max_tokens ?? 512,
+    repetition_penalty: agent.repetition_penalty ?? 0.0,
+    samplingAccordionExpanded: false, // Initialize accordion state
   };
 };
 
@@ -99,6 +130,12 @@ const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): Ne
     prompt: formData.prompt,
     knowledge_base_ids,
     tools: toolAssociations,
+    sampling_strategy: formData.sampling_strategy,
+    temperature: formData.temperature,
+    top_p: formData.top_p,
+    top_k: formData.top_k,
+    max_tokens: formData.max_tokens,
+    repetition_penalty: formData.repetition_penalty,
   };
 };
 
@@ -129,6 +166,31 @@ export function AgentForm({
   const handleCancel = () => {
     onCancel();
     form.reset();
+  };
+
+  const handleSliderChange = (
+    event: SliderOnChangeEvent,
+    field: any,
+    sliderValue: number,
+    inputValue: number | undefined,
+    { min, max, step }: { min: number; max: number; step: number },
+    setLocalInputValue?: React.Dispatch<React.SetStateAction<number>>
+  ) => {
+    // Use inputValue if present, otherwise sliderValue
+    const rawValue = inputValue !== undefined ? Number(inputValue) : sliderValue;
+    // Ensures the value stays within the defined range
+    const clampedValue = Math.max(min, Math.min(rawValue, max));
+    const roundedValue = min + Math.round((clampedValue - min) / step) * step;
+    const decimalPlaces = step.toString().split('.')[1]?.length || 0;
+    const finalValue = parseFloat(roundedValue.toFixed(decimalPlaces));
+
+    // Update the local input value (for the input box)
+    setLocalInputValue?.(finalValue);
+
+    // Only update the field if the event is not a 'change' event (to avoid double updates)
+    if (event.type !== 'change') {
+      field.handleChange(finalValue);
+    }
   };
 
   const knowledgeBaseOptions = useMemo((): CustomSelectOptionProps[] => {
@@ -206,6 +268,8 @@ export function AgentForm({
       id: `tools-option-${tool.toolgroup_id}`, // Unique ID for React key and ARIA
     }));
   }, [tools, isLoadingTools, toolsError]);
+
+  const [isSamplingAccordionExpanded, setSamplingAccordionExpanded] = useState(false);
 
   return (
     <Form
@@ -392,6 +456,72 @@ export function AgentForm({
           ) : null;
         }}
       </form.Subscribe>
+      {/* Sampling & Generation Parameters Accordion */}
+      <Accordion asDefinitionList={false}>
+        <AccordionItem isExpanded={isSamplingAccordionExpanded}>
+          <Tooltip content="Advanced: Control how the model generates text.">
+            <AccordionToggle
+              id="sampling-params-toggle"
+              onClick={() => setSamplingAccordionExpanded(!isSamplingAccordionExpanded)}
+            >
+              Sampling & Generation Parameters
+            </AccordionToggle>
+          </Tooltip>
+          <AccordionContent id="sampling-params-content" hidden={!isSamplingAccordionExpanded}>
+            {/* Sampling Strategy Dropdown */}
+            <form.Field name="sampling_strategy">
+              {(field) => (
+                <FormGroup
+                  label="Sampling Strategy"
+                  fieldId="sampling-strategy"
+                  className="wide-input-slider"
+                  style={{ marginBottom: 24, marginLeft: 15 }}
+                >
+                  <FormHelperText>
+                    The method for selecting the next token in a sequence.
+                  </FormHelperText>
+                  <div style={{ maxWidth: 200 }}>
+                    <FormSelect
+                      id="sampling-strategy"
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(_event, value) => field.handleChange(value as samplingStrategy)}
+                    >
+                      <FormSelectOption value="greedy" label="Greedy" />
+                      <FormSelectOption value="top-p" label="Top-P" />
+                      <FormSelectOption value="top-k" label="Top-K" />
+                    </FormSelect>
+                  </div>
+                </FormGroup>
+              )}
+            </form.Field>
+            {/* Render all parameter fields using config */}
+            <form.Subscribe selector={(state) => state.values.sampling_strategy}>
+              {(strategy) => (
+                <>
+                  {parameterFields.map((fieldConfig) => {
+                    const shouldShow = !fieldConfig.showWhen || fieldConfig.showWhen(strategy);
+                    return shouldShow ? (
+                      <FormFieldSlider
+                        key={fieldConfig.name}
+                        form={form}
+                        name={fieldConfig.name}
+                        label={fieldConfig.label}
+                        helperText={fieldConfig.helperText}
+                        min={fieldConfig.min}
+                        max={fieldConfig.max}
+                        step={fieldConfig.step}
+                        handleSliderChange={handleSliderChange}
+                      />
+                    ) : null;
+                  })}
+                </>
+              )}
+            </form.Subscribe>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <ActionGroup>
         <form.Subscribe
           selector={(state) => [state.canSubmit, state.isSubmitting, state.isPristine]}

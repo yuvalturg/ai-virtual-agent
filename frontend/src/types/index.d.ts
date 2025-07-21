@@ -14,6 +14,8 @@ export interface KnowledgeBase {
 
 export type ToolType = 'builtin' | 'mcp_server';
 
+export type samplingStrategy = 'greedy' | 'top-p' | 'top-k';
+
 export interface ToolGroup {
   toolgroup_id: string; // Primary key - LlamaStack identifier
   name: string;

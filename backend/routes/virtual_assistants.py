@@ -21,22 +21,25 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/virtual_assistants", tags=["virtual_assistants"])
 
 
-def get_strategy(temperature, top_p):
+def get_strategy(sampling_strategy, temperature, top_p, top_k):
     """
-    Determines the sampling strategy for the LLM based on temperature.
-
+    Determines the sampling strategy for the LLM based on user selection.
     Args:
-        temperature: Temperature parameter for sampling (0 = greedy)
+        sampling_strategy: 'greedy', 'top-p', or 'top-k'
+        temperature: Temperature parameter for sampling
         top_p: Top-p parameter for nucleus sampling
-
+        top_k: Top-k parameter for k sampling
     Returns:
         Dict containing the sampling strategy configuration
     """
-    return (
-        {"type": "greedy"}
-        if temperature == 0
-        else {"type": "top_p", "temperature": temperature, "top_p": top_p}
-    )
+    if sampling_strategy == "top-p":
+        temp = max(temperature, 0.1)  # Ensure temp doesn't become 0
+        return {"type": "top_p", "temperature": temperature, "top_p": top_p}
+    elif sampling_strategy == "top-k":
+        temp = max(temperature, 0.1)  # Ensure temp doesn't become 0
+        return {"type": "top_k", "temperature": temp, "top_k": top_k}
+    # Default and 'greedy' case
+    return {"type": "greedy"}
 
 
 @router.post(
@@ -59,19 +62,24 @@ async def create_virtual_assistant(va: schemas.VirtualAssistantCreate):
     """
     try:
         sampling_params = {
-            "strategy": get_strategy(va.temperature, va.top_p),
+            "strategy": get_strategy(
+                va.sampling_strategy,
+                va.temperature,
+                va.top_p,
+                va.top_k,
+            ),
             "max_tokens": va.max_tokens,
             "repetition_penalty": va.repetition_penalty,
         }
 
         tools = []
-        for i, tool_info in enumerate(va.tools):
+        for i, tool_info in enumerate(va.tools or []):
             if tool_info.toolgroup_id == "builtin::rag":
-                if len(va.knowledge_base_ids) > 0:
+                if len(va.knowledge_base_ids or []) > 0:
                     tool_dict = dict(
                         name="builtin::rag",
                         args={
-                            "vector_db_ids": list(va.knowledge_base_ids),
+                            "vector_db_ids": list(va.knowledge_base_ids or []),
                         },
                     )
                     tools.append(tool_dict)

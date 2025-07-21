@@ -1,6 +1,6 @@
 import { AgentList } from '@/components/agent-list';
 import { NewAgentCard } from '@/components/new-agent-card';
-import { ToolAssociationInfo } from '@/types';
+import { samplingStrategy, ToolAssociationInfo } from '@/types';
 import { Flex, FlexItem, PageSection, Title } from '@patternfly/react-core';
 import { createFileRoute } from '@tanstack/react-router';
 
@@ -15,7 +15,13 @@ export interface Agent {
   created_by: string;
   created_at: string;
   updated_at: string;
-  // Add other relevant agent properties here
+  // Sampling params
+  sampling_strategy?: samplingStrategy;
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  max_tokens?: number;
+  repetition_penalty?: number;
 }
 
 // Type def for creating agents
@@ -25,6 +31,13 @@ export interface NewAgent {
   prompt: string;
   tools: ToolAssociationInfo[];
   knowledge_base_ids: string[];
+  // Sampling params
+  sampling_strategy?: samplingStrategy;
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  max_tokens?: number;
+  repetition_penalty?: number;
 }
 
 export const Route = createFileRoute('/config/agents')({

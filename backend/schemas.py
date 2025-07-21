@@ -96,7 +96,7 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
             "version": self.version,
             "source": self.source,
             "embedding_model": self.embedding_model,
-            "vector_db_name": self.vector_db_name
+            "vector_db_name": self.vector_db_name,
         }
         if self.source == "URL":
             return base | {"urls": self.source_configuration}
@@ -132,6 +132,8 @@ class VirtualAssistantBase(BaseModel):
     repetition_penalty: Optional[float] = 1.0
     max_tokens: Optional[int] = 4096
     top_p: Optional[float] = 0.95
+    top_k: Optional[int] = 40
+    sampling_strategy: Optional[str] = "greedy"
     knowledge_base_ids: Optional[List[str]] = (
         []
     )  # Now expecting list of vector_db_names
