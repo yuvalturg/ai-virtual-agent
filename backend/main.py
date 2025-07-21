@@ -55,15 +55,10 @@ async def on_startup():
     """
     Initialize application on startup by syncing external resources.
 
-    Synchronizes MCP servers, model servers, and knowledge bases with
-    their external sources (LlamaStack, etc.) to ensure consistency.
+    Synchronizes model servers and knowledge bases with their external sources
+    (LlamaStack, etc.) to ensure consistency. MCP servers are now managed
+    directly through LlamaStack without local synchronization.
     """
-    try:
-        async with AsyncSessionLocal() as session:
-            await mcp_servers.sync_mcp_servers(session)
-    except Exception as e:
-        logger.error(f"Failed to sync MCP servers on startup: {str(e)}")
-
     async with AsyncSessionLocal() as session:
         try:
             await model_servers.sync_model_servers(session)

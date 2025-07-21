@@ -20,6 +20,9 @@ from .. import schemas
 from ..api.llamastack import client
 from ..utils.logging_config import get_logger
 
+# Define the provider id for Model-Context-Protocol servers in a single place
+MCP_PROVIDER_ID = "model-context-protocol"
+
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/mcp_servers", tags=["mcp_servers"])
@@ -47,14 +50,13 @@ async def create_mcp_server(server: schemas.MCPServerCreate):
         # Register the toolgroup directly with LlamaStack
         client.toolgroups.register(
             toolgroup_id=server.toolgroup_id,
-            provider_id="model-context-protocol",
-            provider_resource_id=server.name,
-            config={
+            provider_id=MCP_PROVIDER_ID,
+            args={
                 "name": server.name,
                 "description": server.description,
-                "endpoint_url": server.endpoint_url,
                 **server.configuration,
             },
+            mcp_endpoint={"uri": server.endpoint_url},
         )
 
         logger.info(f"Successfully created MCP server: {server.toolgroup_id}")
@@ -65,7 +67,7 @@ async def create_mcp_server(server: schemas.MCPServerCreate):
             description=server.description,
             endpoint_url=server.endpoint_url,
             configuration=server.configuration,
-            provider_id="model-context-protocol",
+            provider_id=MCP_PROVIDER_ID,
         )
 
     except Exception as e:
@@ -95,19 +97,36 @@ async def read_mcp_servers():
         for toolgroup in toolgroups:
             if (
                 hasattr(toolgroup, "provider_id")
-                and toolgroup.provider_id == "model-context-protocol"
+                and toolgroup.provider_id == MCP_PROVIDER_ID
             ):
-                # Extract configuration from toolgroup
-                config = getattr(toolgroup, "config", {})
+                raw_args = getattr(toolgroup, "args", {}) or {}
+                if isinstance(raw_args, dict):
+                    args = raw_args
+                else:
+                    args = (
+                        raw_args.model_dump()
+                        if hasattr(raw_args, "model_dump")
+                        else vars(raw_args)
+                    )
+
+                endpoint_obj = getattr(toolgroup, "mcp_endpoint", None)
+                endpoint_uri = (
+                    getattr(endpoint_obj, "uri", None)
+                    if endpoint_obj is not None
+                    else None
+                )
 
                 mcp_server = schemas.MCPServerRead(
                     toolgroup_id=str(toolgroup.identifier),
-                    name=getattr(
-                        toolgroup, "provider_resource_id", str(toolgroup.identifier)
+                    name=args.get("name")
+                    or getattr(
+                        toolgroup,
+                        "provider_resource_id",
+                        str(toolgroup.identifier),
                     ),
-                    description=config.get("description", ""),
-                    endpoint_url=config.get("endpoint_url", ""),
-                    configuration=config,
+                    description=args.get("description", ""),
+                    endpoint_url=endpoint_uri or "",
+                    configuration=args,
                     provider_id=toolgroup.provider_id,
                 )
                 mcp_servers.append(mcp_server)
@@ -147,7 +166,7 @@ async def read_mcp_server(toolgroup_id: str):
             if (
                 str(tg.identifier) == toolgroup_id
                 and hasattr(tg, "provider_id")
-                and tg.provider_id == "model-context-protocol"
+                and tg.provider_id == MCP_PROVIDER_ID
             ):
                 toolgroup = tg
                 break
@@ -155,15 +174,28 @@ async def read_mcp_server(toolgroup_id: str):
         if not toolgroup:
             raise HTTPException(status_code=404, detail="Server not found")
 
-        # Extract configuration
-        config = getattr(toolgroup, "config", {})
+        raw_args = getattr(toolgroup, "args", {}) or {}
+        if isinstance(raw_args, dict):
+            args = raw_args
+        else:
+            args = (
+                raw_args.model_dump()
+                if hasattr(raw_args, "model_dump")
+                else vars(raw_args)
+            )
+
+        endpoint_obj = getattr(toolgroup, "mcp_endpoint", None)
+        endpoint_uri = (
+            getattr(endpoint_obj, "uri", None) if endpoint_obj is not None else None
+        )
 
         return schemas.MCPServerRead(
             toolgroup_id=str(toolgroup.identifier),
-            name=getattr(toolgroup, "provider_resource_id", str(toolgroup.identifier)),
-            description=config.get("description", ""),
-            endpoint_url=config.get("endpoint_url", ""),
-            configuration=config,
+            name=args.get("name")
+            or getattr(toolgroup, "provider_resource_id", str(toolgroup.identifier)),
+            description=args.get("description", ""),
+            endpoint_url=endpoint_uri or "",
+            configuration=args,
             provider_id=toolgroup.provider_id,
         )
 
@@ -203,7 +235,7 @@ async def update_mcp_server(
             if (
                 str(tg.identifier) == toolgroup_id
                 and hasattr(tg, "provider_id")
-                and tg.provider_id == "model-context-protocol"
+                and tg.provider_id == MCP_PROVIDER_ID
             ):
                 existing_toolgroup = tg
                 break
@@ -214,14 +246,13 @@ async def update_mcp_server(
         # Update by re-registering with new config
         client.toolgroups.register(
             toolgroup_id=server.toolgroup_id,
-            provider_id="model-context-protocol",
-            provider_resource_id=server.name,
-            config={
+            provider_id=MCP_PROVIDER_ID,
+            args={
                 "name": server.name,
                 "description": server.description,
-                "endpoint_url": server.endpoint_url,
                 **server.configuration,
             },
+            mcp_endpoint={"uri": server.endpoint_url},
         )
 
         logger.info(f"Successfully updated MCP server: {server.toolgroup_id}")
@@ -232,7 +263,7 @@ async def update_mcp_server(
             description=server.description,
             endpoint_url=server.endpoint_url,
             configuration=server.configuration,
-            provider_id="model-context-protocol",
+            provider_id=MCP_PROVIDER_ID,
         )
 
     except HTTPException:
@@ -267,7 +298,7 @@ async def delete_mcp_server(toolgroup_id: str):
             if (
                 str(tg.identifier) == toolgroup_id
                 and hasattr(tg, "provider_id")
-                and tg.provider_id == "model-context-protocol"
+                and tg.provider_id == MCP_PROVIDER_ID
             ):
                 existing_toolgroup = tg
                 break
