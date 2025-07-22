@@ -41,7 +41,7 @@ class ExistingAsyncAgent(AsyncAgent):
         self.builtin_tools = {}
         self.extra_headers = {}
 
-        # Set the agent_id directly instead of calling initialize()
+        # Manually set agent ID (assuming it’s safe to override)
         self.agent_id = agent_id
 
     @property
