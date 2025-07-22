@@ -20,4 +20,4 @@ ENV DATABASE_URL="postgresql://myuser:mypassword@127.0.0.1:5432/store_db"
 EXPOSE 8001
 
 # Command to run the Store Server
-CMD ["uvicorn", "appservers.store.main:app", "--host", "0.0.0.0", "--port", "8001"] 
+CMD ["uvicorn", "appservers.store.main:app", "--host", "0.0.0.0", "--port", "8001"]

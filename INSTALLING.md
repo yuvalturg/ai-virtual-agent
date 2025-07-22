@@ -50,7 +50,7 @@ oc login --server="<cluster-api-endpoint>" --token="sha256~XYZ"
    In the example below the key for the taint is `nvidia.com/gpu`
 
 ```bash
-oc get nodes -l nvidia.com/gpu.present=true -o yaml | grep -A 3 taint 
+oc get nodes -l nvidia.com/gpu.present=true -o yaml | grep -A 3 taint
 ```
 
 The output of the command may be something like below
