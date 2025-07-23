@@ -14,4 +14,4 @@ INSERT INTO products (name, description, inventory, price) VALUES
 
 -- Note: The 'orders' table will be populated as orders are made through the API.
 -- The 'id' columns are auto-incrementing primary keys and should not be specified in INSERT statements
--- unless you are intentionally setting them and have handled sequence adjustments. 
+-- unless you are intentionally setting them and have handled sequence adjustments.

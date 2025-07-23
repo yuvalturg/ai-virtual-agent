@@ -7,9 +7,11 @@ both MCP (Model Context Protocol) servers and LlamaStack builtin tools.
 
 from typing import Any, Dict, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..api.llamastack import client
+from ..api.llamastack import get_client_from_request
+from ..database import get_db
 from ..utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -18,7 +20,7 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 
 
 @router.get("/", response_model=List[Dict[str, Any]])
-async def get_all_tool_groups():
+async def get_all_tool_groups(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Get all available tool groups from LlamaStack (both MCP servers and builtin tools).
 
@@ -33,6 +35,7 @@ async def get_all_tool_groups():
 
     # Get all toolgroups from LlamaStack
     try:
+        client = get_client_from_request(request)
         toolgroups = client.toolgroups.list()
 
         for toolgroup in toolgroups:
@@ -63,7 +66,7 @@ async def get_all_tool_groups():
 
     # Also get individual tools from LlamaStack for backward compatibility
     try:
-        response = client.tools.list()
+        response = await client.tools.list()
         if isinstance(response, list):
             llamastack_tools = [item.__dict__ for item in response]
         elif isinstance(response, dict):

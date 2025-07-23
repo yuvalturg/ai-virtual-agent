@@ -11,7 +11,7 @@ from typing import Any, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
-from ..api.llamastack import client
+from ..api.llamastack import sync_client
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class LlamaStackSyncService:
             log.info(f"Syncing knowledge base creation to LlamaStack: {kb.name}")
 
             # Register the vector database in LlamaStack
-            client.vector_dbs.register(
+            await sync_client.vector_dbs.register(
                 vector_db_id=kb.vector_db_name,
                 embedding_model=kb.embedding_model,
                 embedding_dimension=384,  # Default dimension
@@ -54,7 +54,7 @@ class LlamaStackSyncService:
 
             # Since LlamaStack doesn't have update, we re-register
             # This might overwrite existing data, but ensures consistency
-            client.vector_dbs.register(
+            await sync_client.vector_dbs.register(
                 vector_db_id=kb.vector_db_name,
                 embedding_model=kb.embedding_model,
                 embedding_dimension=384,
@@ -96,7 +96,7 @@ class LlamaStackSyncService:
             log.info("Validating sync status with LlamaStack")
 
             # Get LlamaStack vector databases
-            llamastack_vdbs = client.vector_dbs.list()
+            llamastack_vdbs = await sync_client.vector_dbs.list()
             llamastack_vdb_names = {vdb.identifier for vdb in llamastack_vdbs}
 
             # Get local knowledge bases

@@ -50,7 +50,7 @@ oc login --server="<cluster-api-endpoint>" --token="sha256~XYZ"
    In the example below the key for the taint is `nvidia.com/gpu`
 
 ```bash
-oc get nodes -l nvidia.com/gpu.present=true -o yaml | grep -A 3 taint 
+oc get nodes -l nvidia.com/gpu.present=true -o yaml | grep -A 3 taint
 ```
 
 The output of the command may be something like below
@@ -196,7 +196,7 @@ Watch the **llamastack** pod as that one becomes available after all the model s
 1. Get the route url for the application and open in your browser
 
 ```bash
-URL=http://$(oc get routes -l app.kubernetes.io/name=rag -o jsonpath="{range .items[*]}{.status.ingress[0].host}{end}")
+URL=http://$(oc get routes --field-selector metadata.name=ai-virtual-assistant  -o jsonpath="{range .items[*]}{.status.ingress[0].host}{end}")
 echo $URL
 open $URL
 ```

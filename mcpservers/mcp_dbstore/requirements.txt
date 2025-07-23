@@ -4,4 +4,4 @@ uvicorn
 sqlalchemy
 asyncpg
 pydantic
-mcp[cli] 
+mcp[cli]

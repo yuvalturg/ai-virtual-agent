@@ -32,4 +32,4 @@ ENV STORE_SERVER_URL="http://appservers-store:8001"
 # Command to run the MCP server
 # This is highly dependent on your FastMCP framework.
 # Replace with the actual command to start your FastMCP server.
-CMD ["python", "-m", "mcpservers.mcp_webstore.webstore"] # A more common way to run modules 
+CMD ["python", "-m", "mcpservers.mcp_webstore.webstore"] # A more common way to run modules
