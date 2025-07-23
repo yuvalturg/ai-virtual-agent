@@ -95,9 +95,8 @@ def wait_for_service_ready(
 
 
 async def sync_all_services():
-    """Sync all external services (MCP servers, model servers, knowledge bases)."""
+    """Sync all external services (model servers, knowledge bases)."""
     sync_operations = [
-        ("MCP servers", mcp_servers.sync_mcp_servers),
         ("Model servers", model_servers.sync_model_servers),
         ("Knowledge bases", knowledge_bases.sync_knowledge_bases),
     ]
