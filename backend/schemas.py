@@ -135,6 +135,8 @@ class VirtualAssistantBase(BaseModel):
     repetition_penalty: Optional[float] = 1.0
     max_tokens: Optional[int] = 4096
     top_p: Optional[float] = 0.95
+    top_k: Optional[int] = 40
+    sampling_strategy: Optional[str] = "greedy"
     knowledge_base_ids: Optional[List[str]] = (
         []
     )  # Now expecting list of vector_db_names
