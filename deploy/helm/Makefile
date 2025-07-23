@@ -105,6 +105,9 @@ install: namespace depend
 	@$(eval LLM_SERVICE_ARGS := $(call helm_llm_service_args))
 	@$(eval LLAMA_STACK_ARGS := $(call helm_llama_stack_args))
 	@$(eval INGESTION_ARGS := $(call helm_ingestion_args))
+
+	@$(eval ADMIN_USERNAME := $(shell bash -c 'read -r -p "Enter admin user name: " ADMIN_USERNAME; echo $$ADMIN_USERNAME'))
+	@$(eval ADMIN_EMAIL := $(shell bash -c 'read -r -p "Enter admin user email: " ADMIN_EMAIL; echo $$ADMIN_EMAIL'))
 	@$(eval SEED_ADMIN_USER_ARGS := $(call helm_seed_admin_user_args))
 
 	@echo "Installing $(AI_VIRTUAL_ASSISTANT_CHART) helm chart"
