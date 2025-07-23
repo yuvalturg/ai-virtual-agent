@@ -1,5 +1,8 @@
 """
 LlamaStack synchronization service for event-driven sync operations.
+
+Note: MCP servers are now managed directly through LlamaStack without local storage,
+so no sync operations are needed for them.
 """
 
 import logging
@@ -8,7 +11,7 @@ from typing import Any, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
-from ..api.llamastack import client
+from ..api.llamastack import sync_client
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +29,7 @@ class LlamaStackSyncService:
             log.info(f"Syncing knowledge base creation to LlamaStack: {kb.name}")
 
             # Register the vector database in LlamaStack
-            client.vector_dbs.register(
+            await sync_client.vector_dbs.register(
                 vector_db_id=kb.vector_db_name,
                 embedding_model=kb.embedding_model,
                 embedding_dimension=384,  # Default dimension
@@ -51,7 +54,7 @@ class LlamaStackSyncService:
 
             # Since LlamaStack doesn't have update, we re-register
             # This might overwrite existing data, but ensures consistency
-            client.vector_dbs.register(
+            await sync_client.vector_dbs.register(
                 vector_db_id=kb.vector_db_name,
                 embedding_model=kb.embedding_model,
                 embedding_dimension=384,
@@ -84,52 +87,6 @@ class LlamaStackSyncService:
             return False
 
     @staticmethod
-    async def sync_mcp_server_create(server: models.MCPServer) -> bool:
-        """
-        Sync a newly created MCP server to LlamaStack.
-        Note: MCP servers are typically registered directly with LlamaStack.
-        """
-        try:
-            log.info(f"MCP server created locally: {server.name}")
-            # MCP servers are usually managed externally and discovered by LlamaStack
-            # We don't need to register them as they should be auto-discovered
-            log.info(f"MCP server sync completed: {server.name}")
-            return True
-
-        except Exception as e:
-            log.error(f"Failed to sync MCP server creation: {str(e)}")
-            return False
-
-    @staticmethod
-    async def sync_mcp_server_update(server: models.MCPServer) -> bool:
-        """
-        Sync an MCP server update to LlamaStack.
-        """
-        try:
-            log.info(f"MCP server updated locally: {server.name}")
-            # MCP servers are managed externally, updates should be
-            # reflected automatically
-            return True
-
-        except Exception as e:
-            log.error(f"Failed to sync MCP server update: {str(e)}")
-            return False
-
-    @staticmethod
-    async def sync_mcp_server_delete(server_name: str) -> bool:
-        """
-        Sync an MCP server deletion to LlamaStack.
-        """
-        try:
-            log.warning(f"MCP server deleted from local DB: {server_name}")
-            # MCP servers are managed externally, LlamaStack will discover the removal
-            return True
-
-        except Exception as e:
-            log.error(f"Failed to handle MCP server deletion sync: {str(e)}")
-            return False
-
-    @staticmethod
     async def validate_sync_status(db: AsyncSession) -> Dict[str, Any]:
         """
         Validate that local database is in sync with LlamaStack.
@@ -139,7 +96,7 @@ class LlamaStackSyncService:
             log.info("Validating sync status with LlamaStack")
 
             # Get LlamaStack vector databases
-            llamastack_vdbs = client.vector_dbs.list()
+            llamastack_vdbs = await sync_client.vector_dbs.list()
             llamastack_vdb_names = {vdb.identifier for vdb in llamastack_vdbs}
 
             # Get local knowledge bases

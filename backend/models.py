@@ -3,11 +3,12 @@ SQLAlchemy database models for the AI Virtual Assistant application.
 
 This module defines the database schema and relationships for:
 - Users and role-based access control
-- MCP servers and tool configurations
 - Knowledge bases for RAG functionality
 - Virtual assistants and chat sessions
 - Guardrails for AI safety
 - Model servers for LLM providers
+
+Note: MCP servers are now managed directly through LlamaStack without local storage.
 """
 
 import enum
@@ -32,28 +33,13 @@ class User(Base):
     username = Column(String(255), unique=True, nullable=False)
     email = Column(String(255), unique=True, nullable=False)
     role = Column(Enum(RoleEnum, name="role"), nullable=False)
+    agent_ids = Column(JSON, nullable=False, default=list)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
         TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    mcp_servers = relationship("MCPServer", back_populates="creator")
     knowledge_bases = relationship("KnowledgeBase", back_populates="creator")
     guardrails = relationship("Guardrail", back_populates="creator")
-
-
-class MCPServer(Base):
-    __tablename__ = "mcp_servers"
-    toolgroup_id = Column(String(255), primary_key=True)
-    name = Column(String(255), nullable=False)
-    description = Column(String(255))
-    endpoint_url = Column(String(255), nullable=False)
-    configuration = Column(JSON)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-    creator = relationship("User", back_populates="mcp_servers")
 
 
 class KnowledgeBase(Base):

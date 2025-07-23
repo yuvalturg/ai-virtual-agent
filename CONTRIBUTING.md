@@ -40,7 +40,7 @@ Thank you for your interest in contributing to the AI Virtual Agent platform! Th
 
 Before you begin, ensure you have the following installed:
 
-- **Python 3.10+** - Backend development
+- **Python 3.12+** - Backend development
 - **Node.js 18+** - Frontend development
 - **PostgreSQL 14+** - Database
 - **Podman or Docker** - Containerization
@@ -83,7 +83,7 @@ Before you begin, ensure you have the following installed:
 1. Create and activate a Python virtual environment:
 
    ```bash
-   python3.10 -m venv venv
+   python3.12 -m venv venv
    source venv/bin/activate
    ```
 
@@ -121,6 +121,16 @@ Before you begin, ensure you have the following installed:
 
    - API documentation: `http://localhost:8000/docs`
    - Alternative docs: `http://localhost:8000/redoc`
+
+6. Start Local LLamaStack Server:
+
+   This step is optional, use it if you don't have an active llamastack server.
+   Open a new terminal:
+   ```bash
+   cd local_dev/local_llamastack_server/
+   chmod +x activate_llama_server.sh
+   bash activate_llama_server.sh
+   ```
 
 ### Frontend Setup
 
@@ -383,8 +393,15 @@ Before making significant changes, familiarize yourself with the system architec
 ### Common Issues
 
 **Backend won't start:**
-- Check Python version (requires 3.10+)
+- Check Python version (requires 3.12+)
 - Verify PostgreSQL is running and accessible
+   use:
+   ```bash
+   podman ps # see that docker.io/library/postgres:15 is up
+
+   # Log in to the DB:
+   psql -h localhost -p 5432 -U admin -d ai_virtual_assistant
+   ```
 - Ensure all environment variables are set
 
 **Frontend build fails:**
