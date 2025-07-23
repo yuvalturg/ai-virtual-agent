@@ -283,7 +283,9 @@ async def get_pipeline_status(pipeline_name: str) -> str:
             response.raise_for_status()
             return response.json().get("state", "unknown")
         except Exception as e:
-            logger.error(f"could not fetch pipeline status for {pipeline_name}: {str(e)}")
+            logger.error(
+                f"could not fetch pipeline status for {pipeline_name}: {str(e)}"
+            )
             return "unknown"
 
 

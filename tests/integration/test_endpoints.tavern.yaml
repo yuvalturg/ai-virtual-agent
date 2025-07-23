@@ -1,0 +1,128 @@
+---
+test_name: Test Models API Endpoint
+stages:
+  - name: Test GET /api/llama_stack/llms
+    request:
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/llama_stack/llms"
+      method: GET
+      headers:
+        Accept: application/json
+    response:
+      status_code: 200
+      headers:
+        content-type: application/json
+      json:
+        - model_name: "llama3.2:3b-instruct-fp16"
+          provider_resource_id: "llama3.2:3b-instruct-fp16"
+          model_type: "llm"
+---
+test_name: Test Virtual Assistants API Endpoint
+stages:
+  - name: Test POST /api/virtual_assistants
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_assistants/"
+      method: POST
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+      json:
+        name: "Test Assistant"
+        prompt: "You are a helpful assistant."
+        model_name: "llama3.2:3b-instruct-fp16"
+        input_shields: []
+        output_shields: []
+        temperature: 0.1
+        repetition_penalty: 1
+        max_tokens: 4096
+        top_p: 0.95
+        knowledge_base_ids: []
+        tools: []
+        max_infer_iters: 10
+        enable_session_persistence: false
+    response:
+      status_code: 201
+      headers:
+        content-type: application/json
+      save:
+        json:
+          agent_id: "id"
+  - name: Test GET /api/virtual_assistants
+    request:
+      url: >-
+        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_assistants/{agent_id}
+      method: GET
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 200
+      headers:
+        content-type: application/json
+      json:
+        name: "Test Assistant"
+        prompt: "You are a helpful assistant."
+        model_name: "llama3.2:3b-instruct-fp16"
+        input_shields: []
+        output_shields: []
+        temperature: 0.1
+        repetition_penalty: 1
+        max_tokens: 4096
+        top_p: 0.95
+        knowledge_base_ids: []
+        tools: []
+        max_infer_iters: 10
+        enable_session_persistence: false
+        id: "{agent_id}"
+  - name: Test DELETE /api/virtual_assistants
+    request:
+      url: >-
+        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_assistants/{agent_id}
+      method: DELETE
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 204
+---
+test_name: Test LlamaStack Providers API
+stages:
+  - name: Test GET /api/llama_stack/providers
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/providers"
+      method: GET
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 200
+      json:
+        - provider_id: "ollama"
+          provider_type: "remote::ollama"
+          config:
+            url: "http://localhost:11434"
+          api: "inference"
+        - provider_id: "llama-guard"
+          provider_type: "inline::llama-guard"
+          config: {}
+          api: "safety"
+        - provider_id: "meta-reference"
+          provider_type: "inline::meta-reference"
+          config:
+            persistence_store:
+              type: "sqlite"
+              namespace: null
+              db_path: "/root/.llama/distributions/ollama/agents_store.db"
+            responses_store:
+              type: "sqlite"
+              db_path: >-
+                /root/.llama/distributions/ollama/agents_responses_store.db
+              namespace: null
+          api: "agents"
+        - provider_id: "meta-reference"
+          provider_type: "inline::meta-reference"
+          config: {}
+          api: "telemetry"

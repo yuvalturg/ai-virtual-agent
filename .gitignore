@@ -27,6 +27,7 @@ dist-ssr
 venv
 *pycache*
 .venv
+*pytest*
 
 backend/public/index.html
 backend/public/assets
