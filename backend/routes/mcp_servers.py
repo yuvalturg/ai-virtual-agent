@@ -1,26 +1,23 @@
 """
 Model Context Protocol (MCP) Server management API endpoints.
 
-This module provides CRUD operations for MCP servers, which are external tools
-and services that can be integrated with AI agents through the Model Context Protocol.
-MCP servers are automatically discovered and synchronized with LlamaStack's tool system.
+This module provides CRUD operations for MCP servers through direct integration
+with LlamaStack's toolgroups API. MCP servers are managed entirely within
+LlamaStack without local database storage.
 
 Key Features:
-- Register and manage MCP server configurations
-- Automatic synchronization with LlamaStack tool discovery
-- Tool group management and parameter configuration
+- Direct LlamaStack toolgroups API integration
+- Create, read, and delete MCP server configurations
+- No local database storage - all data managed by LlamaStack
 - Integration with virtual assistants for enhanced capabilities
 """
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from fastapi import APIRouter, HTTPException, status
 
-from .. import models, schemas
-from ..api.llamastack import client
-from ..database import get_db
+from .. import schemas
+from ..api.llamastack import sync_client
 from ..utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -31,18 +28,12 @@ router = APIRouter(prefix="/mcp_servers", tags=["mcp_servers"])
 @router.post(
     "/", response_model=schemas.MCPServerRead, status_code=status.HTTP_201_CREATED
 )
-async def create_mcp_server(
-    server: schemas.MCPServerCreate, db: AsyncSession = Depends(get_db)
-):
+async def create_mcp_server(server: schemas.MCPServerCreate):
     """
-    Create a new MCP server configuration.
-
-    This endpoint registers a new MCP server in the database and triggers
-    automatic synchronization with LlamaStack to discover available tools.
+    Create a new MCP server by registering it directly with LlamaStack.
 
     Args:
         server: MCP server creation data including name, endpoint, and configuration
-        db: Database session dependency
 
     Returns:
         schemas.MCPServerRead: The created MCP server configuration
@@ -50,50 +41,111 @@ async def create_mcp_server(
     Raises:
         HTTPException: If creation fails or validation errors occur
     """
-    db_server = models.MCPServer(**server.dict())
-    db.add(db_server)
-    await db.commit()
-    await db.refresh(db_server)
-
-    # Auto-sync with LlamaStack after creation
     try:
-        logger.info(f"Auto-syncing MCP servers after creation of: {db_server.name}")
-        await sync_mcp_servers(db)
-    except Exception as e:
-        logger.warning(f"Failed to auto-sync after MCP server creation: {str(e)}")
+        logger.info(f"Creating MCP server in LlamaStack: {server.name}")
 
-    return db_server
+        # Register the toolgroup directly with LlamaStack
+        await sync_client.toolgroups.register(
+            toolgroup_id=server.toolgroup_id,
+            provider_id="model-context-protocol",
+            args={
+                "name": server.name,
+                "description": server.description,
+                **server.configuration,
+            },
+            mcp_endpoint={"uri": server.endpoint_url},
+        )
+
+        logger.info(f"Successfully created MCP server: {server.toolgroup_id}")
+
+        return schemas.MCPServerRead(
+            toolgroup_id=server.toolgroup_id,
+            name=server.name,
+            description=server.description,
+            endpoint_url=server.endpoint_url,
+            configuration=server.configuration,
+            provider_id="model-context-protocol",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to create MCP server: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create MCP server: {str(e)}",
+        )
 
 
 @router.get("/", response_model=List[schemas.MCPServerRead])
-async def read_mcp_servers(db: AsyncSession = Depends(get_db)):
+async def read_mcp_servers():
     """
-    Retrieve all registered MCP servers.
-
-    This endpoint returns a list of all MCP server configurations stored
-    in the database, including their connection details and tool metadata.
-
-    Args:
-        db: Database session dependency
+    Retrieve all MCP servers directly from LlamaStack.
 
     Returns:
         List[schemas.MCPServerRead]: List of all MCP servers
     """
-    result = await db.execute(select(models.MCPServer))
-    return result.scalars().all()
+    try:
+        logger.info("Fetching MCP servers from LlamaStack")
+
+        # Get all toolgroups from LlamaStack
+        toolgroups = await sync_client.toolgroups.list()
+
+        # Filter for MCP toolgroups
+        mcp_servers = []
+        for toolgroup in toolgroups:
+            if (
+                hasattr(toolgroup, "provider_id")
+                and toolgroup.provider_id == "model-context-protocol"
+            ):
+                raw_args = getattr(toolgroup, "args", {}) or {}
+                if isinstance(raw_args, dict):
+                    args = raw_args
+                else:
+                    args = (
+                        raw_args.model_dump()
+                        if hasattr(raw_args, "model_dump")
+                        else vars(raw_args)
+                    )
+
+                endpoint_obj = getattr(toolgroup, "mcp_endpoint", None)
+                endpoint_uri = (
+                    getattr(endpoint_obj, "uri", None)
+                    if endpoint_obj is not None
+                    else None
+                )
+
+                mcp_server = schemas.MCPServerRead(
+                    toolgroup_id=str(toolgroup.identifier),
+                    name=args.get("name")
+                    or getattr(
+                        toolgroup,
+                        "provider_resource_id",
+                        str(toolgroup.identifier),
+                    ),
+                    description=args.get("description", ""),
+                    endpoint_url=endpoint_uri or "",
+                    configuration=args,
+                    provider_id=toolgroup.provider_id,
+                )
+                mcp_servers.append(mcp_server)
+
+        logger.info(f"Retrieved {len(mcp_servers)} MCP servers from LlamaStack")
+        return mcp_servers
+
+    except Exception as e:
+        logger.error(f"Failed to fetch MCP servers: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch MCP servers: {str(e)}",
+        )
 
 
 @router.get("/{toolgroup_id}", response_model=schemas.MCPServerRead)
-async def read_mcp_server(toolgroup_id: str, db: AsyncSession = Depends(get_db)):
+async def read_mcp_server(toolgroup_id: str):
     """
     Retrieve a specific MCP server by its tool group identifier.
 
-    This endpoint fetches a single MCP server configuration using its
-    unique tool group ID, which corresponds to the LlamaStack tool group.
-
     Args:
         toolgroup_id: The unique tool group identifier of the MCP server
-        db: Database session dependency
 
     Returns:
         schemas.MCPServerRead: The requested MCP server configuration
@@ -101,31 +153,70 @@ async def read_mcp_server(toolgroup_id: str, db: AsyncSession = Depends(get_db))
     Raises:
         HTTPException: 404 if the MCP server is not found
     """
-    result = await db.execute(
-        select(models.MCPServer).where(models.MCPServer.toolgroup_id == toolgroup_id)
-    )
-    server = result.scalar_one_or_none()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    return server
+    try:
+        logger.info(f"Fetching MCP server from LlamaStack: {toolgroup_id}")
+
+        # Get all toolgroups and find the matching one
+        toolgroups = await sync_client.toolgroups.list()
+        toolgroup = None
+        for tg in toolgroups:
+            if (
+                str(tg.identifier) == toolgroup_id
+                and hasattr(tg, "provider_id")
+                and tg.provider_id == "model-context-protocol"
+            ):
+                toolgroup = tg
+                break
+
+        if not toolgroup:
+            raise HTTPException(status_code=404, detail="Server not found")
+
+        raw_args = getattr(toolgroup, "args", {}) or {}
+        if isinstance(raw_args, dict):
+            args = raw_args
+        else:
+            args = (
+                raw_args.model_dump()
+                if hasattr(raw_args, "model_dump")
+                else vars(raw_args)
+            )
+
+        endpoint_obj = getattr(toolgroup, "mcp_endpoint", None)
+        endpoint_uri = (
+            getattr(endpoint_obj, "uri", None) if endpoint_obj is not None else None
+        )
+
+        return schemas.MCPServerRead(
+            toolgroup_id=str(toolgroup.identifier),
+            name=args.get("name")
+            or getattr(toolgroup, "provider_resource_id", str(toolgroup.identifier)),
+            description=args.get("description", ""),
+            endpoint_url=endpoint_uri or "",
+            configuration=args,
+            provider_id=toolgroup.provider_id,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch MCP server {toolgroup_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch MCP server: {str(e)}",
+        )
 
 
 @router.put("/{toolgroup_id}", response_model=schemas.MCPServerRead)
 async def update_mcp_server(
     toolgroup_id: str,
     server: schemas.MCPServerCreate,
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Update an existing MCP server configuration.
 
-    This endpoint allows updating MCP server details such as name, description,
-    endpoint URL, and configuration parameters.
-
     Args:
         toolgroup_id: The tool group identifier of the MCP server to update
         server: Updated MCP server data
-        db: Database session dependency
 
     Returns:
         schemas.MCPServerRead: The updated MCP server configuration
@@ -133,38 +224,62 @@ async def update_mcp_server(
     Raises:
         HTTPException: 404 if the MCP server is not found
     """
-    result = await db.execute(
-        select(models.MCPServer).where(models.MCPServer.toolgroup_id == toolgroup_id)
-    )
-    db_server = result.scalar_one_or_none()
-    if not db_server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    for field, value in server.dict().items():
-        setattr(db_server, field, value)
-    await db.commit()
-    await db.refresh(db_server)
-
-    # Auto-sync with LlamaStack after update
     try:
-        logger.info(f"Auto-syncing MCP servers after update of: {db_server.name}")
-        await sync_mcp_servers(db)
-    except Exception as e:
-        logger.warning(f"Failed to auto-sync after MCP server update: {str(e)}")
+        # First verify the server exists
+        toolgroups = await sync_client.toolgroups.list()
+        existing_toolgroup = None
+        for tg in toolgroups:
+            if (
+                str(tg.identifier) == toolgroup_id
+                and hasattr(tg, "provider_id")
+                and tg.provider_id == "model-context-protocol"
+            ):
+                existing_toolgroup = tg
+                break
 
-    return db_server
+        if not existing_toolgroup:
+            raise HTTPException(status_code=404, detail="Server not found")
+
+        # Update by re-registering with new config
+        await sync_client.toolgroups.register(
+            toolgroup_id=server.toolgroup_id,
+            provider_id="model-context-protocol",
+            args={
+                "name": server.name,
+                "description": server.description,
+                **server.configuration,
+            },
+            mcp_endpoint={"uri": server.endpoint_url},
+        )
+
+        logger.info(f"Successfully updated MCP server: {server.toolgroup_id}")
+
+        return schemas.MCPServerRead(
+            toolgroup_id=server.toolgroup_id,
+            name=server.name,
+            description=server.description,
+            endpoint_url=server.endpoint_url,
+            configuration=server.configuration,
+            provider_id="model-context-protocol",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update MCP server: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update MCP server: {str(e)}",
+        )
 
 
 @router.delete("/{toolgroup_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_mcp_server(toolgroup_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_mcp_server(toolgroup_id: str):
     """
     Delete an MCP server configuration.
 
-    This endpoint removes an MCP server from the database. The server will
-    no longer be available for use by virtual assistants.
-
     Args:
         toolgroup_id: The tool group identifier of the MCP server to delete
-        db: Database session dependency
 
     Raises:
         HTTPException: 404 if the MCP server is not found
@@ -172,163 +287,33 @@ async def delete_mcp_server(toolgroup_id: str, db: AsyncSession = Depends(get_db
     Returns:
         None: 204 No Content on successful deletion
     """
-    result = await db.execute(
-        select(models.MCPServer).where(models.MCPServer.toolgroup_id == toolgroup_id)
-    )
-    db_server = result.scalar_one_or_none()
-    if not db_server:
-        raise HTTPException(status_code=404, detail="Server not found")
-
-    server_name = db_server.name  # Store name before deletion
-    await db.delete(db_server)
-    await db.commit()
-
-    # Auto-sync with LlamaStack after deletion
     try:
-        logger.info(f"Auto-syncing MCP servers after deletion of: {server_name}")
-        await sync_mcp_servers(db)
+        # First verify the server exists
+        toolgroups = await sync_client.toolgroups.list()
+        existing_toolgroup = None
+        for tg in toolgroups:
+            if (
+                str(tg.identifier) == toolgroup_id
+                and hasattr(tg, "provider_id")
+                and tg.provider_id == "model-context-protocol"
+            ):
+                existing_toolgroup = tg
+                break
+
+        if not existing_toolgroup:
+            raise HTTPException(status_code=404, detail="Server not found")
+
+        # Unregister the toolgroup from LlamaStack
+        await sync_client.toolgroups.unregister(toolgroup_id=toolgroup_id)
+
+        logger.info(f"Successfully deleted MCP server: {toolgroup_id}")
+        return None
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.warning(f"Failed to auto-sync after MCP server deletion: {str(e)}")
-
-    return None
-
-
-async def sync_mcp_servers(db: AsyncSession):
-    """
-    Internal synchronization function for MCP servers with LlamaStack.
-
-    This function performs the actual sync logic by fetching available tools
-    from LlamaStack and updating the MCP server database. It discovers new
-    MCP servers and removes servers that are no longer available.
-
-    Args:
-        db: Database session for executing queries
-
-    Returns:
-        List[models.MCPServer]: List of synchronized MCP servers
-
-    Raises:
-        Exception: If LlamaStack communication fails or database operations fail
-    """
-    try:
-        logger.info("Starting MCP server sync")
-        logger.debug("Fetching tools from LlamaStack")
-        try:
-            response = client.tools.list()
-
-            if isinstance(response, list):
-                tools = [item.__dict__ for item in response]
-            elif isinstance(response, dict):
-                tools = response.get("data", [])
-            elif hasattr(response, "data"):
-                tools = response.data
-            else:
-                logger.warning(f"Unexpected response type: {type(response)}")
-                tools = []
-
-        except Exception as e:
-            raise Exception(f"Failed to fetch tools from LlamaStack: {str(e)}")
-
-        mcp_tools = [
-            tool
-            for tool in tools
-            if tool.get("provider_id") == "model-context-protocol"
-        ]
-
-        logger.debug("Fetching existing MCP servers from database")
-        result = await db.execute(select(models.MCPServer))
-        existing_servers = {
-            server.toolgroup_id: server for server in result.scalars().all()
-        }
-        logger.debug(
-            f"Found {len(existing_servers)} existing MCP servers: "
-            f"{list(existing_servers.keys())}"
-        )
-
-        synced_servers = []
-
-        for tool in mcp_tools:
-            try:
-                if not tool.get("identifier"):
-                    continue
-
-                server_data = {
-                    "name": tool["identifier"],
-                    "description": tool.get("description", ""),
-                    "endpoint_url": tool.get("metadata", {}).get("endpoint", ""),
-                    "toolgroup_id": tool.get("toolgroup_id"),
-                    "configuration": {
-                        "type": tool.get("type"),
-                        "provider_id": tool.get("provider_id"),
-                        "tool_host": tool.get("tool_host"),
-                        "parameters": [p.__dict__ for p in tool.get("parameters", [])],
-                    },
-                }
-
-                if tool.get("toolgroup_id") in existing_servers:
-                    logger.debug(
-                        f"Updating existing MCP server: {tool.get('toolgroup_id')}"
-                    )
-                    server = existing_servers[tool.get("toolgroup_id")]
-                    for field, value in server_data.items():
-                        setattr(server, field, value)
-                else:
-                    logger.debug(f"Creating new MCP server: {tool.get('toolgroup_id')}")
-                    server = models.MCPServer(**server_data)
-                    db.add(server)
-
-                synced_servers.append(server)
-            except Exception as e:
-                logger.error(
-                    "Error processing MCP tool "
-                    f"{tool.get('identifier', 'unknown')}: {str(e)}"
-                )
-                continue
-
-        logger.debug("Checking for MCP servers to remove...")
-        for toolgroup_id, server in existing_servers.items():
-            if not any(t.get("toolgroup_id") == toolgroup_id for t in mcp_tools):
-                logger.debug(
-                    f"Removing MCP server that no longer exists: {toolgroup_id}"
-                )
-                await db.delete(server)
-
-        logger.debug("Committing changes to database...")
-        await db.commit()
-
-        logger.debug("Refreshing synced MCP servers...")
-        for server in synced_servers:
-            await db.refresh(server)
-
-        logger.info(f"Sync complete. Synced {len(synced_servers)} MCP servers.")
-        return synced_servers
-
-    except Exception as e:
-        logger.error(f"Error during sync: {str(e)}")
-        raise Exception(f"Failed to sync MCP servers: {str(e)}")
-
-
-@router.post("/sync", response_model=List[schemas.MCPServerRead])
-async def sync_mcp_servers_endpoint(db: AsyncSession = Depends(get_db)):
-    """
-    Synchronize MCP servers with LlamaStack tool discovery.
-
-    This endpoint triggers synchronization between the local MCP server database
-    and LlamaStack's tool system, discovering new MCP servers and updating
-    existing configurations.
-
-    Args:
-        db: Database session dependency
-
-    Returns:
-        List[schemas.MCPServerRead]: List of synchronized MCP servers
-
-    Raises:
-        HTTPException: If synchronization fails due to LlamaStack errors
-    """
-    try:
-        return await sync_mcp_servers(db)
-    except Exception as e:
+        logger.error(f"Failed to delete MCP server: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete MCP server: {str(e)}",
         )

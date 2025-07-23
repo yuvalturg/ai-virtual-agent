@@ -13,6 +13,7 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as ConfigRouteImport } from './routes/config/route'
 import { Route as IndexImport } from './routes/index'
+import { Route as ConfigUsersImport } from './routes/config/users'
 import { Route as ConfigMcpServersImport } from './routes/config/mcp-servers'
 import { Route as ConfigKnowledgeBasesImport } from './routes/config/knowledge-bases'
 import { Route as ConfigAgentsImport } from './routes/config/agents'
@@ -29,6 +30,12 @@ const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRoute,
+} as any)
+
+const ConfigUsersRoute = ConfigUsersImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => ConfigRouteRoute,
 } as any)
 
 const ConfigMcpServersRoute = ConfigMcpServersImport.update({
@@ -88,6 +95,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigMcpServersImport
       parentRoute: typeof ConfigRouteImport
     }
+    '/config/users': {
+      id: '/config/users'
+      path: '/users'
+      fullPath: '/config/users'
+      preLoaderRoute: typeof ConfigUsersImport
+      parentRoute: typeof ConfigRouteImport
+    }
   }
 }
 
@@ -97,12 +111,14 @@ interface ConfigRouteRouteChildren {
   ConfigAgentsRoute: typeof ConfigAgentsRoute
   ConfigKnowledgeBasesRoute: typeof ConfigKnowledgeBasesRoute
   ConfigMcpServersRoute: typeof ConfigMcpServersRoute
+  ConfigUsersRoute: typeof ConfigUsersRoute
 }
 
 const ConfigRouteRouteChildren: ConfigRouteRouteChildren = {
   ConfigAgentsRoute: ConfigAgentsRoute,
   ConfigKnowledgeBasesRoute: ConfigKnowledgeBasesRoute,
   ConfigMcpServersRoute: ConfigMcpServersRoute,
+  ConfigUsersRoute: ConfigUsersRoute,
 }
 
 const ConfigRouteRouteWithChildren = ConfigRouteRoute._addFileChildren(
@@ -115,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/config/agents': typeof ConfigAgentsRoute
   '/config/knowledge-bases': typeof ConfigKnowledgeBasesRoute
   '/config/mcp-servers': typeof ConfigMcpServersRoute
+  '/config/users': typeof ConfigUsersRoute
 }
 
 export interface FileRoutesByTo {
@@ -123,6 +140,7 @@ export interface FileRoutesByTo {
   '/config/agents': typeof ConfigAgentsRoute
   '/config/knowledge-bases': typeof ConfigKnowledgeBasesRoute
   '/config/mcp-servers': typeof ConfigMcpServersRoute
+  '/config/users': typeof ConfigUsersRoute
 }
 
 export interface FileRoutesById {
@@ -132,6 +150,7 @@ export interface FileRoutesById {
   '/config/agents': typeof ConfigAgentsRoute
   '/config/knowledge-bases': typeof ConfigKnowledgeBasesRoute
   '/config/mcp-servers': typeof ConfigMcpServersRoute
+  '/config/users': typeof ConfigUsersRoute
 }
 
 export interface FileRouteTypes {
@@ -142,6 +161,7 @@ export interface FileRouteTypes {
     | '/config/agents'
     | '/config/knowledge-bases'
     | '/config/mcp-servers'
+    | '/config/users'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -149,6 +169,7 @@ export interface FileRouteTypes {
     | '/config/agents'
     | '/config/knowledge-bases'
     | '/config/mcp-servers'
+    | '/config/users'
   id:
     | '__root__'
     | '/'
@@ -156,6 +177,7 @@ export interface FileRouteTypes {
     | '/config/agents'
     | '/config/knowledge-bases'
     | '/config/mcp-servers'
+    | '/config/users'
   fileRoutesById: FileRoutesById
 }
 
@@ -191,7 +213,8 @@ export const routeTree = rootRoute
       "children": [
         "/config/agents",
         "/config/knowledge-bases",
-        "/config/mcp-servers"
+        "/config/mcp-servers",
+        "/config/users"
       ]
     },
     "/config/agents": {
@@ -204,6 +227,10 @@ export const routeTree = rootRoute
     },
     "/config/mcp-servers": {
       "filePath": "config/mcp-servers.tsx",
+      "parent": "/config"
+    },
+    "/config/users": {
+      "filePath": "config/users.tsx",
       "parent": "/config"
     }
   }

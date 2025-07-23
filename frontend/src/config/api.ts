@@ -12,3 +12,5 @@ export const TOOLS_API_ENDPOINT = '/api/tools/';
 export const AGENTS_API_ENDPOINT = '/api/virtual_assistants/';
 export const CHAT_API_ENDPOINT = '/api/llama_stack/chat';
 export const CHAT_SESSIONS_API_ENDPOINT = '/api/chat_sessions/';
+export const SHIELDS_API_ENDPOINT = '/api/llama_stack/shields';
+export const USERS_API_ENDPOINT = '/api/users/';

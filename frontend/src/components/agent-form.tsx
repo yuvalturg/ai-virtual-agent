@@ -44,11 +44,18 @@ interface ToolsFieldProps {
   toolsError: Error | null;
 }
 
+interface ShieldsFieldProps {
+  shields: Array<{ identifier: string; name?: string }>;
+  isLoadingShields: boolean;
+  shieldsError: Error | null;
+}
+
 interface AgentFormProps {
   defaultAgentProps?: Agent | undefined;
   modelsProps: ModelsFieldProps;
   knowledgeBasesProps: KnowledgeBasesFieldProps;
   toolsProps: ToolsFieldProps;
+  shieldsProps: ShieldsFieldProps;
   onSubmit: (values: NewAgent) => void;
   isSubmitting: boolean;
   onCancel: () => void;
@@ -68,6 +75,8 @@ interface AgentFormData {
   max_tokens: number;
   repetition_penalty: number;
   samplingAccordionExpanded: boolean; // Added for accordion state
+  input_shields: string; // Single selection for form UI
+  output_shields: string; // Single selection for form UI
 }
 
 // Helper functions to convert between formats
@@ -86,6 +95,8 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
       max_tokens: 512,
       repetition_penalty: 0.0,
       samplingAccordionExpanded: false, // Initialize accordion state
+      input_shields: '',
+      output_shields: '',
     };
   }
 
@@ -105,6 +116,8 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
     max_tokens: agent.max_tokens ?? 512,
     repetition_penalty: agent.repetition_penalty ?? 0.0,
     samplingAccordionExpanded: false, // Initialize accordion state
+    input_shields: agent.input_shields?.[0] || '', // Take first shield or empty string
+    output_shields: agent.output_shields?.[0] || '', // Take first shield or empty string
   };
 };
 
@@ -136,6 +149,8 @@ const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): Ne
     top_k: formData.top_k,
     max_tokens: formData.max_tokens,
     repetition_penalty: formData.repetition_penalty,
+    input_shields: formData.input_shields ? [formData.input_shields] : [], // Convert to array
+    output_shields: formData.output_shields ? [formData.output_shields] : [], // Convert to array
   };
 };
 
@@ -144,6 +159,7 @@ export function AgentForm({
   modelsProps,
   knowledgeBasesProps,
   toolsProps,
+  shieldsProps,
   onSubmit,
   isSubmitting,
   onCancel,
@@ -151,6 +167,7 @@ export function AgentForm({
   const { models, isLoadingModels, modelsError } = modelsProps;
   const { knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError } = knowledgeBasesProps;
   const { tools, isLoadingTools, toolsError } = toolsProps;
+  const { shields, isLoadingShields, shieldsError } = shieldsProps;
 
   const initialAgentData: AgentFormData = convertAgentToFormData(defaultAgentProps);
 
@@ -270,6 +287,23 @@ export function AgentForm({
   }, [tools, isLoadingTools, toolsError]);
 
   const [isSamplingAccordionExpanded, setSamplingAccordionExpanded] = useState(false);
+  const shieldsOptions = useMemo(() => {
+    if (isLoadingShields) {
+      return [{ value: '', label: 'Loading shields...', disabled: true }];
+    }
+    if (shieldsError) {
+      return [{ value: '', label: 'Error loading shields', disabled: true }];
+    }
+    if (!shields || shields.length === 0) {
+      return [{ value: '', label: 'No shields available', disabled: true }];
+    }
+    return [{ value: '', label: 'No shield selected', disabled: false }]
+      .concat(shields.map(shield => ({
+        value: shield.identifier,
+        label: shield.name || shield.identifier,
+        disabled: false,
+      })));
+  }, [shields, isLoadingShields, shieldsError]);
 
   return (
     <Form
@@ -414,6 +448,54 @@ export function AgentForm({
               }
               placeholder="Type or select tool groups..."
             />
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field name="input_shields">
+        {(field) => (
+          <FormGroup label="Input Shield" fieldId="input-shield">
+            <FormSelect
+              id="input-shield"
+              name={field.name}
+              value={field.state.value || ''}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Input Shield"
+              isDisabled={isLoadingShields || !!shieldsError}
+            >
+              {shieldsOptions.map((option) => (
+                <FormSelectOption
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  isDisabled={option.disabled}
+                />
+              ))}
+            </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field name="output_shields">
+        {(field) => (
+          <FormGroup label="Output Shield" fieldId="output-shield">
+            <FormSelect
+              id="output-shield"
+              name={field.name}
+              value={field.state.value || ''}
+              onBlur={field.handleBlur}
+              onChange={(_event, value) => field.handleChange(value)}
+              aria-label="Select Output Shield"
+              isDisabled={isLoadingShields || !!shieldsError}
+            >
+              {shieldsOptions.map((option) => (
+                <FormSelectOption
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  isDisabled={option.disabled}
+                />
+              ))}
+            </FormSelect>
           </FormGroup>
         )}
       </form.Field>

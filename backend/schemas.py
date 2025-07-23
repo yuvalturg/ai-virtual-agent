@@ -41,6 +41,7 @@ class UserBase(BaseModel):
     username: str
     email: EmailStr
     role: RoleEnum
+    agent_ids: Optional[List[str]] = []
 
 
 class UserRead(UserBase):
@@ -52,13 +53,17 @@ class UserRead(UserBase):
         orm_mode = True
 
 
+class UserAgentAssignment(BaseModel):
+    agent_ids: List[str]
+
+
 # MCPServer Schemas
 class MCPServerBase(BaseModel):
-    toolgroup_id: str  # LlamaStack identifier (now PK)
+    toolgroup_id: str
     name: str
-    description: Optional[str] = None
+    description: str = ""
     endpoint_url: str
-    configuration: Optional[Dict[str, Any]] = None
+    configuration: Dict[str, Any] = {}
 
 
 class MCPServerCreate(MCPServerBase):
@@ -66,12 +71,7 @@ class MCPServerCreate(MCPServerBase):
 
 
 class MCPServerRead(MCPServerBase):
-    created_by: Optional[UUID4] = None
-    created_at: Any
-    updated_at: Any
-
-    class Config:
-        orm_mode = True
+    provider_id: str
 
 
 # KnowledgeBase Schemas
@@ -101,7 +101,10 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
         if self.source == "URL":
             return base | {"urls": self.source_configuration}
 
-        return base | {k.lower(): v for k, v in self.source_configuration.items()}
+        if isinstance(self.source_configuration, dict):
+            return base | {k.lower(): v for k, v in self.source_configuration.items()}
+        else:
+            return base | {"config": self.source_configuration}
 
 
 class KnowledgeBaseRead(KnowledgeBaseBase):

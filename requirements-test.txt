@@ -1,0 +1,5 @@
+pytest>=7.0.0
+tavern>=2.0.0
+requests>=2.25.0
+pyyaml>=6.0
+jsonschema>=4.0.0

@@ -12,10 +12,11 @@ export interface Agent {
   prompt: string;
   tools: ToolAssociationInfo[];
   knowledge_base_ids: string[];
+  input_shields: string[];
+  output_shields: string[];
   created_by: string;
   created_at: string;
   updated_at: string;
-  // Sampling params
   sampling_strategy?: samplingStrategy;
   temperature?: number;
   top_p?: number;
@@ -31,13 +32,14 @@ export interface NewAgent {
   prompt: string;
   tools: ToolAssociationInfo[];
   knowledge_base_ids: string[];
-  // Sampling params
   sampling_strategy?: samplingStrategy;
   temperature?: number;
   top_p?: number;
   top_k?: number;
   max_tokens?: number;
   repetition_penalty?: number;
+  input_shields: string[];
+  output_shields: string[];
 }
 
 export const Route = createFileRoute('/config/agents')({
