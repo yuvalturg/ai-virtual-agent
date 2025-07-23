@@ -11,7 +11,7 @@ from typing import List
 
 from fastapi import HTTPException
 
-from ..api.llamastack import client
+from ..api.llamastack import sync_client
 
 log = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class UserService:
         # Verify all requested agents exist in LlamaStack
         for agent_id in requested_agent_ids:
             try:
-                client.agents.retrieve(agent_id=agent_id)  # type: ignore
+                sync_client.agents.retrieve(agent_id=agent_id)  # type: ignore
                 log.info(f"Verified agent exists: {agent_id}")
             except Exception as e:
                 log.error(f"Agent {agent_id} not found in LlamaStack: {str(e)}")

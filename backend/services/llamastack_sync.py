@@ -1,5 +1,8 @@
 """
 LlamaStack synchronization service for event-driven sync operations.
+
+Note: MCP servers are now managed directly through LlamaStack without local storage,
+so no sync operations are needed for them.
 """
 
 import logging
@@ -81,52 +84,6 @@ class LlamaStackSyncService:
 
         except Exception as e:
             log.error(f"Failed to handle knowledge base deletion sync: {str(e)}")
-            return False
-
-    @staticmethod
-    async def sync_mcp_server_create(server: models.MCPServer) -> bool:
-        """
-        Sync a newly created MCP server to LlamaStack.
-        Note: MCP servers are typically registered directly with LlamaStack.
-        """
-        try:
-            log.info(f"MCP server created locally: {server.name}")
-            # MCP servers are usually managed externally and discovered by LlamaStack
-            # We don't need to register them as they should be auto-discovered
-            log.info(f"MCP server sync completed: {server.name}")
-            return True
-
-        except Exception as e:
-            log.error(f"Failed to sync MCP server creation: {str(e)}")
-            return False
-
-    @staticmethod
-    async def sync_mcp_server_update(server: models.MCPServer) -> bool:
-        """
-        Sync an MCP server update to LlamaStack.
-        """
-        try:
-            log.info(f"MCP server updated locally: {server.name}")
-            # MCP servers are managed externally, updates should be
-            # reflected automatically
-            return True
-
-        except Exception as e:
-            log.error(f"Failed to sync MCP server update: {str(e)}")
-            return False
-
-    @staticmethod
-    async def sync_mcp_server_delete(server_name: str) -> bool:
-        """
-        Sync an MCP server deletion to LlamaStack.
-        """
-        try:
-            log.warning(f"MCP server deleted from local DB: {server_name}")
-            # MCP servers are managed externally, LlamaStack will discover the removal
-            return True
-
-        except Exception as e:
-            log.error(f"Failed to handle MCP server deletion sync: {str(e)}")
             return False
 
     @staticmethod
