@@ -41,6 +41,7 @@ class UserBase(BaseModel):
     username: str
     email: EmailStr
     role: RoleEnum
+    agent_ids: Optional[List[str]] = []
 
 
 class UserRead(UserBase):
@@ -50,6 +51,10 @@ class UserRead(UserBase):
 
     class Config:
         orm_mode = True
+
+
+class UserAgentAssignment(BaseModel):
+    agent_ids: List[str]
 
 
 # MCPServer Schemas
@@ -101,7 +106,10 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
         if self.source == "URL":
             return base | {"urls": self.source_configuration}
 
-        return base | {k.lower(): v for k, v in self.source_configuration.items()}
+        if isinstance(self.source_configuration, dict):
+            return base | {k.lower(): v for k, v in self.source_configuration.items()}
+        else:
+            return base | {"config": self.source_configuration}
 
 
 class KnowledgeBaseRead(KnowledgeBaseBase):
