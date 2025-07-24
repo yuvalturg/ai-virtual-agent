@@ -29,20 +29,20 @@ export interface ToolGroup {
 export interface MCPServer {
   toolgroup_id: string; // Primary key - LlamaStack identifier  
   name: string;
-  description?: string;
+  description: string; 
   endpoint_url: string;
-  configuration?: Record<string, unknown>;
-  created_by?: string;
-  created_at?: string;
-  updated_at?: string;
+  configuration: Record<string, unknown>; 
+  provider_id: string; 
+
 }
 
-// For creating new MCP servers (no toolgroup_id)
+
 export interface MCPServerCreate {
+  toolgroup_id: string; // NOW REQUIRED!
   name: string;
-  description?: string;
+  description: string; 
   endpoint_url: string;
-  configuration?: Record<string, unknown>;
+  configuration: Record<string, unknown>; 
 }
 
 // Keep Tool interface for backward compatibility (will be deprecated)

@@ -28,12 +28,14 @@ export function MCPServerForm({
 }: MCPServerFormProps) {
   const initialData: MCPServerCreate = defaultServer
     ? {
+        toolgroup_id: defaultServer.toolgroup_id,
         name: defaultServer.name,
         description: defaultServer.description || '',
         endpoint_url: defaultServer.endpoint_url,
         configuration: defaultServer.configuration || {},
       }
     : {
+        toolgroup_id: '', // Now required - user must provide
         name: '',
         description: '',
         endpoint_url: '',
@@ -49,9 +51,7 @@ export function MCPServerForm({
       // If configuration is a string, try to parse it as JSON
       if (typeof value.configuration === 'string') {
         try {
-          finalValue.configuration = value.configuration.trim() 
-            ? JSON.parse(value.configuration) 
-            : {};
+          finalValue.configuration = value.configuration ? JSON.parse(value.configuration) : {};
         } catch (e) {
           // If parsing fails, keep it as empty object
           finalValue.configuration = {};
@@ -71,6 +71,42 @@ export function MCPServerForm({
       }}
     >
       {error && <Alert variant="danger" title={error.message} />}
+      
+      {/* NEW: Toolgroup ID field */}
+      <form.Field
+        name="toolgroup_id"
+        validators={{ 
+          onChange: ({ value }) => (!value ? 'Toolgroup ID is required' : undefined) 
+        }}
+      >
+        {(field) => (
+          <FormGroup label="Toolgroup ID" isRequired fieldId="mcp-form-toolgroup-id">
+            <TextInput
+              isRequired
+              id="mcp-form-toolgroup-id"
+              value={field.state.value}
+              onChange={(_e, v) => field.handleChange(v)}
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
+              placeholder="mcp::my_server"
+              isDisabled={!!defaultServer} // Disable editing for existing servers
+            />
+            {field.state.meta.errors.length > 0 && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {field.state.meta.errors[0]}
+              </div>
+            )}
+            <div style={{ fontSize: '14px', color: '#6a6e73', marginTop: '4px' }}>
+              Unique identifier for this MCP server (e.g., mcp::my_server)
+            </div>
+          </FormGroup>
+        )}
+      </form.Field>
       
       <form.Field
         name="name"
@@ -103,15 +139,34 @@ export function MCPServerForm({
         )}
       </form.Field>
 
-      <form.Field name="description">
+      {/* Description now required in the new schema */}
+      <form.Field
+        name="description"
+        validators={{ 
+          onChange: ({ value }) => (!value ? 'Description is required' : undefined) 
+        }}
+      >
         {(field) => (
-          <FormGroup label="Description" fieldId="mcp-form-description">
+          <FormGroup label="Description" isRequired fieldId="mcp-form-description">
             <TextInput
+              isRequired
               id="mcp-form-description"
               value={field.state.value || ''}
               onChange={(_e, v) => field.handleChange(v)}
-              placeholder="Optional description"
+              placeholder="Enter description"
+              validated={
+                !field.state.meta.isTouched
+                  ? 'default'
+                  : field.state.meta.errors.length > 0
+                    ? 'error'
+                    : 'success'
+              }
             />
+            {field.state.meta.errors.length > 0 && (
+              <div style={{ color: '#c9190b', fontSize: '14px', marginTop: '4px' }}>
+                {field.state.meta.errors[0]}
+              </div>
+            )}
           </FormGroup>
         )}
       </form.Field>
@@ -160,7 +215,7 @@ export function MCPServerForm({
         validators={{
           onChange: ({ value }) => {
             if (!value || typeof value !== 'string') return undefined;
-            if (value.trim() === '') return undefined;
+            if (value === '') return undefined;
             try {
               JSON.parse(value);
               return undefined;
@@ -179,7 +234,7 @@ export function MCPServerForm({
                   ? field.state.value 
                   : JSON.stringify(field.state.value || {}, null, 2)
               }
-              onChange={(_e, v) => field.handleChange(v)}
+              onChange={(_e, v) => field.handleChange(v as any)}
               validated={
                 !field.state.meta.isTouched
                   ? 'default'
@@ -201,19 +256,41 @@ export function MCPServerForm({
 
       <ActionGroup>
         <form.Subscribe
-          selector={(state) => [state.canSubmit, state.isSubmitting, state.isPristine]}
+          selector={(state) => [
+            state.isSubmitting, 
+            state.values.toolgroup_id,
+            state.values.name,
+            state.values.description,
+            state.values.endpoint_url,
+            state.errors
+          ]}
         >
-          {([canSubmit, isSubmittingForm, isPristine]) => (
-            <Button
-              icon={<PaperPlaneIcon />}
-              type="submit"
-              variant="primary"
-              isDisabled={!canSubmit || isSubmittingForm || isPristine}
-              isLoading={isSubmitting || isSubmittingForm}
-            >
-              {defaultServer ? 'Update' : 'Create'}
-            </Button>
-          )}
+          {([isSubmittingForm, toolgroup_id, name, description, endpoint_url, errors]) => {
+            // Check if all required fields are filled
+            const hasRequiredFields = Boolean(toolgroup_id) && 
+                                    Boolean(name) && 
+                                    Boolean(description) && 
+                                    Boolean(endpoint_url);
+            
+            // Check if there are any validation errors
+            const hasErrors = Array.isArray(errors) && errors.length > 0;
+            
+            const shouldDisable = Boolean(isSubmittingForm) || 
+                                !hasRequiredFields ||
+                                hasErrors;
+
+            return (
+              <Button
+                icon={<PaperPlaneIcon />}
+                type="submit"
+                variant="primary"
+                isDisabled={Boolean(shouldDisable)}
+                isLoading={Boolean(isSubmitting || isSubmittingForm)}
+              >
+                {defaultServer ? 'Update' : 'Create'}
+              </Button>
+            );
+          }}
         </form.Subscribe>
         <Button variant="link" onClick={onCancel} isDisabled={isSubmitting}>
           Cancel
