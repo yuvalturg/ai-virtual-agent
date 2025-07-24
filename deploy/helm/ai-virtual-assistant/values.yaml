@@ -117,8 +117,6 @@ affinity: {}
 
 pgSecret: pgvector
 
-dbName: ai_virtual_assistant
-
 llama_stack_url: http://llamastack:8321
 
 sessionSecret: {}
@@ -128,6 +126,11 @@ seed:
   admin_user:
     username: kubeadmin
     # email: ""
+
+pgvector:
+  extraDatabases:
+  - name: ai_virtual_assistant
+    vectordb: false
 
 minio:
   secret:
