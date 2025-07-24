@@ -90,7 +90,7 @@ spec:
                   name: {{ .Values.pgSecret }}
                   key: user
             - name: DB_NAME
-              value: {{ .Values.dbName }}
+              value: {{ (index .Values.pgvector.extraDatabases 0).name }}
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
