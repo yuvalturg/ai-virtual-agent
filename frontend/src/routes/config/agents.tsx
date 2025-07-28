@@ -1,6 +1,6 @@
 import { AgentList } from '@/components/agent-list';
 import { NewAgentCard } from '@/components/new-agent-card';
-import { ToolAssociationInfo } from '@/types';
+import { ToolAssociationInfo, samplingStrategy } from '@/types';
 import { Flex, FlexItem, PageSection, Title, Tabs, Tab, TabTitleText, Card, CardBody, Button, Label, Spinner } from '@patternfly/react-core';
 import { HomeIcon, BriefcaseIcon, BuildingIcon, PlaneIcon } from '@patternfly/react-icons';
 import { createFileRoute } from '@tanstack/react-router';
