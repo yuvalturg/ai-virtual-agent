@@ -1,6 +1,6 @@
 import { AgentList } from '@/components/agent-list';
 import { NewAgentCard } from '@/components/new-agent-card';
-import { ToolAssociationInfo } from '@/types';
+import { ToolAssociationInfo, samplingStrategy } from '@/types';
 import { Flex, FlexItem, PageSection, Title, Tabs, Tab, TabTitleText, Card, CardBody, Button, Label, Spinner } from '@patternfly/react-core';
 import { HomeIcon, BriefcaseIcon, BuildingIcon, PlaneIcon } from '@patternfly/react-icons';
 import { createFileRoute } from '@tanstack/react-router';
@@ -137,7 +137,7 @@ function TemplateCatalog() {
     queryKey: ['suite-details', suitesByCategory],
     queryFn: async () => {
       if (!suitesByCategory) return {};
-      
+
       const detailsMap: Record<string, any> = {};
       for (const [category, suiteIds] of Object.entries(suitesByCategory)) {
         for (const suiteId of suiteIds) {
@@ -222,35 +222,35 @@ function TemplateCatalog() {
     <div>
       <Title headingLevel="h2">AI Agent Templates</Title>
       <p style={{ marginBottom: '24px', color: '#6A6E73' }}>
-        Professional, pre-configured AI agent suites ready for immediate deployment. 
+        Professional, pre-configured AI agent suites ready for immediate deployment.
         Each template includes multiple specialized agents working together seamlessly.
       </p>
       <div style={{ marginBottom: '16px' }}>
-        <span style={{ 
-          border: '1px solid #0066CC', 
-          borderRadius: '4px', 
-          padding: '4px 8px', 
-          fontSize: '12px', 
+        <span style={{
+          border: '1px solid #0066CC',
+          borderRadius: '4px',
+          padding: '4px 8px',
+          fontSize: '12px',
           color: '#0066CC',
           marginRight: '8px'
         }}>
           {totalTemplates} Templates Available
         </span>
-        <span style={{ 
-          border: '1px solid #0066CC', 
-          borderRadius: '4px', 
-          padding: '4px 8px', 
-          fontSize: '12px', 
+        <span style={{
+          border: '1px solid #0066CC',
+          borderRadius: '4px',
+          padding: '4px 8px',
+          fontSize: '12px',
           color: '#0066CC',
           marginRight: '8px'
         }}>
           Enterprise Ready
         </span>
-        <span style={{ 
-          border: '1px solid #0066CC', 
-          borderRadius: '4px', 
-          padding: '4px 8px', 
-          fontSize: '12px', 
+        <span style={{
+          border: '1px solid #0066CC',
+          borderRadius: '4px',
+          padding: '4px 8px',
+          fontSize: '12px',
           color: '#0066CC'
         }}>
           Instant Deploy
@@ -275,7 +275,7 @@ function TemplateCatalog() {
                 <Label color="green" variant="outline">Ready to use</Label>
               </Flex>
             </div>
-            
+
             <p style={{ marginBottom: '24px', color: '#6A6E73' }}>{categoryInfo.description}</p>
 
             {/* Suite Cards */}
@@ -295,7 +295,7 @@ function TemplateCatalog() {
                               <Title headingLevel="h4">{suite.title}</Title>
                             </Flex>
                           </FlexItem>
-                          
+
                           <FlexItem>
                             <p>{suite.description}</p>
                           </FlexItem>
@@ -364,9 +364,9 @@ function TemplateCatalog() {
                   <p>Initializing deployment...</p>
                 )}
                 {deployProgress.map((progress, index) => (
-                  <div key={index} style={{ 
-                    fontFamily: 'monospace', 
-                    fontSize: '14px', 
+                  <div key={index} style={{
+                    fontFamily: 'monospace',
+                    fontSize: '14px',
                     marginBottom: '4px',
                     color: progress.includes('✅') ? '#3E8635' : progress.includes('❌') ? '#C9190B' : '#6A6E73'
                   }}>
