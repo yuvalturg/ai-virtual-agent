@@ -178,6 +178,8 @@ export function useChat(agentId: string, agentType: 'Regular' | 'ReAct' = 'Regul
 
         setMessages((prev) => [...prev, assistantMessage]);
 
+
+
         // Process stream
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -222,10 +224,14 @@ export function useChat(agentId: string, agentType: 'Regular' | 'ReAct' = 'Regul
                   const updated = [...prev];
                   const lastMsg = updated[updated.length - 1];
                   if (lastMsg && lastMsg.role === 'assistant') {
-                    // For complete responses (like react_unified), replace content instead of appending
-                    if (parsed.includes('🤔 **Thinking:**')) {
+                    // For regular agents, accumulate content (same as ReAct but without special handling)
+                    if (agentType === 'Regular') {
+                      lastMsg.content += parsed;
+                    } else if (parsed.includes('🤔 **Thinking:**')) {
+                      // For ReAct agents, replace content for complete responses
                       lastMsg.content = parsed;
                     } else {
+                      // For ReAct agents, append for streaming responses
                       lastMsg.content += parsed;
                     }
                   }

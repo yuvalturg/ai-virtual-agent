@@ -52,6 +52,7 @@ export const LlamaStackParser: LlamaStackParser = {
           console.log('🔧 ADAPTER: ReAct processing result:', result);
           return result;
         }
+        // For regular agents, use the same logic as refresh page (no special processing)
         return json.content;
       }
 

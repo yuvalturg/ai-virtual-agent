@@ -87,15 +87,15 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
       name: '',
       agent_type: 'ReAct', // Default to ReAct
       model_name: '',
-      prompt: '',
+      prompt: 'You are a helpful assistant. Provide clear, concise responses without repetition.',
       knowledge_base_ids: [],
       tool_ids: [],
       sampling_strategy: 'greedy',
-      temperature: 0.1,
+      temperature: 0.0,
       top_p: 0.95,
       top_k: 40,
       max_tokens: 512,
-      repetition_penalty: 0.0,
+      repetition_penalty: 1.5,
       samplingAccordionExpanded: false, // Initialize accordion state
       input_shields: '',
       output_shields: '',
@@ -117,7 +117,7 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
     top_p: agent.top_p ?? 0.95,
     top_k: agent.top_k ?? 40,
     max_tokens: agent.max_tokens ?? 512,
-    repetition_penalty: agent.repetition_penalty ?? 0.0,
+    repetition_penalty: agent.repetition_penalty ?? 1.5,
     samplingAccordionExpanded: false, // Initialize accordion state
     input_shields: agent.input_shields?.[0] || '', // Take first shield or empty string
     output_shields: agent.output_shields?.[0] || '', // Take first shield or empty string
