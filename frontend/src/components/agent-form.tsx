@@ -1,5 +1,5 @@
 import { Agent, NewAgent } from '@/routes/config/agents';
-import { Model, ToolGroup, ToolAssociationInfo, LSKnowledgeBase, samplingStrategy } from '@/types';
+import { ToolGroup, ToolAssociationInfo, samplingStrategy } from '@/types';
 import {
   ActionGroup,
   Button,
@@ -24,37 +24,10 @@ import { PaperPlaneIcon } from '@patternfly/react-icons';
 import React from 'react';
 import FormFieldSlider from './FormFieldSlider';
 import { parameterFields } from '../config/samplingParametersConfig';
-
-interface ModelsFieldProps {
-  models: Model[];
-  isLoadingModels: boolean;
-  modelsError: Error | null;
-}
-
-interface KnowledgeBasesFieldProps {
-  knowledgeBases: LSKnowledgeBase[];
-  isLoadingKnowledgeBases: boolean;
-  knowledgeBasesError: Error | null;
-}
-
-interface ToolsFieldProps {
-  tools: ToolGroup[];
-  isLoadingTools: boolean;
-  toolsError: Error | null;
-}
-
-interface ShieldsFieldProps {
-  shields: Array<{ identifier: string; name?: string }>;
-  isLoadingShields: boolean;
-  shieldsError: Error | null;
-}
+import { useModels, useKnowledgeBases, useTools, useShields } from '@/hooks';
 
 interface AgentFormProps {
   defaultAgentProps?: Agent | undefined;
-  modelsProps: ModelsFieldProps;
-  knowledgeBasesProps: KnowledgeBasesFieldProps;
-  toolsProps: ToolsFieldProps;
-  shieldsProps: ShieldsFieldProps;
   onSubmit: (values: NewAgent) => void;
   isSubmitting: boolean;
   onCancel: () => void;
@@ -153,20 +126,16 @@ const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): Ne
   };
 };
 
-export function AgentForm({
-  defaultAgentProps,
-  modelsProps,
-  knowledgeBasesProps,
-  toolsProps,
-  shieldsProps,
-  onSubmit,
-  isSubmitting,
-  onCancel,
-}: AgentFormProps) {
-  const { models, isLoadingModels, modelsError } = modelsProps;
-  const { knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError } = knowledgeBasesProps;
-  const { tools, isLoadingTools, toolsError } = toolsProps;
-  const { shields, isLoadingShields, shieldsError } = shieldsProps;
+export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel }: AgentFormProps) {
+  // Use custom hooks to get data
+  const { models, isLoadingModels, modelsError } = useModels();
+  const {
+    llamaStackKnowledgeBases: knowledgeBases,
+    isLoadingLlamaStack: isLoadingKnowledgeBases,
+    llamaStackError: knowledgeBasesError,
+  } = useKnowledgeBases();
+  const { tools, isLoading: isLoadingTools, error: toolsError } = useTools();
+  const { shields, isLoading: isLoadingShields, error: shieldsError } = useShields();
 
   const initialAgentData: AgentFormData = convertAgentToFormData(defaultAgentProps);
 
@@ -174,7 +143,7 @@ export function AgentForm({
     defaultValues: initialAgentData,
     onSubmit: ({ value }) => {
       console.log('Test');
-      const convertedAgent = convertFormDataToAgent(value, tools);
+      const convertedAgent = convertFormDataToAgent(value, tools || []);
       onSubmit(convertedAgent);
     },
   });
@@ -378,7 +347,7 @@ export function AgentForm({
               ) : (
                 <Fragment>
                   <FormSelectOption key="placeholder" value="" label="Select a model" isDisabled />
-                  {models.map((model) => (
+                  {(models || []).map((model) => (
                     <FormSelectOption
                       key={model.model_name}
                       value={model.model_name}

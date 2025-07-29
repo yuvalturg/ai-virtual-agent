@@ -36,7 +36,6 @@ export interface MCPServer {
   created_at?: string;
 }
 
-
 export interface MCPServerCreate {
   toolgroup_id: string; // NOW REQUIRED!
   name: string;

@@ -4,21 +4,26 @@ Modern React application for the AI Virtual Agent Kickstart, providing an intuit
 
 ## Architecture Overview
 
-The frontend is built with modern React patterns and follows a clean architecture:
+The frontend is built with modern React patterns and follows a clean, hook-based architecture:
 
 ```
 src/
-├── components/           # Reusable UI components
+├── components/           # Reusable UI components (now using custom hooks)
 │   ├── chat.tsx         # Main chat interface with PatternFly Chatbot
 │   ├── agent-*.tsx      # Agent management components
 │   ├── knowledge-base-*.tsx # Knowledge base management
-│   └── masthead.tsx     # Application header
-├── hooks/               # Custom React hooks
-│   └── useChat.ts       # Chat functionality with SSE streaming
-├── services/            # API service layer
-│   ├── agents.ts        # Agent CRUD operations
-│   ├── knowledge-bases.ts # Knowledge base operations
-│   └── chat-sessions.ts # Session management
+│   └── ...
+├── hooks/               # Custom React hooks (data fetching & state management)
+│   ├── index.ts         # Central export for all hooks
+│   ├── useChat.ts       # Chat functionality with SSE streaming
+│   ├── useAgents.ts     # Agent operations (CRUD + state)
+│   ├── useKnowledgeBases.ts # Knowledge base operations
+│   └── ...              # More specialized hooks
+├── services/            # API service layer (pure functions)
+│   ├── agents.ts        # Agent API calls
+│   ├── knowledge-bases.ts # Knowledge base API calls
+│   ├── chat-sessions.ts # Session API calls
+│   └── ...              # More service modules
 ├── routes/              # TanStack Router configuration
 │   ├── index.tsx        # Main chat page
 │   └── config/          # Configuration pages
@@ -113,6 +118,217 @@ npm run format:check # Check code formatting
 npm run type-check   # TypeScript compilation check
 ```
 
+## Custom Hooks Architecture
+
+Our frontend uses a comprehensive set of custom hooks that encapsulate data fetching, state management, and business logic. This approach provides:
+
+- **🔄 Consistent API**: All hooks follow the same pattern
+- **🎯 No Prop Drilling**: Components access data directly
+- **🧹 Clean Components**: UI logic separated from data logic
+- **🔒 Type Safety**: Full TypeScript support
+- **⚡ Performance**: Automatic caching and optimization
+
+### Hook Pattern
+
+All custom hooks follow a consistent interface:
+
+```typescript
+const {
+  // Data
+  data,
+  isLoading,
+  error,
+
+  // Mutations
+  createItem,
+  deleteItem,
+  updateItem,
+
+  // Mutation states
+  isCreating,
+  isDeleting,
+  createError,
+  deleteError,
+
+  // Utilities
+  refreshData,
+} = useCustomHook();
+```
+
+### Key Hooks
+
+#### useAgents (`hooks/useAgents.ts`)
+
+Complete agent management:
+
+```typescript
+export function AgentManagement() {
+  const {
+    agents,           // Agent[]
+    isLoading,        // boolean
+    error,            // Error | null
+    createAgent,      // (data: NewAgent) => Promise<Agent>
+    deleteAgent,      // (id: string) => Promise<void>
+    isCreating,       // boolean
+    isDeleting,       // boolean
+    refreshAgents     // () => void
+  } = useAgents();
+
+  return (
+    <div>
+      {isLoading && <Spinner />}
+      {agents?.map(agent => (
+        <AgentCard
+          key={agent.id}
+          agent={agent}
+          onDelete={() => deleteAgent(agent.id)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+#### useKnowledgeBases (`hooks/useKnowledgeBases.ts`)
+
+Knowledge base operations with status tracking:
+
+```typescript
+export function KnowledgeBaseList() {
+  const {
+    knowledgeBases, // KnowledgeBaseWithStatus[]
+    isLoading, // boolean
+    createKnowledgeBase, // (data) => Promise<KnowledgeBase>
+    deleteKnowledgeBase, // (id) => Promise<void>
+    llamaStackKnowledgeBases, // LSKnowledgeBase[]
+  } = useKnowledgeBases();
+
+  // Component uses data directly, no prop drilling
+}
+```
+
+#### useChat (`hooks/useChat.ts`)
+
+Real-time chat with streaming:
+
+```typescript
+export function Chat() {
+  const {
+    messages, // ChatMessage[]
+    input, // string
+    isLoading, // boolean
+    sendMessage, // (content: string) => void
+    handleInputChange, // (event) => void
+    handleSubmit, // (event) => void
+    loadSession, // (sessionId: string) => Promise<void>
+    sessionId, // string | null
+  } = useChat(agentId);
+
+  // Real-time streaming, session management, all handled
+}
+```
+
+## Component Structure
+
+### Modern Component Pattern
+
+Components are now clean and focused on UI logic:
+
+```typescript
+// ✅ Clean component using custom hooks
+export function AgentList() {
+  // Single hook call provides everything needed
+  const { agents, isLoading, error } = useAgents();
+
+  if (isLoading) return <Spinner />;
+  if (error) return <Alert variant="danger">{error.message}</Alert>;
+
+  return (
+    <Flex direction={{ default: 'column' }}>
+      {agents?.map(agent => (
+        <AgentCard key={agent.id} agent={agent} />
+      ))}
+    </Flex>
+  );
+}
+```
+
+### Form Components
+
+Forms use hooks directly instead of complex prop passing:
+
+```typescript
+// ✅ AgentForm manages its own data dependencies
+export function AgentForm({ onSubmit, isSubmitting, onCancel }: AgentFormProps) {
+  // All data fetched internally
+  const { models, isLoadingModels, modelsError } = useModels();
+  const { llamaStackKnowledgeBases, isLoadingLlamaStack } = useKnowledgeBases();
+  const { tools, isLoading: isLoadingTools } = useTools();
+  const { shields, isLoading: isLoadingShields } = useShields();
+
+  // No more complex prop interfaces needed
+  return <Form>...</Form>;
+}
+```
+
+## State Management
+
+### TanStack Query Integration
+
+Our custom hooks wrap TanStack Query for optimal caching:
+
+```typescript
+// Inside useAgents.ts
+export const useAgents = () => {
+  const queryClient = useQueryClient();
+
+  // Automatic caching and background updates
+  const agentsQuery = useQuery<Agent[], Error>({
+    queryKey: ['agents'],
+    queryFn: fetchAgents,
+  });
+
+  // Optimistic updates with proper error handling
+  const createAgentMutation = useMutation<Agent, Error, NewAgent>({
+    mutationFn: createAgent,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['agents'] });
+    },
+  });
+
+  return {
+    agents: agentsQuery.data,
+    isLoading: agentsQuery.isLoading,
+    error: agentsQuery.error,
+    createAgent: createAgentMutation.mutateAsync,
+    isCreating: createAgentMutation.isPending,
+  };
+};
+```
+
+### Service Layer
+
+Pure API functions with no React dependencies:
+
+```typescript
+// services/agents.ts - Pure functions
+export const fetchAgents = async (): Promise<Agent[]> => {
+  const response = await fetch(AGENTS_API_ENDPOINT);
+  if (!response.ok) throw new Error('Network response was not ok');
+  return response.json() as Agent[];
+};
+
+export const createAgent = async (newAgent: NewAgent): Promise<Agent> => {
+  const response = await fetch(AGENTS_API_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newAgent),
+  });
+  if (!response.ok) throw new Error('Network response was not ok');
+  return response.json() as Agent[];
+};
+```
+
 ## Key Components
 
 ### Chat Component (`components/chat.tsx`)
@@ -143,92 +359,22 @@ export function Chat() {
 }
 ```
 
-### useChat Hook (`hooks/useChat.ts`)
-
-Custom hook for real-time chat functionality:
-
-```typescript
-// HTTP + Server-Sent Events streaming
-export function useChat(agentId: string, options?: UseLlamaChatOptions) {
-  const sendMessage = useCallback(
-    async (content: string) => {
-      // 1. Add user message immediately
-      setMessages((prev) => [...prev, userMessage]);
-
-      // 2. Send HTTP POST request
-      const response = await fetch(CHAT_API_ENDPOINT, {
-        method: 'POST',
-        body: JSON.stringify(requestBody),
-      });
-
-      // 3. Process Server-Sent Events stream
-      const reader = response.body.getReader();
-      // ... streaming logic
-    },
-    [agentId, messages]
-  );
-
-  return { messages, sendMessage, isLoading };
-}
-```
-
 ### Agent Form (`components/agent-form.tsx`)
 
-Comprehensive form for agent creation with advanced configuration:
-
-- **Dynamic Tool Selection**: Multi-select with real-time tool availability
-- **Knowledge Base Integration**: Conditional KB selection when RAG tool is enabled
-- **Sampling Parameters**: Collapsible advanced configuration
-- **Real-time Validation**: Form validation with helpful error messages
-
-### Service Layer
-
-#### Agent Service (`services/agents.ts`)
+Self-contained form with internal data management:
 
 ```typescript
-export const agentService = {
-  fetchAgents(): Promise<Agent[]>
-  createAgent(data: NewAgent): Promise<Agent>
-  deleteAgent(id: string): Promise<void>
+export function AgentForm({ onSubmit, isSubmitting, onCancel }: AgentFormProps) {
+  // All dependencies managed internally
+  const { models, isLoadingModels, modelsError } = useModels();
+  const { llamaStackKnowledgeBases, isLoadingLlamaStack } = useKnowledgeBases();
+  const { tools, isLoading: isLoadingTools } = useTools();
+  const { shields, isLoading: isLoadingShields } = useShields();
+
+  // Form logic...
+  return <Form>...</Form>;
 }
 ```
-
-#### Knowledge Base Service (`services/knowledge-bases.ts`)
-
-```typescript
-export const knowledgeBaseService = {
-  fetchKnowledgeBasesWithStatus(): Promise<KnowledgeBaseWithStatus[]>
-  createKnowledgeBase(data: CreateKBRequest): Promise<DatabaseKB>
-  syncKnowledgeBases(): Promise<DatabaseKB[]>
-}
-```
-
-## State Management
-
-### TanStack Query
-
-Used for server state management with intelligent caching:
-
-```typescript
-// Automatic caching and background updates
-const { data: agents, isLoading } = useQuery({
-  queryKey: ['agents'],
-  queryFn: fetchAgents,
-});
-
-// Optimistic updates for better UX
-const createMutation = useMutation({
-  mutationFn: createAgent,
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['agents'] });
-  },
-});
-```
-
-### React Context
-
-- **UserContext**: Authentication and user profile management
-- **Component State**: Local state with React hooks (useState, useReducer)
 
 ## Type Safety
 
@@ -254,68 +400,81 @@ interface ChatMessage {
 }
 ```
 
-## UI/UX Patterns
+## Error Handling & Performance
 
-### PatternFly Integration
+### Graceful Error Handling
 
-- **Consistent Design**: Enterprise-grade design system
-- **Accessibility**: Built-in ARIA attributes and keyboard navigation
-- **Responsive Layout**: Mobile-friendly components
-- **Theme Support**: Consistent color scheme and typography
+```typescript
+// Built into every hook
+const { data, isLoading, error } = useAgents();
 
-### Error Handling
+if (error) {
+  return <Alert variant="danger">{error.message}</Alert>;
+}
+```
 
-- **Graceful Degradation**: Meaningful error messages and fallback states
-- **Loading States**: Skeleton loaders and progress indicators
-- **Retry Mechanisms**: Automatic retries for failed requests
+### Performance Optimizations
 
-### Real-time Updates
-
-- **Optimistic Updates**: Immediate UI feedback for user actions
-- **Background Sync**: Automatic data refresh without user intervention
-- **Connection Status**: Visual indicators for connection health
-
-## Performance Optimizations
-
-### Code Splitting
-
-- **Route-based Splitting**: Automatic code splitting by routes
-- **Component Lazy Loading**: Dynamic imports for large components
-
-### Caching Strategy
-
-- **TanStack Query**: Intelligent server state caching
-- **React Query DevTools**: Development debugging tools
-
-### Bundle Optimization
-
-- **Tree Shaking**: Automatic removal of unused code
-- **Asset Optimization**: Optimized images and static assets
+- **Automatic Caching**: TanStack Query handles intelligent caching
+- **Background Updates**: Stale data updates in background
+- **Optimistic Updates**: Immediate UI feedback
+- **Code Splitting**: Route-based and component-based splitting
 
 ## Development Guidelines
+
+### Hook Usage Best Practices
+
+```typescript
+// ✅ Use hooks at component level
+export function Component() {
+  const { data, isLoading, createItem } = useCustomHook();
+
+  // Avoid prop drilling
+  return <ChildComponent onAction={createItem} />;
+}
+
+// ✅ Handle loading and error states
+export function Component() {
+  const { data, isLoading, error } = useCustomHook();
+
+  if (isLoading) return <Spinner />;
+  if (error) return <Alert variant="danger">{error.message}</Alert>;
+  if (!data) return <EmptyState />;
+
+  return <DataComponent data={data} />;
+}
+```
 
 ### Component Structure
 
 ```typescript
-// Consistent component structure
 interface ComponentProps {
-  // Props interface
+  // Minimal props - data comes from hooks
+  onAction?: () => void;
+  variant?: 'primary' | 'secondary';
 }
 
-export function Component({ prop1, prop2 }: ComponentProps) {
-  // Hooks at the top
-  const [state, setState] = useState();
-  const { data } = useQuery(...);
+export function Component({ onAction, variant = 'primary' }: ComponentProps) {
+  // 1. Hooks at the top
+  const { data, isLoading, error, performAction } = useCustomHook();
+  const [localState, setLocalState] = useState();
 
-  // Event handlers
+  // 2. Event handlers
   const handleAction = useCallback(() => {
-    // Handler logic
-  }, [dependencies]);
+    void performAction();
+    onAction?.();
+  }, [performAction, onAction]);
 
-  // Render
+  // 3. Early returns for loading/error states
+  if (isLoading) return <Spinner />;
+  if (error) return <Alert variant="danger">{error.message}</Alert>;
+
+  // 4. Main render
   return (
-    <PatternFlyComponent>
-      {/* JSX content */}
+    <PatternFlyComponent variant={variant}>
+      {data?.map(item => (
+        <ItemComponent key={item.id} item={item} onAction={handleAction} />
+      ))}
     </PatternFlyComponent>
   );
 }
@@ -326,10 +485,11 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - **TypeScript Strict Mode**: Full type checking enabled
 - **ESLint Rules**: React, TypeScript, and accessibility rules
 - **Prettier Formatting**: Consistent code formatting
-- **Pre-commit Hooks**: Automatic formatting and linting
+- **Promise Handling**: All promises properly handled with `void` or `.catch()`
 
 ### Testing (Future)
 
+- **Hook Testing**: `@testing-library/react-hooks`
 - **Component Testing**: React Testing Library
 - **E2E Testing**: Playwright or Cypress
 - **API Mocking**: MSW for service layer testing
@@ -338,13 +498,11 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 
 ### Common Issues
 
-**Frontend won't start:**
+**Hook dependency warnings:**
 
 ```bash
-# Clear node_modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
-npm run dev
+# Check for missing dependencies in useCallback/useEffect
+npm run lint
 ```
 
 **Type errors:**
@@ -357,27 +515,19 @@ npm run type-check
 npx tsc --noEmit
 ```
 
-**Build failures:**
+**Promise handling errors:**
 
 ```bash
-# Check for linting issues
-npm run lint
-
-# Fix auto-fixable issues
-npm run lint:fix
+# All async operations should use void or proper error handling
+void asyncOperation(); // For fire-and-forget
+await asyncOperation().catch(handleError); // With error handling
 ```
-
-**API connection issues:**
-
-- Verify backend is running on `http://localhost:8000`
-- Check browser network tab for CORS errors
-- Ensure API endpoints match backend routes
 
 ### Development Tools
 
 **Browser Extensions:**
 
-- **React Developer Tools**: Component debugging
+- **React Developer Tools**: Component and hook debugging
 - **TanStack Query DevTools**: Server state inspection
 - **Vite DevTools**: Build analysis
 
@@ -386,3 +536,4 @@ npm run lint:fix
 - **TypeScript Importer**: Automatic import organization
 - **ESLint**: Real-time code analysis
 - **Prettier**: Automatic formatting
+- **Error Lens**: Inline error display
