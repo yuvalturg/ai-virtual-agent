@@ -7,11 +7,11 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: quay.io/ecosystem-appeng/ai-virtual-assistant
+  repository: quay.io/yuvalturg/ai-test
   # This sets the pull policy for images.
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  #tag: "1.1.0"
+  tag: "123"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -148,7 +148,8 @@ minio:
 
 llama-stack:
   auth:
-    custom:
+    provider_config:
+      type: "custom"
       endpoint: http://ai-virtual-assistant:8887/validate
     access_policy:
     - permit:
@@ -176,6 +177,11 @@ llama-stack:
         resource: vector_db::*
       when: user with admin in roles
       description: users with the admin role can create, update or delete vector_dbs
+    - permit:
+        actions: [create, update, delete]
+        resource: tool_group::*
+      when: user with admin in roles
+      description: users with the admin role can create, update or delete tool_groups
     - forbid:
         actions: [create, update, delete]
       unless: user with admin in roles
