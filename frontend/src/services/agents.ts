@@ -27,7 +27,7 @@ export const fetchUserAgents = async (userId: string): Promise<Agent[]> => {
     const allAgents = await fetchAgents();
 
     // Filter agents to only include those assigned to the user
-    const userAgents = allAgents.filter(agent => userAgentIds.includes(agent.id));
+    const userAgents = allAgents.filter((agent) => userAgentIds.includes(agent.id));
 
     return userAgents;
   } catch (error) {

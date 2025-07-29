@@ -122,6 +122,18 @@ install: namespace depend
 	@echo "Waiting for model services and llamastack to deploy. It may take around 10-15 minutes depending on the size of the model..."
 	@oc rollout status deploy/llamastack -n $(NAMESPACE)
 	@echo "$(AI_VIRTUAL_ASSISTANT_CHART) installed successfully"
+	@echo ""
+	@echo "Getting application URL..."
+	@sleep 5
+	@$(eval APP_URL := $(shell oc get routes ai-virtual-agent -n $(NAMESPACE) -o jsonpath='{.status.ingress[0].host}' 2>/dev/null || echo ""))
+	@if [ -n "$(APP_URL)" ]; then \
+		echo "🎉 Application is ready!"; \
+		echo "📱 Access your AI Virtual Agent at: https://$(APP_URL)"; \
+	else \
+		echo "⚠️  Route not ready yet. Get the URL manually with:"; \
+		echo "   oc get routes ai-virtual-agent -n $(NAMESPACE)"; \
+	fi
+	@echo ""
 
 # Uninstall the deployment and clean up
 .PHONY: uninstall

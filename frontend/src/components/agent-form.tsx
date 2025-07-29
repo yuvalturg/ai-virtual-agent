@@ -186,7 +186,7 @@ export function AgentForm({
 
   const handleSliderChange = (
     event: SliderOnChangeEvent,
-    field: any,
+    field: { handleChange: (value: number) => void },
     sliderValue: number,
     inputValue: number | undefined,
     { min, max, step }: { min: number; max: number; step: number },
@@ -296,12 +296,13 @@ export function AgentForm({
     if (!shields || shields.length === 0) {
       return [{ value: '', label: 'No shields available', disabled: true }];
     }
-    return [{ value: '', label: 'No shield selected', disabled: false }]
-      .concat(shields.map(shield => ({
+    return [{ value: '', label: 'No shield selected', disabled: false }].concat(
+      shields.map((shield) => ({
         value: shield.identifier,
         label: shield.name || shield.identifier,
         disabled: false,
-      })));
+      }))
+    );
   }, [shields, isLoadingShields, shieldsError]);
 
   return (

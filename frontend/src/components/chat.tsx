@@ -39,8 +39,8 @@ import {
   ChatSessionSummary,
 } from '@/services/chat-sessions';
 import { useMutation } from '@tanstack/react-query';
-import botAvatar from "../assets/img/bot-avatar.svg";
-import userAvatar from "../assets/img/user-avatar.svg";
+import botAvatar from '../assets/img/bot-avatar.svg';
+import userAvatar from '../assets/img/user-avatar.svg';
 
 const footnoteProps = {
   label: 'ChatBot uses AI. Check for mistakes.',
@@ -79,7 +79,12 @@ export function Chat() {
   const historyRef = React.useRef<HTMLButtonElement>(null);
 
   // Get current user context
-  const { currentUser, isLoading: isUserLoading, error: userError, refetch: refetchUser } = useCurrentUser();
+  const {
+    currentUser,
+    isLoading: isUserLoading,
+    error: userError,
+    refetch: refetchUser,
+  } = useCurrentUser();
 
   // Use our custom hook for chat functionality - only when we have a valid agent
   const {

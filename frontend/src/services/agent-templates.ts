@@ -1,6 +1,6 @@
 /**
  * Service for interacting with agent templates API endpoints.
- * 
+ *
  * This service provides functions to initialize agents from predefined templates,
  * including automatic knowledge base creation and data ingestion.
  */
@@ -51,7 +51,7 @@ export async function getAvailableTemplates(): Promise<string[]> {
   if (!response.ok) {
     throw new Error(`Failed to fetch templates: ${response.statusText}`);
   }
-  return response.json();
+  return response.json() as Promise<string[]>;
 }
 
 /**
@@ -62,7 +62,7 @@ export async function getTemplateDetails(templateName: string): Promise<AgentTem
   if (!response.ok) {
     throw new Error(`Failed to fetch template details: ${response.statusText}`);
   }
-  return response.json();
+  return response.json() as Promise<AgentTemplate>;
 }
 
 /**
@@ -78,13 +78,13 @@ export async function initializeAgentFromTemplate(
     },
     body: JSON.stringify(request),
   });
-  
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = (await response.json().catch(() => ({}))) as { detail?: string };
     throw new Error(errorData.detail || `Failed to initialize agent: ${response.statusText}`);
   }
-  
-  return response.json();
+
+  return response.json() as Promise<TemplateInitializationResponse>;
 }
 
 /**
@@ -98,13 +98,15 @@ export async function initializeAllTemplates(): Promise<TemplateInitializationRe
       'Content-Type': 'application/json',
     },
   });
-  
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to initialize all templates: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(
+      errorData.detail || `Failed to initialize all templates: ${response.statusText}`
+    );
   }
-  
-  return response.json();
+
+  return response.json() as Promise<TemplateInitializationResponse[]>;
 }
 
 /**
@@ -120,11 +122,11 @@ export async function initializeSuite(suiteId: string): Promise<TemplateInitiali
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = (await response.json()) as { detail?: string };
     throw new Error(errorData.detail || `Failed to initialize suite: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<TemplateInitializationResponse[]>;
 }
 
 /**
@@ -135,7 +137,7 @@ export async function getSuitesByCategory(): Promise<Record<string, string[]>> {
   if (!response.ok) {
     throw new Error(`Failed to fetch suites by category: ${response.statusText}`);
   }
-  return response.json();
+  return response.json() as Promise<Record<string, string[]>>;
 }
 
 /**
@@ -153,23 +155,45 @@ export async function getSuiteDetails(suiteId: string): Promise<{
   if (!response.ok) {
     throw new Error(`Failed to fetch suite details: ${response.statusText}`);
   }
-  return response.json();
+  return response.json() as Promise<{
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    agent_count: number;
+    agent_names: string[];
+  }>;
 }
 
 /**
  * Get detailed information about all categories.
  */
-export async function getCategoriesInfo(): Promise<Record<string, {
-  name: string;
-  description: string;
-  icon: string;
-  suite_count: number;
-}>> {
+export async function getCategoriesInfo(): Promise<
+  Record<
+    string,
+    {
+      name: string;
+      description: string;
+      icon: string;
+      suite_count: number;
+    }
+  >
+> {
   const response = await fetch(`/api/agent_templates/categories/info`);
   if (!response.ok) {
     throw new Error(`Failed to fetch categories info: ${response.statusText}`);
   }
-  return response.json();
+  return response.json() as Promise<
+    Record<
+      string,
+      {
+        name: string;
+        description: string;
+        icon: string;
+        suite_count: number;
+      }
+    >
+  >;
 }
 
 /**
@@ -187,14 +211,14 @@ export async function initializeTemplate(
     custom_prompt: customPrompt,
     include_knowledge_base: true,
   };
-  
+
   const response = await initializeAgentFromTemplate(request);
-  
+
   // Get the persona from the template details
   const templateDetails = await getTemplateDetails(templateName);
-  
+
   return {
     agent: response,
     persona: templateDetails.persona,
   };
-} 
+}

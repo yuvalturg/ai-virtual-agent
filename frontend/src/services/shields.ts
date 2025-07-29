@@ -16,10 +16,10 @@ export const fetchShields = async (): Promise<Shield[]> => {
   if (!response.ok) {
     throw new Error('Network response was not ok');
   }
-  const data: BackendShield[] = await response.json();
-  
+  const data: BackendShield[] = (await response.json()) as BackendShield[];
+
   // Map backend response to frontend expected structure
-  return data.map(shield => ({
+  return data.map((shield) => ({
     identifier: shield.id,
     name: shield.name,
   }));

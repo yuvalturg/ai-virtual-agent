@@ -1,9 +1,10 @@
 """
-User management API endpoints for authentication and user administration.
+User management API endpoints for authentication, authorization, and access
+control for the AI Virtual Agent Kickstart application.
 
 This module provides CRUD operations for user accounts, including user creation,
 authentication, role management, and profile updates. It handles role-based access
-control for the AI Virtual Assistant application.
+control for the AI Virtual Agent Kickstart application.
 
 Key Features:
 - User registration and profile management
@@ -263,7 +264,7 @@ async def get_user_agents(user_id: UUID, db: AsyncSession = Depends(get_db)):
     """
     Retrieve the list of agents assigned to a specific user.
 
-    This endpoint returns the list of virtual assistant agent IDs that are
+    This endpoint returns the list of virtual agent IDs that are
     currently assigned to the specified user.
 
     Args:

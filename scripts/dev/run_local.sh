@@ -26,19 +26,21 @@ fi
 echo "Creating tmux session: $SESSION_NAME"
 tmux new-session -d -s $SESSION_NAME -n "backend"
 
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 # Window 1: Backend
-tmux send-keys -t $SESSION_NAME:backend "bash local_dev/local_backend.sh" C-m
+tmux send-keys -t $SESSION_NAME:backend "bash $SCRIPT_DIR/local_backend.sh" C-m
 
 
 
 # Window 2: LlamaStack Server - Unmask if you don't have LLamastack deployed.
 # tmux new-window -t $SESSION_NAME -n "llamastack"
-# tmux send-keys -t $SESSION_NAME:llamastack "bash local_dev/local_llamastack.sh" C-m
+# tmux send-keys -t $SESSION_NAME:llamastack "bash $SCRIPT_DIR/local_llamastack.sh" C-m
 
 
 # Window 3: Frontend
 tmux new-window -t $SESSION_NAME -n "frontend"
-tmux send-keys -t $SESSION_NAME:frontend "bash local_dev/local_frontend.sh" C-m
+tmux send-keys -t $SESSION_NAME:frontend "bash $SCRIPT_DIR/local_frontend.sh" C-m
 
 
 # Select the first window and attach to session

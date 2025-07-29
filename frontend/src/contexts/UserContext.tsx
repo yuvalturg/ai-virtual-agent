@@ -39,14 +39,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     currentUser: currentUser || null,
     isLoading,
     error: error?.message || null,
-    refetch,
+    refetch: () => void refetch(),
   };
 
-  return (
-    <UserContext.Provider value={value}>
-      {children}
-    </UserContext.Provider>
-  );
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 };
 
 /**
