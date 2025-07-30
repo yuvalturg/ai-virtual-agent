@@ -92,7 +92,7 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
       top_p: 0.95,
       top_k: 40,
       max_tokens: 512,
-      repetition_penalty: 1.0, // XXX: anything other than this value triggers exception in llamastack
+      repetition_penalty: 1.0, // XXX: this is specific to vllm, and doesn't work with openai's API in llamastack
       samplingAccordionExpanded: false, // Initialize accordion state
       input_shields: '',
       output_shields: '',
