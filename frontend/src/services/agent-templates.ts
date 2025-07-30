@@ -5,41 +5,18 @@
  * including automatic knowledge base creation and data ingestion.
  */
 
-export interface AgentTemplate {
-  name: string;
-  persona: string;
-  prompt: string;
-  model_name: string;
-  tools: Array<{ toolgroup_id: string }>;
-  knowledge_base_ids: string[];
-  knowledge_base_config?: {
-    name: string;
-    version: string;
-    embedding_model: string;
-    provider_id: string;
-    vector_db_name: string;
-    is_external: boolean;
-    source: string;
-    source_configuration: string[];
-  };
-}
+import {
+  AgentTemplate,
+  TemplateInitializationRequest,
+  TemplateInitializationResponse,
+} from '@/types/agent';
 
-export interface TemplateInitializationRequest {
-  template_name: string;
-  custom_name?: string;
-  custom_prompt?: string;
-  include_knowledge_base?: boolean;
-}
-
-export interface TemplateInitializationResponse {
-  agent_id: string;
-  agent_name: string;
-  persona: string;
-  knowledge_base_created: boolean;
-  knowledge_base_name?: string;
-  status: string;
-  message: string;
-}
+// Re-export types for backward compatibility
+export type {
+  AgentTemplate,
+  TemplateInitializationRequest,
+  TemplateInitializationResponse,
+} from '@/types/agent';
 
 const API_BASE_URL = '/api';
 

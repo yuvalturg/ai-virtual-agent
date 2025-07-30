@@ -1,17 +1,7 @@
 import { AgentList } from '@/components/agent-list';
 import { NewAgentCard } from '@/components/new-agent-card';
-import { ToolAssociationInfo, samplingStrategy } from '@/types';
+import { SuiteDetails } from '@/types/agent';
 
-interface SuiteDetails {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  icon: React.ReactNode;
-  title: string;
-  agents: string[];
-  agentCount: number;
-}
 import {
   Flex,
   FlexItem,
@@ -37,44 +27,6 @@ import {
   getCategoriesInfo,
 } from '@/services/agent-templates';
 
-// Type def for fetching agents
-export interface Agent {
-  id: string;
-  name: string;
-  model_name: string;
-  prompt: string;
-  tools: ToolAssociationInfo[];
-  knowledge_base_ids: string[];
-  input_shields: string[];
-  output_shields: string[];
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  sampling_strategy?: samplingStrategy;
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  max_tokens?: number;
-  repetition_penalty?: number;
-}
-
-// Type def for creating agents
-export interface NewAgent {
-  name: string;
-  model_name: string;
-  prompt: string;
-  tools: ToolAssociationInfo[];
-  knowledge_base_ids: string[];
-  sampling_strategy?: samplingStrategy;
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  max_tokens?: number;
-  repetition_penalty?: number;
-  input_shields: string[];
-  output_shields: string[];
-}
-
 export const Route = createFileRoute('/config/agents')({
   component: Agents,
 });
@@ -89,40 +41,18 @@ export function Agents() {
 
   return (
     <PageSection>
-      <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
-        {/* Header */}
-        <FlexItem>
-          <Title headingLevel="h1">AI Agent Management</Title>
-          <p style={{ marginTop: '8px', color: '#6A6E73' }}>
-            Create, deploy, and manage intelligent AI agents for your organization.
-          </p>
-        </FlexItem>
-
-        {/* Tabs */}
-        <FlexItem>
-          <Tabs
-            activeKey={activeTabKey}
-            onSelect={handleTabClick}
-            aria-label="Agent management tabs"
-          >
-            <Tab eventKey={0} title={<TabTitleText>Template Catalog</TabTitleText>}>
-              <div style={{ padding: '24px 0' }}>
-                <TemplateCatalog />
-              </div>
-            </Tab>
-            <Tab eventKey={1} title={<TabTitleText>Create Custom</TabTitleText>}>
-              <div style={{ padding: '24px 0' }}>
-                <CreateCustomAgent />
-              </div>
-            </Tab>
-            <Tab eventKey={2} title={<TabTitleText>Your Agents</TabTitleText>}>
-              <div style={{ padding: '24px 0' }}>
-                <YourAgents />
-              </div>
-            </Tab>
-          </Tabs>
-        </FlexItem>
-      </Flex>
+      <Tabs activeKey={activeTabKey} onSelect={handleTabClick} aria-label="Agent management tabs">
+        <Tab eventKey={0} title={<TabTitleText>My Agents</TabTitleText>}>
+          <div style={{ padding: '24px 0' }}>
+            <MyAgents />
+          </div>
+        </Tab>
+        <Tab eventKey={1} title={<TabTitleText>Agent Templates</TabTitleText>}>
+          <div style={{ padding: '24px 0' }}>
+            <AgentTemplates />
+          </div>
+        </Tab>
+      </Tabs>
     </PageSection>
   );
 }
@@ -142,8 +72,8 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   default: <HomeIcon style={{ color: '#6A6E73', fontSize: '24px' }} />,
 };
 
-// Template Catalog Component
-function TemplateCatalog() {
+// Agent Templates Component
+function AgentTemplates() {
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [selectedSuite, setSelectedSuite] = useState<string | null>(null);
   const [deployProgress, setDeployProgress] = useState<string[]>([]);
@@ -185,6 +115,7 @@ function TemplateCatalog() {
             console.error(`Failed to fetch details for suite ${suiteId}:`, error);
             detailsMap[suiteId] = {
               id: suiteId,
+              name: suiteId.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
               title: suiteId.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
               description: `Specialized agents for ${category} services.`,
               icon: SUITE_ICONS[suiteId] || <HomeIcon style={{ color: '#8A2BE2' }} />,
@@ -476,28 +407,24 @@ function TemplateCatalog() {
   );
 }
 
-// Create Custom Agent Component
-function CreateCustomAgent() {
+// My Agents Component
+function MyAgents() {
   return (
     <div>
-      <Title headingLevel="h2">Create Custom Agent</Title>
-      <p style={{ marginBottom: '24px', color: '#6A6E73' }}>
-        Build a custom AI agent tailored to your specific needs and requirements.
-      </p>
-      <NewAgentCard />
-    </div>
-  );
-}
-
-// Your Agents Component
-function YourAgents() {
-  return (
-    <div>
-      <Title headingLevel="h2">Your Agents</Title>
-      <p style={{ marginBottom: '24px', color: '#6A6E73' }}>
-        View and manage your deployed AI agents.
-      </p>
-      <AgentList />
+      <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+        <FlexItem>
+          <Title headingLevel="h2">My Agents</Title>
+          <p style={{ marginBottom: '24px', color: '#6A6E73' }}>
+            View and manage your deployed AI agents.
+          </p>
+        </FlexItem>
+        <FlexItem>
+          <NewAgentCard />
+        </FlexItem>
+        <FlexItem>
+          <AgentList />
+        </FlexItem>
+      </Flex>
     </div>
   );
 }

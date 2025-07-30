@@ -2,18 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { LlamaStackParser, extractSessionId } from '../adapters/llamaStackAdapter';
 import { CHAT_API_ENDPOINT } from '../config/api';
 import { fetchChatSession } from '@/services/chat-sessions';
+import { ChatMessage, UseLlamaChatOptions } from '@/types/chat';
 
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-}
-
-export interface UseLlamaChatOptions {
-  onError?: (error: Error) => void;
-  onFinish?: (message: ChatMessage) => void;
-}
+// Re-export types for backward compatibility
+export type { ChatMessage, UseLlamaChatOptions } from '@/types/chat';
 
 /**
  * Simple chat hook that directly handles LlamaStack without the AI SDK overhead

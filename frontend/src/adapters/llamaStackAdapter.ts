@@ -1,17 +1,4 @@
-// Define our custom parser type
-type LlamaStackParser = {
-  parse(text: string): string | null;
-};
-
-interface LlamaStackResponse {
-  type: string;
-  content: string;
-  sessionId?: string;
-  tool?: {
-    name: string;
-    params?: Record<string, unknown>;
-  };
-}
+import type { LlamaStackParser as LlamaStackParserType, LlamaStackResponse } from '@/types/api';
 
 /**
  * LlamaStackParser - Transforms the Llama Stack API response format into
@@ -20,7 +7,7 @@ interface LlamaStackResponse {
  * Handles different response types (text, tool, reasoning, error) and properly
  * processes the session ID from the stream.
  */
-export const LlamaStackParser: LlamaStackParser = {
+export const LlamaStackParser: LlamaStackParserType = {
   parse(line: string): string | null {
     // Skip [DONE] events (empty lines)
     if (!line || line === '[DONE]') {

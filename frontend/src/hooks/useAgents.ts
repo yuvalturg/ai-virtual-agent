@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Agent, NewAgent } from '@/routes/config/agents';
+import { Agent, NewAgent } from '@/types/agent';
 import { fetchAgents, fetchUserAgents, createAgent, deleteAgent } from '@/services/agents';
 
 export const useAgents = () => {

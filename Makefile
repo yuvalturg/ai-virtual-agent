@@ -2,7 +2,7 @@
 # Run `make help` to see available targets.
 
 .PHONY: help dev backend frontend llamastack stop install install-backend install-frontend \
-        lint lint-backend lint-frontend test test-unit test-int compose-up compose-down image-build
+        build build-frontend lint lint-backend lint-frontend test test-unit test-int compose-up compose-down image-build
 
 # -----------------------------------------------------------------------------
 # Helper
@@ -30,6 +30,12 @@ llamastack: ## Run local LlamaStack server (for dev)
 
 stop: ## Stop all dev services started via ./scripts/dev scripts
 	./scripts/dev/stop_local.sh
+
+# -----------------------------------------------------------------------------
+# Build helpers (build without installing)
+# -----------------------------------------------------------------------------
+build-frontend: ## Build frontend application for production
+	cd frontend && npm run build
 
 # -----------------------------------------------------------------------------
 # Installation helpers

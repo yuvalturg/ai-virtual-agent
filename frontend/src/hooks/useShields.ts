@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Shield, fetchShields } from '@/services/shields';
+import { Shield } from '@/types/auth';
+import { fetchShields } from '@/services/shields';
 
 export const useShields = () => {
   const shieldsQuery = useQuery<Shield[], Error>({

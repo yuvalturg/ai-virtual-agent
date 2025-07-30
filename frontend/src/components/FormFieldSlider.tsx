@@ -1,39 +1,6 @@
 import React from 'react';
-import { FormGroup, FormHelperText, Slider, SliderOnChangeEvent } from '@patternfly/react-core';
-
-interface FormFieldProps {
-  name: string;
-  state: {
-    value: number;
-  };
-  handleChange: (value: number) => void;
-  handleBlur: () => void;
-}
-
-interface FormProps {
-  Field: React.ComponentType<{
-    name: string;
-    children: (field: FormFieldProps) => React.ReactNode;
-  }>;
-}
-
-interface FormFieldSliderProps {
-  form: FormProps;
-  name: string;
-  label: string;
-  helperText: string;
-  min: number;
-  max: number;
-  step: number;
-  handleSliderChange: (
-    event: SliderOnChangeEvent,
-    field: FormFieldProps,
-    sliderValue: number,
-    inputValue: number | undefined,
-    range: { min: number; max: number; step: number },
-    setLocalInputValue?: React.Dispatch<React.SetStateAction<number>>
-  ) => void;
-}
+import { FormGroup, FormHelperText, Slider } from '@patternfly/react-core';
+import { FormFieldProps, FormFieldSliderProps } from '@/types/forms';
 
 const FormFieldSlider: React.FC<FormFieldSliderProps> = ({
   form,

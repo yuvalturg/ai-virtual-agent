@@ -1,4 +1,4 @@
-import { Agent } from '@/routes/config/agents';
+import { Agent } from '@/types/agent';
 import {
   Button,
   Card,

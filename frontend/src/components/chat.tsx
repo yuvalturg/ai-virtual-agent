@@ -28,7 +28,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@patternfly/react-core';
-import { Agent } from '@/routes/config/agents';
+import { Agent } from '@/types/agent';
 import { fetchUserAgents } from '@/services/agents';
 import { useChat } from '@/hooks/useChat';
 import { useCurrentUser } from '@/contexts/UserContext';

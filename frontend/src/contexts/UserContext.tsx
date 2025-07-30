@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchCurrentUser, User } from '@/services/users';
+import { fetchCurrentUser } from '@/services/users';
+import { User } from '@/types/auth';
 
 interface UserContextType {
   currentUser: User | null;

@@ -1,4 +1,4 @@
-import { NewAgent } from '@/routes/config/agents';
+import { NewAgent } from '@/types/agent';
 import {
   Alert,
   Card,

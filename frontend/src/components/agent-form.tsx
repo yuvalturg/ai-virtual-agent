@@ -1,5 +1,5 @@
-import { Agent, NewAgent } from '@/routes/config/agents';
-import { ToolGroup, ToolAssociationInfo, samplingStrategy } from '@/types';
+import { Agent, NewAgent } from '@/types/agent';
+import { ToolGroup, ToolAssociationInfo, SamplingStrategy } from '@/types';
 import {
   ActionGroup,
   Button,
@@ -15,7 +15,6 @@ import {
   AccordionToggle,
   AccordionContent,
   Tooltip,
-  SliderOnChangeEvent,
 } from '@patternfly/react-core';
 import { useForm } from '@tanstack/react-form';
 import { Fragment, useMemo, useState } from 'react';
@@ -40,7 +39,7 @@ interface AgentFormData {
   prompt: string;
   knowledge_base_ids: string[];
   tool_ids: string[]; // Internal form uses tool IDs for easier UI handling
-  sampling_strategy: samplingStrategy;
+  sampling_strategy: SamplingStrategy;
   temperature: number;
   top_p: number;
   top_k: number;
@@ -154,7 +153,7 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
   };
 
   const handleSliderChange = (
-    event: SliderOnChangeEvent,
+    event: unknown,
     field: { handleChange: (value: number) => void },
     sliderValue: number,
     inputValue: number | undefined,
@@ -173,7 +172,9 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
     setLocalInputValue?.(finalValue);
 
     // Only update the field if the event is not a 'change' event (to avoid double updates)
-    if (event.type !== 'change') {
+    if (event && typeof event === 'object' && 'type' in event && event.type !== 'change') {
+      field.handleChange(finalValue);
+    } else if (!event || typeof event !== 'object' || !('type' in event)) {
       field.handleChange(finalValue);
     }
   };
@@ -537,7 +538,7 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
                       name={field.name}
                       value={field.state.value}
                       onBlur={field.handleBlur}
-                      onChange={(_event, value) => field.handleChange(value as samplingStrategy)}
+                      onChange={(_event, value) => field.handleChange(value as SamplingStrategy)}
                     >
                       <FormSelectOption value="greedy" label="Greedy" />
                       <FormSelectOption value="top-p" label="Top-P" />

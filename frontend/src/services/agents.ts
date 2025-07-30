@@ -1,5 +1,5 @@
 import { AGENTS_API_ENDPOINT } from '@/config/api';
-import { Agent, NewAgent } from '@/routes/config/agents';
+import { Agent, NewAgent } from '@/types/agent';
 import { getUserAgents } from '@/services/users';
 
 export const fetchAgents = async (): Promise<Agent[]> => {
