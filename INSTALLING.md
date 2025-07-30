@@ -19,6 +19,7 @@ The AI Virtual Agent Kickstart is designed for production deployment on OpenShif
     - [Basic Installation (No Safety Shields)](#basic-installation-no-safety-shields)
     - [Production Installation (With Safety Shields)](#production-installation-with-safety-shields)
     - [Simplified Installation (Untainted Nodes)](#simplified-installation-untainted-nodes)
+    - [Installation with pre-installed models](#installation-with-pre-installed-models)
 - [Check Installation Status](#check-installation-status)
 - [Access the Application](#access-the-application)
 - [Troubleshooting](#troubleshooting)
@@ -185,6 +186,16 @@ make install \
   NAMESPACE=ai-virtual-agent \
   LLM=llama-3-1-8b-instruct \
   SAFETY=llama-guard-3-8b
+```
+
+#### Installation with pre-installed models
+```bash
+make install \
+NAMESPACE=ai-virtual-agent \
+LLM=llama-3-1-8b-instruct \
+LLM_URL= <your-llm-url>\
+SAFETY=llama-guard-3-8b \
+SAFETY_URL= <your-safety-model-url>
 ```
 
 When prompted, enter your **[Hugging Face Token](https://huggingface.co/settings/tokens)**.
