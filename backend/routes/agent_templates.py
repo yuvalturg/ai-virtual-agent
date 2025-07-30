@@ -271,7 +271,8 @@ async def initialize_agent_from_template(request: TemplateInitializationRequest,
             enable_session_persistence=False
         )
         
-        created_agent = await create_virtual_assistant(agent_config, http_request)
+        async with AsyncSessionLocal() as db:
+            created_agent = await create_virtual_assistant(agent_config, http_request, db)
         
         logger.info(f"Successfully created agent '{agent_name}' from template '{request.template_name}'")
         
