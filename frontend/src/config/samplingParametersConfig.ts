@@ -44,5 +44,6 @@ export const parameterFields = [
     min: -2.0,
     max: 2.0,
     step: 0.1,
+    showWhen: () => false,
   },
 ];

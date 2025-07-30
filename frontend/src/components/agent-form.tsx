@@ -16,7 +16,6 @@ import {
   AccordionToggle,
   AccordionContent,
   Tooltip,
-  SliderOnChangeEvent,
 } from '@patternfly/react-core';
 import { useForm } from '@tanstack/react-form';
 import { Fragment, useMemo, useState } from 'react';
@@ -95,7 +94,7 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
       top_p: 0.95,
       top_k: 40,
       max_tokens: 512,
-      repetition_penalty: 1.5,
+      repetition_penalty: 1.0, // XXX: this is specific to vllm, and doesn't work with openai's API in llamastack
       samplingAccordionExpanded: false, // Initialize accordion state
       input_shields: '',
       output_shields: '',
@@ -117,7 +116,7 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
     top_p: agent.top_p ?? 0.95,
     top_k: agent.top_k ?? 40,
     max_tokens: agent.max_tokens ?? 512,
-    repetition_penalty: agent.repetition_penalty ?? 1.5,
+    repetition_penalty: agent.repetition_penalty ?? 1.0,
     samplingAccordionExpanded: false, // Initialize accordion state
     input_shields: agent.input_shields?.[0] || '', // Take first shield or empty string
     output_shields: agent.output_shields?.[0] || '', // Take first shield or empty string
