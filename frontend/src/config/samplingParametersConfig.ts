@@ -6,7 +6,7 @@ export const parameterFields: ParameterField[] = [
     label: 'Temperature',
     helperText:
       'Controls the randomness of the output. Lower values make the model more deterministic, while higher values increase creativity.',
-    min: 0.1,
+    min: 0.0,
     max: 2.0,
     step: 0.1,
     showWhen: (strategy: string) => ['top-p', 'top-k'].includes(strategy),
@@ -46,5 +46,6 @@ export const parameterFields: ParameterField[] = [
     min: -2.0,
     max: 2.0,
     step: 0.1,
+    showWhen: () => false,
   },
 ];

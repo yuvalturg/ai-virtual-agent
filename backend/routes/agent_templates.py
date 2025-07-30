@@ -301,13 +301,10 @@ async def initialize_agent_from_template(
             enable_session_persistence=False,
         )
 
-        created_agent = await create_virtual_assistant(agent_config, http_request)
+        async with AsyncSessionLocal() as db:
+            created_agent = await create_virtual_assistant(agent_config, http_request, db)
 
-        logger.info(
-            f"Successfully created agent '{agent_name}' "
-            f"from template '{request.template_name}'"
-        )
-
+        logger.info(f"Successfully created agent '{agent_name}' from template '{request.template_name}'")
         return TemplateInitializationResponse(
             agent_id=created_agent.id,
             agent_name=created_agent.name,

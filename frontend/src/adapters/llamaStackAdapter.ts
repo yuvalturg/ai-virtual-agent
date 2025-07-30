@@ -1,4 +1,5 @@
 import type { LlamaStackParser as LlamaStackParserType, LlamaStackResponse } from '@/types/api';
+import { processStreamingReActResponse } from '../hooks/useChat';
 
 /**
  * LlamaStackParser - Transforms the Llama Stack API response format into
@@ -8,7 +9,7 @@ import type { LlamaStackParser as LlamaStackParserType, LlamaStackResponse } fro
  * processes the session ID from the stream.
  */
 export const LlamaStackParser: LlamaStackParserType = {
-  parse(line: string): string | null {
+  parse(line: string, agentType: 'Regular' | 'ReAct' = 'Regular'): string | null {
     // Skip [DONE] events (empty lines)
     if (!line || line === '[DONE]') {
       return null;
@@ -18,6 +19,9 @@ export const LlamaStackParser: LlamaStackParserType = {
     try {
       const json = JSON.parse(line) as LlamaStackResponse;
 
+      // Debug: Log what we're receiving
+      console.log('🔧 ADAPTER: Received type:', json.type, 'content length:', json.content?.length);
+
       // Store session ID if present (to be handled by the adapter)
       if (json.type === 'session' && json.sessionId) {
         // This will be handled separately by the adapter
@@ -26,6 +30,13 @@ export const LlamaStackParser: LlamaStackParserType = {
 
       // Handle text content which should be shown to the user
       if (json.type === 'text' && json.content) {
+        console.log('🔧 ADAPTER: Processing text content for agentType:', agentType);
+        if (agentType === 'ReAct') {
+          const result = processStreamingReActResponse(json.content);
+          console.log('🔧 ADAPTER: ReAct processing result:', result);
+          return result;
+        }
+        // For regular agents, use the same logic as refresh page (no special processing)
         return json.content;
       }
 
@@ -39,12 +50,28 @@ export const LlamaStackParser: LlamaStackParserType = {
         return `[Thinking: ${json.content}]\n`;
       }
 
+      // Handle react_unified type from our backend
+      if (json.type === 'react_unified' && agentType === 'ReAct') {
+        console.log('🔧 ADAPTER: Processing react_unified response');
+        // The react_unified type contains thought and answer directly
+        if (json.thought) {
+          const thought = String(json.thought);
+          const answer = json.answer ? String(json.answer) : '';
+          if (answer) {
+            return `🤔 **Thinking:** ${thought}\n\n${answer}`;
+          } else {
+            return `🤔 **Thinking:** ${thought}`;
+          }
+        }
+      }
+
       // Handle errors
       if (json.type === 'error') {
         console.error('LlamaStack API error:', json.content);
         return `[Error: ${json.content}]`;
       }
 
+      console.log('🔧 ADAPTER: No handler for type:', json.type);
       return null;
     } catch (e) {
       // If we can't parse as JSON, return the raw line

@@ -20,6 +20,7 @@ export interface SamplingParameters {
 
 export interface AgentBase {
   name: string;
+  agent_type?: string;
   model_name: string;
   prompt: string;
   knowledge_base_ids: string[];
