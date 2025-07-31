@@ -46,15 +46,12 @@ async def get_user_from_headers(headers: dict[str, str], db: AsyncSession):
     4. Add header signature validation
     5. Use mutual TLS between OAuth proxy and backend
     """
-    username = headers.get("X-Forwarded-User")
-    email = headers.get("X-Forwarded-Email")
-    if not username or not email:
-        username = headers.get("x-forwarded-user")
-        email = headers.get("x-forwarded-email")
-        if not username or not email:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-            )
+    username = headers.get("X-Forwarded-User") or headers.get("x-forwarded-user")
+    email = headers.get("X-Forwarded-Email") or headers.get("x-forwarded-email")
+    if not username and not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
     # Try to find existing user
     result = await db.execute(
