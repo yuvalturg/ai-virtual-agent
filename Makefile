@@ -119,7 +119,8 @@ POSTGRES_DBNAME ?= rag_blueprint
 MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
-AI_VIRTUAL_AGENT_CHART := ai-virtual-agent
+AI_VIRTUAL_AGENT_CHART := helm
+AI_VIRTUAL_AGENT_RELEASE := ai-virtual-agent
 TOLERATIONS_TEMPLATE=[{"key":"$(1)","effect":"NoSchedule","operator":"Exists"}]
 
 # Ingestion pipeline configuration
@@ -204,7 +205,7 @@ install-help: ## Show detailed deployment help and configuration options
 
 helm-deps: ## Update Helm dependencies
 	@echo "Updating Helm dependencies"
-	@cd deploy/helm && helm dependency update $(AI_VIRTUAL_AGENT_CHART) &> /dev/null
+	@helm dependency update $(AI_VIRTUAL_AGENT_CHART) &> /dev/null
 
 install-namespace: ## Create and configure deployment namespace
 	@oc create namespace $(NAMESPACE) &> /dev/null && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
@@ -221,8 +222,8 @@ install: install-namespace helm-deps ## Install the AI Virtual Agent deployment
 	@$(eval ADMIN_EMAIL := $(shell bash -c 'read -r -p "Enter admin user email: " ADMIN_EMAIL; echo $$ADMIN_EMAIL'))
 	@$(eval SEED_ADMIN_USER_ARGS := $(call helm_seed_admin_user_args))
 
-	@echo "Installing $(AI_VIRTUAL_AGENT_CHART) helm chart in namespace $(NAMESPACE)"
-	@cd deploy/helm && helm upgrade --install $(AI_VIRTUAL_AGENT_CHART) $(AI_VIRTUAL_AGENT_CHART) -n $(NAMESPACE) \
+	@echo "Installing $(AI_VIRTUAL_AGENT_RELEASE) helm chart in namespace $(NAMESPACE)"
+	@helm upgrade --install $(AI_VIRTUAL_AGENT_RELEASE) $(AI_VIRTUAL_AGENT_CHART) -n $(NAMESPACE) \
 		$(PGVECTOR_ARGS) \
 		$(MINIO_ARGS) \
 		$(LLM_SERVICE_ARGS) \
@@ -232,7 +233,7 @@ install: install-namespace helm-deps ## Install the AI Virtual Agent deployment
 		$(EXTRA_HELM_ARGS)
 	@echo "Waiting for model services and llamastack to deploy. It may take around 10-15 minutes depending on the size of the model..."
 	@oc rollout status deploy/ai-virtual-agent -n $(NAMESPACE)
-	@echo "$(AI_VIRTUAL_AGENT_CHART) installed successfully"
+	@echo "$(AI_VIRTUAL_AGENT_RELEASE) installed successfully"
 	@echo ""
 	@echo "Getting application URL..."
 	@sleep 5
@@ -247,8 +248,8 @@ install: install-namespace helm-deps ## Install the AI Virtual Agent deployment
 	@echo ""
 
 uninstall: ## Uninstall deployment and clean up resources
-	@echo "Uninstalling $(AI_VIRTUAL_AGENT_CHART) helm chart from namespace $(NAMESPACE)"
-	@cd deploy/helm && helm uninstall --ignore-not-found $(AI_VIRTUAL_AGENT_CHART) -n $(NAMESPACE)
+	@echo "Uninstalling $(AI_VIRTUAL_AGENT_RELEASE) helm chart from namespace $(NAMESPACE)"
+	@helm uninstall --ignore-not-found $(AI_VIRTUAL_AGENT_RELEASE) -n $(NAMESPACE)
 	@echo "Removing pgvector and minio PVCs from $(NAMESPACE)"
 	@oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs -I {} oc delete pvc -n $(NAMESPACE) {} ||:
 	@echo "Deleting remaining pods in namespace $(NAMESPACE)"
