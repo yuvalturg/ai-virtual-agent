@@ -15,7 +15,7 @@ jobs:
         include:
           - name: ai-virtual-agent
             context: .
-            chart: deploy/helm/ai-virtual-agent/Chart.yaml
+            chart: helm/Chart.yaml
     steps:
       - name: Checkout
         uses: actions/checkout@v4

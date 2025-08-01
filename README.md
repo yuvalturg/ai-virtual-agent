@@ -54,7 +54,6 @@ cd ../frontend && npm install && npm run dev
 For production installation on Kubernetes/OpenShift:
 
 ```bash
-cd deploy/helm
 make install NAMESPACE=ai-virtual-agent
 ```
 
@@ -68,7 +67,7 @@ ai-virtual-agent/
 ├── backend/            # FastAPI server with PostgreSQL
 ├── mcpservers/         # Custom MCP tool servers
 ├── docs/               # Architecture and API documentation
-├── deploy/             # Kubernetes and Helm deployment
+├── helm/               # Kubernetes and Helm deployment
 ├── scripts/            # Development and deployment scripts
 └── tests/              # Integration test suite
 ```

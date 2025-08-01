@@ -135,11 +135,6 @@ Work with your cluster admin team to determine the appropriate labels and taints
 
 ### 3. Review Available Models
 
-Navigate to the Helm deployment directory:
-```bash
-cd deploy/helm
-```
-
 List available models:
 ```bash
 make list-models
@@ -207,7 +202,6 @@ When prompted, enter your **[Hugging Face Token](https://huggingface.co/settings
 Monitor the installation progress and verify when components are ready:
 
 ```bash
-cd deploy/helm
 make status NAMESPACE=ai-virtual-agent
 ```
 
@@ -228,7 +222,6 @@ oc get routes ai-virtual-agent -n ai-virtual-agent
 If installation fails or the application isn't accessible, use the status command to identify issues:
 
 ```bash
-cd deploy/helm
 make status NAMESPACE=ai-virtual-agent
 ```
 
@@ -239,7 +232,6 @@ This will show detailed information about pods, services, and other resources.
 Remove the application and all associated resources:
 
 ```bash
-cd deploy/helm
 make uninstall NAMESPACE=ai-virtual-agent
 ```
 
