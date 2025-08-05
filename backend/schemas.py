@@ -12,7 +12,7 @@ across all endpoints and integrations.
 import enum
 from typing import Any, Dict, List, Optional, Union  # Added Dict for Guardrail rules
 
-from pydantic import UUID4, BaseModel, EmailStr
+from pydantic import UUID4, BaseModel
 
 
 # This should match the Enum in your models.py
@@ -29,7 +29,7 @@ class RoleEnum(str, enum.Enum):
 
 class UserBase(BaseModel):
     username: str
-    email: EmailStr
+    email: str
     role: RoleEnum
     agent_ids: Optional[List[str]] = []
 
@@ -124,7 +124,12 @@ class VirtualAssistantBase(BaseModel):
     output_shields: Optional[List[str]] = []
     temperature: Optional[float] = 0.0
     repetition_penalty: Optional[float] = 1.5
-    stop_sequences: Optional[List[str]] = ["\n\n", "Thank you", "I hope this helps", "Let me know if you have any other questions"]
+    stop_sequences: Optional[List[str]] = [
+        "\n\n",
+        "Thank you",
+        "I hope this helps",
+        "Let me know if you have any other questions",
+    ]
     max_tokens: Optional[int] = 512
     top_p: Optional[float] = 0.95
     top_k: Optional[int] = 40
