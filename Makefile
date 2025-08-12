@@ -3,7 +3,7 @@
 
 .PHONY: help dev backend frontend llamastack stop dev-deps backend-deps frontend-deps \
         build build-frontend lint lint-backend lint-frontend test test-unit test-int \
-        compose-up compose-down image-build \
+        compose-up compose-down image-build list-models \
         install install-help install-status helm-deps uninstall install-namespace
 
 # -----------------------------------------------------------------------------
@@ -211,6 +211,9 @@ install-help: ## Show detailed deployment help and configuration options
 helm-deps: ## Update Helm dependencies
 	@echo "Updating Helm dependencies"
 	@helm dependency update $(AI_VIRTUAL_AGENT_CHART) &> /dev/null
+
+list-models: helm-deps
+	@helm template dummy-release $(AI_VIRTUAL_AGENT_CHART) --set llm-service._debugListModels=true | grep ^model:
 
 install-namespace: ## Create and configure deployment namespace
 	@oc create namespace $(NAMESPACE) &> /dev/null && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
