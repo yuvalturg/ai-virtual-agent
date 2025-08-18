@@ -26,5 +26,5 @@ help: all ## Show help (alias for all)
 local/%: ## Route local targets to deploy/local/Makefile
 	$(MAKE) -C deploy/local $*
 
-helm/%: ## Route helm targets to deploy/helm/Makefile  
+helm/%: ## Route helm targets to deploy/helm/Makefile
 	$(MAKE) -C deploy/helm $*

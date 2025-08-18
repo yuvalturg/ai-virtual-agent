@@ -100,10 +100,10 @@ test: lint test-all ## Run full test & lint suite
 # Container / Compose helpers
 # -----------------------------------------------------------------------------
 compose-up: ## Start services with podman/docker compose
-	cd ../../ && podman compose --file compose.yaml up -d
+	podman compose --file compose.yaml up -d
 
 compose-down: ## Stop compose services
-	cd ../../ && podman compose --file compose.yaml down
+	podman compose --file compose.yaml down
 
 image-build: ## Build application container image
 	cd ../../ && podman build -t ai-virtual-agent:dev .

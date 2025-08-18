@@ -30,6 +30,8 @@ That's it! All services will be running:
 - **Backend**: http://localhost:8000 (with hot reload)
 - **Database**: postgresql://admin:password@localhost:5432/ai_virtual_agent
 - **LlamaStack**: http://localhost:8321
+- **MinIO**: http://localhost:9000 (for attachments, optional)
+- **MinIO Console**: http://localhost:9001 (admin: minio_rag_user/minio_rag_password)
 
 ### Stop Development Environment
 
@@ -49,6 +51,7 @@ make dev-compose-down
 2. **LlamaStack** - AI model server with Ollama integration
 3. **Backend** - FastAPI server with hot reload
 4. **Frontend** - Vite dev server with hot reload
+5. **MinIO** - Object storage for attachments (optional, enabled by default)
 
 ### Environment Configuration
 
@@ -58,11 +61,32 @@ The development setup uses `.env` for configuration. Copy from the template:
 cp .env.example .env
 ```
 
+#### Environment Variables
+
+Key development environment variables:
+
+- `LOCAL_DEV_ENV_MODE=true` - **Development mode** (bypasses authentication)
+- `ENABLE_ATTACHMENTS=true` - **Enable MinIO** and attachment features
+- `DISABLE_ATTACHMENTS=false` - Backend flag (set automatically)
+
+#### Optional Configurations
+
+Start without attachments (faster startup):
+```bash
+ENABLE_ATTACHMENTS=false make dev-compose-up
+```
+
+Start with authentication enabled (production-like):
+```bash
+LOCAL_DEV_ENV_MODE=false make dev-compose-up
+```
+
 Default configuration:
 - **Database**: PostgreSQL on port 5432
 - **Backend**: FastAPI on port 8000 with `LOCAL_DEV_ENV_MODE=true`
 - **Frontend**: Vite dev server on port 5173
 - **LlamaStack**: AI server on port 8321
+- **MinIO**: Object storage on port 9000 with console on port 9001
 
 ### Development Features
 
@@ -85,7 +109,7 @@ Default configuration:
    ```bash
    # Check what's using the ports
    lsof -i :5432 -i :8000 -i :5173 -i :8321
-   
+
    # Customize ports in .env
    vim .env
    ```
@@ -100,10 +124,10 @@ Default configuration:
    ```bash
    # All services (using Makefile)
    make dev-compose-logs
-   
+
    # All services (direct command)
    podman compose -f compose.dev.yaml logs -f
-   
+
    # Specific service
    podman compose -f compose.dev.yaml logs -f backend
    ```
@@ -116,7 +140,7 @@ Default configuration:
 # View service logs
 make dev-compose-logs
 
-# Check service status  
+# Check service status
 make dev-compose-status
 
 # Restart all services
@@ -152,7 +176,7 @@ podman compose -f compose.dev.yaml down --volumes
 # Terminal 1: Database
 podman compose --file compose.yaml up --detach
 
-# Terminal 2: LlamaStack  
+# Terminal 2: LlamaStack
 cd scripts/dev/local_llamastack_server/
 bash activate_llama_server.sh
 
@@ -177,7 +201,7 @@ make dev-compose-up
 Use `make dev-compose-build` when you modify:
 
 - **Dependencies**: `backend/requirements.txt` or `frontend/package.json`
-- **Container files**: `Containerfile`, `Dockerfile.*` 
+- **Container files**: `Containerfile`, `Dockerfile.*`
 - **Startup scripts**: `scripts/dev/start-backend-dev.sh`
 
 Code changes in `backend/` and `frontend/` directories use hot reload - no rebuild needed.
@@ -194,6 +218,15 @@ The following Makefile targets are available for containerized development:
 - `make dev-compose-status` - Show status of development services
 
 For all available make targets, run `make help`.
+
+## File Organization
+
+The project has been reorganized for better structure:
+
+- **Development compose**: `deploy/local/compose.dev.yaml` (used by make commands)
+- **Production compose**: `compose.yaml` (root level for production deployments)
+- **Test requirements**: `tests/requirements.txt` (moved from root)
+- **Make commands**: Use `make local/<command>` for local development targets
 
 ## Next Steps
 

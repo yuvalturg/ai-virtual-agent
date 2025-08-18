@@ -60,7 +60,7 @@ async def get_or_create_dev_user(db: AsyncSession) -> models.User:
     dev_user = models.User(
         username=dev_username,
         email=dev_email,
-        role=models.RoleEnum.admin,  # Give admin role for full access in dev
+        role=models.RoleEnum.admin,  # Give admin role for full access during development
         agent_ids=[],  # Will be populated when agents are available
     )
 
@@ -75,8 +75,7 @@ async def ensure_dev_user_has_all_agents(
     db: AsyncSession, available_agent_ids: list[str]
 ) -> None:
     """
-    Ensure the dev user has all available agents assigned (for
-    LOCAL_DEV_ENV_MODE).
+    Ensure the dev user has all available agents assigned (for LOCAL_DEV_ENV_MODE).
 
     Args:
         db: Database session

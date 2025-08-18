@@ -1,3 +1,26 @@
+# AI Virtual Agent - Development Environment
+#
+# This compose file starts all services needed for local development:
+# - PostgreSQL database (always)
+# - LlamaStack AI service (always)
+# - Backend API (FastAPI) (always)
+# - Frontend (React/Vite) (always)
+# - MinIO object storage (optional, controlled by ENABLE_ATTACHMENTS)
+#
+# Environment Variables:
+#   ENABLE_ATTACHMENTS=true|false   # Enable/disable MinIO and attachment features
+#   DISABLE_ATTACHMENTS=true|false  # Backend env var (set automatically)
+#   LOCAL_DEV_ENV_MODE=true|false   # Enable development mode (disables auth)
+#
+# Usage:
+#   make dev-compose-up                             # Start with attachments and dev mode enabled
+#   ENABLE_ATTACHMENTS=false make dev-compose-up   # Start without attachments
+#   LOCAL_DEV_ENV_MODE=false make dev-compose-up   # Start with auth enabled (production-like)
+#   make dev-compose-down                      # Stop all services
+#
+# Profiles:
+#   attachments - MinIO service (only started when ENABLE_ATTACHMENTS=true)
+#
 services:
   # Database service (existing, enhanced)
   db:
@@ -50,12 +73,13 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ai_virtual_agent}
-      - LOCAL_DEV_ENV_MODE=${LOCAL_DEV_ENV_MODE:-false}
+      - LOCAL_DEV_ENV_MODE=${LOCAL_DEV_ENV_MODE:-true}
       - LLAMASTACK_URL=${LLAMASTACK_URL:-http://llamastack:8321}
+      - DISABLE_ATTACHMENTS=${DISABLE_ATTACHMENTS:-false}
     ports:
       - '${BACKEND_PORT:-8000}:8000'
     volumes:
-      - ./backend:/app/backend:rw
+      - ../../backend:/app/backend:rw
     depends_on:
       db:
         condition: service_healthy
@@ -82,7 +106,7 @@ services:
     ports:
       - '${FRONTEND_PORT:-5173}:5173'
     volumes:
-      - ./frontend:/app:rw
+      - ../../frontend:/app:rw
       - /app/node_modules
     depends_on:
       backend:
@@ -90,8 +114,28 @@ services:
     networks:
       - ai-va-network
 
+  # MinIO service for attachments (optional - use profile 'attachments')
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio-dev
+    restart: unless-stopped
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio_rag_user}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio_rag_password}
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - ai-va-network
+    profiles:
+      - attachments
+
 volumes:
   pgdata:
+  minio_data:
 
 networks:
   ai-va-network:
