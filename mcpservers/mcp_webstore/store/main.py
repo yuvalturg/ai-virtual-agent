@@ -1,9 +1,13 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator as TypingAsyncGenerator  # Renamed to avoid clash
-from typing import List
+from typing import (
+    List,
+)
 
 from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession  # Import AsyncSession for type hinting
+from sqlalchemy.ext.asyncio import (  # Import AsyncSession for type hinting
+    AsyncSession,
+)
 
 from . import crud, database, models
 
@@ -38,7 +42,9 @@ app = FastAPI(
     summary="Get a list of all products",
 )
 async def read_products(
-    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(database.get_db)
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(database.get_db),
 ):
     products = await crud.get_products(db, skip=skip, limit=limit)
     return products
@@ -112,7 +118,9 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(database.ge
 
 
 @app.post(
-    "/orders/", response_model=models.Order, summary="Place an order for a product"
+    "/orders/",
+    response_model=models.Order,
+    summary="Place an order for a product",
 )
 async def create_order(
     order_details: models.ProductOrderRequest,

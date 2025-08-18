@@ -47,7 +47,8 @@ class _MockToolGroup(BaseModel):
 
 
 class _MockLlamaClient:
-    """Very small stub that emulates the three list-endpoints the backend uses."""
+    """Very small stub that emulates the three list-endpoints the backend
+    uses."""
 
     def __init__(
         self,
@@ -59,7 +60,8 @@ class _MockLlamaClient:
         self._vector_dbs = vector_dbs
         self._toolgroups = toolgroups
 
-    # Internal proxy object so that `.models.list()` *awaits* to the actual list
+    # Internal proxy object so that `.models.list()` *awaits* to the actual
+    # list
     class _Proxy(list):
         async def list(self):  # noqa: D401 – simple coroutine
             return self  # type: ignore[return-value]
@@ -90,7 +92,8 @@ class _MockLlamaClient:
 def client(monkeypatch):
     """Return a FastAPI TestClient with mocked LlamaStack data."""
 
-    # Sample dataset – mixture of model types, two knowledge bases, one MCP server
+    # Sample dataset – mixture of model types, two knowledge bases, one MCP
+    # server
     models = [
         _MockModel(
             identifier="gpt-4",
@@ -214,7 +217,8 @@ def test_get_tools_returns_mcp_servers(client):
 
 
 def test_get_safety_models_filters_correctly(client):
-    """/safety_models should return only models where model_type == 'safety'."""
+    """/safety_models should return only models where model_type ==
+    'safety'."""
 
     response = client.get("/api/llama_stack/safety_models")
 
@@ -233,7 +237,8 @@ def test_get_safety_models_filters_correctly(client):
 
 
 def test_get_embedding_models_filters_correctly(client):
-    """/embedding_models should return only models where model_type == 'embedding'."""
+    """/embedding_models should return only models where model_type ==
+    'embedding'."""
 
     response = client.get("/api/llama_stack/embedding_models")
 

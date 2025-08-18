@@ -55,7 +55,10 @@ async def search_products(
 
 @mcp_server.tool()
 async def add_product(
-    name: str, description: Optional[str] = None, inventory: int = 0, price: float = 0.0
+    name: str,
+    description: Optional[str] = None,
+    inventory: int = 0,
+    price: float = 0.0,
 ) -> Dict[str, Any]:
     """Adds a new product to the database."""
     product_create = PydanticModels.ProductCreate(

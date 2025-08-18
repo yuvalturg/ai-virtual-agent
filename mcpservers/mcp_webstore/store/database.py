@@ -6,7 +6,8 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 # DATABASE_URL = "postgresql+asyncpg://user:password@host:port/database"
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/store_db"
+    "DATABASE_URL",
+    "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/store_db",
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)  # echo=True for debugging SQL
@@ -53,13 +54,18 @@ async def create_db_and_tables():
     async with engine.begin() as conn:
         # Check if tables exist (optional, but good practice to avoid errors on
         # re-runs if not using migrations)
-        # For simplicity, we'll just run create_all. For production, Alembic is better.
+        # For simplicity, we'll just run create_all. For production, Alembic
+        # is better.
         # def table_exists(conn, table_name):
         #     return inspect(conn).has_table(table_name)
         # if not await conn.run_sync(table_exists, "products"):
-        #    await conn.run_sync(Base.metadata.create_all, tables=[ProductDB.__table__])
+        #    await conn.run_sync(
+        #        Base.metadata.create_all, tables=[ProductDB.__table__]
+        #    )
         # if not await conn.run_sync(table_exists, "orders"):
-        #    await conn.run_sync(Base.metadata.create_all, tables=[OrderDB.__table__])
+        #    await conn.run_sync(
+        #        Base.metadata.create_all, tables=[OrderDB.__table__]
+        #    )
         await conn.run_sync(Base.metadata.create_all)
     print("INFO:     Database tables checked/created.")
 
@@ -69,11 +75,9 @@ async def get_db() -> AsyncSession:
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()  # Commit if no exceptions were raised by the
-            # endpoint
+            await session.commit()  # Commit if no exceptions were raised
         except Exception:
             await session.rollback()  # Rollback on error
             raise
         finally:
             await session.close()  # Not strictly necessary with async context
-            # manager, but good practice

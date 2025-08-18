@@ -54,7 +54,8 @@ class UserService:
             requested_agent_ids: List of agent IDs to assign to the user
 
         Returns:
-            List of all agent IDs assigned to the user (existing + new unique ones)
+            List of all agent IDs assigned to the user (existing + new unique
+            ones)
 
         Raises:
             HTTPException: If any agent doesn't exist in LlamaStack

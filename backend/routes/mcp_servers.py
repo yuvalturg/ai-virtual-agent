@@ -26,14 +26,17 @@ router = APIRouter(prefix="/mcp_servers", tags=["mcp_servers"])
 
 
 @router.post(
-    "/", response_model=schemas.MCPServerRead, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=schemas.MCPServerRead,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_mcp_server(server: schemas.MCPServerCreate):
     """
     Create a new MCP server by registering it directly with LlamaStack.
 
     Args:
-        server: MCP server creation data including name, endpoint, and configuration
+        server: MCP server creation data including name, endpoint, and
+                configuration
 
     Returns:
         schemas.MCPServerRead: The created MCP server configuration

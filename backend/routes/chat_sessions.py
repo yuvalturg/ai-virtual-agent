@@ -1,7 +1,8 @@
 """
 Chat Sessions API endpoints for managing LlamaStack conversation sessions.
 
-This module provides endpoints for creating, retrieving, and managing chat sessions
+This module provides endpoints for creating, retrieving, and managing chat
+sessions
 that are stored and managed by LlamaStack. Sessions track conversation state,
 message history, and agent context for continuous conversations.
 
@@ -19,18 +20,20 @@ conversation state across multiple interactions.
 import logging
 from datetime import datetime
 from typing import List, Optional
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Request
 from llama_stack_client.types.agents.session import Session
-from llama_stack_client.types.shared.interleaved_content_item import TextContentItem, ImageContentItem
+from llama_stack_client.types.shared.interleaved_content_item import (
+    ImageContentItem,
+    TextContentItem,
+)
 from pydantic import BaseModel
 
-from ..routes import attachments
 from ..api.llamastack import get_client_from_request
+from ..routes import attachments
 from ..virtual_agents.agent_resource import EnhancedAgentResource
 from ..virtual_agents.session_resource import EnhancedSessionResource
-
-from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat_sessions", tags=["chat_sessions"])
@@ -57,9 +60,9 @@ async def get_chat_sessions(
     """
     Get a list of chat sessions for a specific agent from LlamaStack.
 
-    Retrieves session metadata including session IDs, titles, agent information,
-    and timestamps. Sessions are sorted by creation date (newest first) and
-    limited to the specified number of results.
+    Retrieves session metadata including session IDs, titles, agent
+    information, and timestamps. Sessions are sorted by creation date
+    (newest first) and limited to the specified number of results.
 
     Args:
         agent_id: The unique identifier of the agent to retrieve sessions for
@@ -98,7 +101,8 @@ async def get_chat_sessions(
         except Exception as e:
             log.warning(f"Could not get agent info: {e}")
 
-        # Convert to response format - now working with dicts instead of Session objects
+        # Convert to response format - now working with dicts instead of
+        # Session objects
         sessions_response = [
             {
                 "id": session.get("session_id"),  # Use .get() instead of .session_id
@@ -117,7 +121,8 @@ async def get_chat_sessions(
             ]  # Change variable name from sessions to sessions_data
         ]
 
-        # Sort by created_at descending (newest first) to ensure consistent ordering
+        # Sort by created_at descending (newest first) to ensure
+        # consistent ordering
         sessions_response.sort(key=lambda x: x.get("created_at") or "", reverse=True)
 
         return sessions_response
@@ -140,7 +145,8 @@ def get_agent_display_name(agent) -> str:
         agent: LlamaStack agent object with varying structure
 
     Returns:
-        str: A display-friendly agent name, defaults to "Unknown Agent" if no name found
+        str: A display-friendly agent name, defaults to "Unknown Agent" if
+             no name found
     """
     if hasattr(agent, "agent_config") and isinstance(agent.agent_config, dict):
         return agent.agent_config.get("name", "Unknown Agent")
@@ -155,9 +161,11 @@ def get_agent_display_name(agent) -> str:
 @router.get("/{session_id}")
 async def get_chat_session(session_id: str, agent_id: str, request: Request) -> dict:
     """
-    Get detailed information for a specific chat session including message history.
+    Get detailed information for a specific chat session including message
+    history.
 
-    Retrieves the complete session data from LlamaStack including all conversation
+    Retrieves the complete session data from LlamaStack including all
+    conversation
     turns (user messages and assistant responses). If session retrieval fails,
     returns a basic session structure with empty message history.
 
@@ -208,8 +216,9 @@ async def get_chat_session(session_id: str, agent_id: str, request: Request) -> 
                 if hasattr(turn, "input_messages"):
                     for msg in turn.input_messages:
                         if hasattr(msg, "content"):
-                            # The content of each message is a list, containing one or more
-                            # InterleavedContent objects.
+                            # The content of each message is a list,
+                            # containing one or more InterleavedContent
+                            # objects.
                             new_msg = []
                             for m in msg.content:
                                 if isinstance(m, TextContentItem):
@@ -217,13 +226,28 @@ async def get_chat_session(session_id: str, agent_id: str, request: Request) -> 
                                 elif isinstance(m, ImageContentItem):
                                     img = m.image
                                     if img.url is not None:
-                                        # The image URL stored is an internal URL. Return just the path portion of it
-                                        # for the frontend to use, to avoid exposing the internal URL.
+                                        # The image URL stored is an internal
+                                        # URL.
+                                        # Return just the path portion of it
+                                        # for the frontend to use, to avoid
+                                        # exposing the internal URL.
                                         internal_url = urlparse(img.url.uri)
                                         relative_path = internal_url.path
-                                        new_msg.append({"type": "image", "image": {"url": {"uri": relative_path}}})
+                                        new_msg.append(
+                                            {
+                                                "type": "image",
+                                                "image": {
+                                                    "url": {"uri": relative_path}
+                                                },
+                                            }
+                                        )
                                     else:
-                                        new_msg.append({"type": "image", "image": {"data": img.data}})
+                                        new_msg.append(
+                                            {
+                                                "type": "image",
+                                                "image": {"data": img.data},
+                                            }
+                                        )
                                 else:
                                     new_msg.append(m)
                             messages.append({"role": "user", "content": new_msg})
@@ -233,9 +257,19 @@ async def get_chat_session(session_id: str, agent_id: str, request: Request) -> 
                     turn.output_message, "content"
                 ):
                     messages.append(
-                        # For now, the output message content is always a string - wrap it explicitly
-                        # in a TextContentItem object to simplify processing on the frontend.
-                        {"role": "assistant", "content": [{"type": "text", "text": turn.output_message.content}]}
+                        # For now, the output message content is always a
+                        # string -
+                        # wrap it explicitly in a TextContentItem object to
+                        # simplify processing on the frontend.
+                        {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": turn.output_message.content,
+                                }
+                            ],
+                        }
                     )
 
             # Get agent name
@@ -294,15 +328,16 @@ async def delete_chat_session(session_id: str, agent_id: str, request: Request) 
     """
     Delete a chat session from LlamaStack.
 
-    Permanently removes the specified chat session and all associated conversation
-    history from LlamaStack. This operation cannot be undone.
+    Permanently removes the specified chat session and all associated
+    conversation history from LlamaStack. This operation cannot be undone.
 
     Args:
         session_id: The unique identifier of the session to delete
         agent_id: The unique identifier of the agent that owns the session
 
     Returns:
-        Dictionary containing the result of the delete operation from LlamaStack
+        Dictionary containing the result of the delete operation from
+        LlamaStack
 
     Raises:
         HTTPException: If agent is not found (404) or deletion fails (500)
@@ -372,7 +407,8 @@ async def create_chat_session(
         - updated_at: Session creation timestamp
 
     Raises:
-        HTTPException: If agent is not found (404) or session creation fails (500)
+        HTTPException: If agent is not found (404) or session creation
+                       fails (500)
     """
     try:
         # Verify agent exists in LlamaStack
@@ -385,7 +421,8 @@ async def create_chat_session(
                 f"Agent {sessionRequest.agent_id} not found in LlamaStack: {str(e)}"
             )
             raise HTTPException(
-                status_code=404, detail=f"Agent {sessionRequest.agent_id} not found"
+                status_code=404,
+                detail=f"Agent {sessionRequest.agent_id} not found",
             )
 
         # Generate unique session name
@@ -474,7 +511,8 @@ async def debug_session_listing(agent_id: str, request: Request):
         - error: Error message if operation fails
 
     Note:
-        This endpoint should only be used for development and debugging purposes.
+        This endpoint should only be used for development and debugging
+        purposes.
     """
     try:
         log.info(f"=== DEBUG SESSION LISTING FOR AGENT {agent_id} ===")

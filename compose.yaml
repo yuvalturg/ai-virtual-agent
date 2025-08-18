@@ -1,8 +1,8 @@
 # AI Virtual Agent - Container Compose Configuration
-# 
+#
 # Usage: podman compose up -d
 # or:    docker-compose up -d
-# 
+#
 # This will automatically start PostgreSQL with full database initialization
 
 version: '3'
@@ -29,7 +29,7 @@ services:
       timeout: 5s
       retries: 5
     command: >
-      postgres 
+      postgres
       -c log_statement=mod
       -c log_destination=stderr
       -c log_min_messages=info

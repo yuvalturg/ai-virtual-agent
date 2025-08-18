@@ -132,11 +132,11 @@ export function Chat() {
     }
 
     return '';
-  }
-
-  const multipleContentToText = (content: SimpleContentItem[]): string => {
-    return content.map(m => contentToText(m)).join('\n');
   };
+
+  const multipleContentToText = React.useCallback((content: SimpleContentItem[]): string => {
+    return content.map((m) => contentToText(m)).join('\n');
+  }, []);
 
   // Convert our chat messages to PatternFly format
   const messages = React.useMemo(
@@ -156,7 +156,7 @@ export function Chat() {
             msg.id === chatMessages[chatMessages.length - 1]?.id,
         })
       ),
-    [chatMessages, isLoading]
+    [chatMessages, isLoading, multipleContentToText]
   );
 
   const displayMode = ChatbotDisplayMode.embedded;
@@ -429,11 +429,11 @@ export function Chat() {
     console.log('Current session ID:', sessionId);
     if (typeof message === 'string' && message.trim() && selectedAgent) {
       console.log('Sending message via append:', message, 'using session:', sessionId);
-      let contents: SimpleContentItem[] = [];
-      contents.push({type: 'text', text: message});
+      const contents: SimpleContentItem[] = [];
+      contents.push({ type: 'text', text: message });
       for (const file of attachedFiles) {
         const attachmentUrl = await handleUploadAttachment(file, sessionId);
-        contents.push({type: 'image', image: {sourceType: 'url', url: {uri: attachmentUrl}}});
+        contents.push({ type: 'image', image: { sourceType: 'url', url: { uri: attachmentUrl } } });
       }
       // Add the message to the chat
       append({
@@ -468,7 +468,7 @@ export function Chat() {
       throw new Error('Failed to upload attachment');
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as { filename: string };
     console.log('Attachment uploaded successfully:', data);
 
     // NOTE: The frontend is not aware of its own base URL,
@@ -490,7 +490,7 @@ export function Chat() {
       <div>
         <p>Error loading user: {userError || 'User not found'}</p>
         <p>Please check your authentication or try logging in again.</p>
-        <Button variant="primary" onClick={() => refetchUser()}>
+        <Button variant="primary" onClick={() => void refetchUser()}>
           Retry
         </Button>
       </div>
@@ -574,26 +574,33 @@ export function Chat() {
               <Panel variant="secondary">
                 <PanelMain>
                   <PanelMainBody>
-                  <div style={{display: 'flex', flexWrap: 'wrap', paddingTop: '0.5em', paddingBottom: '0.5em'}}>
-                    {attachedFiles.map((file, index) => (
-                      <div key={file.name} style={{margin: '0.5em'}}>
-                        <FileDetailsLabel
-                          fileName={file.name}
-                          onClose={() => {
-                            setAttachedFiles(attachedFiles.filter((_, i) => i !== index));
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <MessageBar
-                    onSendMessage={handleSendMessage as (message: string | number) => void}
-                    hasMicrophoneButton
-                    isSendButtonDisabled={isLoading || !selectedAgent}
-                    value={input}
-                    onChange={handleInputChange}
-                    handleAttach={handleAttach}
-                  />
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        paddingTop: '0.5em',
+                        paddingBottom: '0.5em',
+                      }}
+                    >
+                      {attachedFiles.map((file, index) => (
+                        <div key={file.name} style={{ margin: '0.5em' }}>
+                          <FileDetailsLabel
+                            fileName={file.name}
+                            onClose={() => {
+                              setAttachedFiles(attachedFiles.filter((_, i) => i !== index));
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <MessageBar
+                      onSendMessage={handleSendMessage as (message: string | number) => void}
+                      hasMicrophoneButton
+                      isSendButtonDisabled={isLoading || !selectedAgent}
+                      value={input}
+                      onChange={handleInputChange}
+                      handleAttach={handleAttach}
+                    />
                   </PanelMainBody>
                 </PanelMain>
               </Panel>

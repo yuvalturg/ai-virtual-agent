@@ -105,7 +105,8 @@ class TestToolsEndpoint:
             yield tc
 
     def test_merges_mcp_and_builtin_groups(self, client, _mock_data):
-        """Endpoint returns MCP tool-groups, builtin groups and promoted tools."""
+        """Endpoint returns MCP tool-groups, builtin groups and promoted
+        tools."""
 
         response = client.get("/api/tools/")
 

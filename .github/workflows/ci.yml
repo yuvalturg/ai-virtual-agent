@@ -79,7 +79,7 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: flake8
-        run: flake8 backend
+        run: flake8 --max-line-length=88 backend
 
       - name: black --check
         run: black --check backend

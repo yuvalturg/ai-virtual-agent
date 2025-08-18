@@ -2,9 +2,10 @@
 User management API endpoints for authentication, authorization, and access
 control for the AI Virtual Agent Kickstart application.
 
-This module provides CRUD operations for user accounts, including user creation,
-authentication, role management, and profile updates. It handles role-based access
-control for the AI Virtual Agent Kickstart application.
+This module provides CRUD operations for user accounts, including user
+creation, authentication, role management, and profile updates.
+It handles role-based access control for the AI Virtual Agent Kickstart
+application.
 
 Key Features:
 - User registration and profile management
@@ -34,8 +35,8 @@ async def get_user_from_headers(headers: dict[str, str], db: AsyncSession):
     """
     Get or create user from OAuth proxy headers.
 
-    SECURITY WARNING: This function trusts that OAuth proxy headers are validated
-    and cannot be forged. This assumes:
+    SECURITY WARNING: This function trusts that OAuth proxy headers are
+    validated and cannot be forged. This assumes:
     1. OAuth proxy is properly configured to validate authentication
     2. Headers like X-Forwarded-User are stripped/reset by OAuth proxy
     3. Direct access to this endpoint bypassing OAuth proxy is blocked
@@ -70,7 +71,8 @@ async def get_user_from_headers(headers: dict[str, str], db: AsyncSession):
     # If user doesn't exist, create them (trusting OAuth proxy validation)
     if not user:
         log.info(
-            f"Adding user from OAuth proxy headers: username={username}, email={email}"
+            f"Adding user from OAuth proxy headers: username={username}, "
+            f"email={email}"
         )
         user = models.User(
             username=username,
@@ -90,7 +92,8 @@ async def get_current_user(
     request: Request, db: AsyncSession = Depends(get_db)
 ) -> models.User:
     """
-    FastAPI dependency to get the current authenticated user from OAuth proxy headers.
+    FastAPI dependency to get the current authenticated user from OAuth proxy
+    headers.
 
     Args:
         request: HTTP request containing OAuth proxy headers
@@ -107,7 +110,8 @@ async def get_current_user(
         forwarded_user = request.headers.get("x-forwarded-user")
         forwarded_email = request.headers.get("x-forwarded-email")
         log.debug(
-            f"Authentication attempt - User: {forwarded_user}, Email: {forwarded_email}"
+            f"Authentication attempt - User: {forwarded_user}, Email: "
+            f"{forwarded_email}"
         )
 
     user = await get_user_from_headers(request.headers, db)
@@ -143,7 +147,8 @@ async def require_admin_role(
     """
     if current_user.role != models.RoleEnum.admin:
         log.warning(
-            f"Access denied - User {current_user.username} (ID: {current_user.id}) "
+            f"Access denied - User {current_user.username} "
+            f"(ID: {current_user.id}) "
             f"with role '{current_user.role}' attempted admin operation"
         )
         raise HTTPException(
@@ -152,7 +157,8 @@ async def require_admin_role(
         )
 
     log.info(
-        f"Admin access granted - User {current_user.username} (ID: {current_user.id})"
+        f"Admin access granted - User {current_user.username} "
+        f"(ID: {current_user.id})"
     )
     return current_user
 
@@ -194,7 +200,8 @@ async def check_user_access(
         return current_user
 
     log.warning(
-        f"Access denied - User {current_user.username} (ID: {current_user.id}) "
+        f"Access denied - User {current_user.username} "
+        f"(ID: {current_user.id}) "
         f"attempted to access user {user_id}"
     )
     raise HTTPException(
@@ -211,16 +218,17 @@ async def read_profile(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Retrieve an authorized user's profile.
 
-    This endpoint fetches an authorized user's profile information from OAuth proxy
-    headers. If the user doesn't exist in the database, they are automatically
-    created with default settings (no agents assigned).
+    This endpoint fetches an authorized user's profile information from OAuth
+    proxy headers. If the user doesn't exist in the database, they are
+    automatically created with default settings (no agents assigned).
 
     Args:
         request: HTTP request details containing OAuth proxy headers
         db: Database session dependency
 
     Returns:
-        schemas.UserRead: The authorized user's profile (existing or newly created)
+        schemas.UserRead: The authorized user's profile (existing or newly
+                          created)
 
     Raises:
         HTTPException: 401 if OAuth headers are missing/invalid
@@ -285,8 +293,9 @@ async def create_user(
     )
     if existing_user.scalar_one_or_none():
         log.warning(
-            f"User creation failed - Admin {current_user.username} attempted to create "
-            f"user with existing username/email: {user.username}/{user.email}"
+            f"User creation failed - Admin {current_user.username} "
+            f"attempted to create user with existing username/email: "
+            f"{user.username}/{user.email}"
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -299,7 +308,7 @@ async def create_user(
             email=user.email,
             role=user.role,
             agent_ids=user.agent_ids or [],
-    )
+        )
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
@@ -449,8 +458,8 @@ async def delete_user(
     db_user = result.scalar_one_or_none()
     if not db_user:
         log.warning(
-            f"User deletion failed - Admin {current_user.username} attempted to delete "
-            f"non-existent user {user_id}"
+            f"User deletion failed - Admin {current_user.username} "
+            f"attempted to delete non-existent user {user_id}"
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -491,7 +500,8 @@ async def update_user_agents(
     """
     Add agents to a user's assignment list.
 
-    This endpoint assigns existing agents from LlamaStack to the specified user.
+    This endpoint assigns existing agents from LlamaStack to the specified
+    user.
     The system prevents duplicate agent assignments by checking if the user
     already has the agent ID assigned.
 
@@ -505,7 +515,8 @@ async def update_user_agents(
 
     Raises:
         HTTPException: 404 if the user is not found
-        HTTPException: 404 if any of the specified agents don't exist in LlamaStack
+        HTTPException: 404 if any of the specified agents don't exist in
+                       LlamaStack
     """
     # Get the user from database
     result = await db.execute(select(models.User).where(models.User.id == user_id))
@@ -557,7 +568,8 @@ async def get_user_agents(
         List[str]: List of agent IDs assigned to the user
 
     Raises:
-        HTTPException: 403 if the user cannot access the requested user's agents
+        HTTPException: 403 if the user cannot access the requested user's
+                       agents
         HTTPException: 404 if the user is not found
     """
     result = await db.execute(select(models.User).where(models.User.id == user_id))
@@ -580,7 +592,8 @@ async def remove_user_agents(
     Remove agents from a user's assignment list.
 
     This endpoint removes specified agents from a user's assignment list.
-    Since agents are now shared across users, no cleanup of agents is performed.
+    Since agents are now shared across users, no cleanup of agents is
+    performed.
 
     Args:
         user_id: The unique identifier of the user
@@ -588,7 +601,8 @@ async def remove_user_agents(
         db: Database session dependency
 
     Returns:
-        schemas.UserRead: The updated user profile with remaining agent assignments
+        schemas.UserRead: The updated user profile with remaining agent
+        assignments
 
     Raises:
         HTTPException: 404 if the user is not found

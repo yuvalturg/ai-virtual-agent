@@ -40,7 +40,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.add_column(
-        "chat_history", sa.Column("agent_id", sa.String(length=255), nullable=True)
+        "chat_history",
+        sa.Column("agent_id", sa.String(length=255), nullable=True),
     )
     op.drop_column("chat_history", "virtual_assistant_id")
     # ### end Alembic commands ###
@@ -52,7 +53,10 @@ def downgrade() -> None:
     op.add_column(
         "chat_history",
         sa.Column(
-            "virtual_assistant_id", sa.UUID(), autoincrement=False, nullable=True
+            "virtual_assistant_id",
+            sa.UUID(),
+            autoincrement=False,
+            nullable=True,
         ),
     )
     op.drop_column("chat_history", "agent_id")

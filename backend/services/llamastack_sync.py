@@ -1,8 +1,8 @@
 """
 LlamaStack synchronization service for event-driven sync operations.
 
-Note: MCP servers are now managed directly through LlamaStack without local storage,
-so no sync operations are needed for them.
+Note: MCP servers are now managed directly through LlamaStack without local
+storage, so no sync operations are needed for them.
 """
 
 import logging

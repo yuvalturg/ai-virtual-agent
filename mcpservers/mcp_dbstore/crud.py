@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 Ensure these imports point to the models and database modules within the
 mcp_dbstore directory.
 """
-from . import database, models  # Changed from appservers.store to relative imports
+from . import database  # Changed from appservers.store to relative imports
+from . import models
 
 
 async def get_product_by_id(

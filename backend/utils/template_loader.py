@@ -57,7 +57,9 @@ def load_template_from_yaml(file_path: str) -> Dict:
         raise
 
 
-def convert_yaml_template_to_agent_template(yaml_template: Dict) -> AgentTemplate:
+def convert_yaml_template_to_agent_template(
+    yaml_template: Dict,
+) -> AgentTemplate:
     """
     Convert YAML template configuration to AgentTemplate object.
 

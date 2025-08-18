@@ -26,7 +26,8 @@ class EnhancedSessionResource(AsyncSessionResource):
         """List all accessible sessions for a specific agent"""
         if not agent_id:
             raise ValueError(
-                f"Expected a non-empty value for `agent_id` but received {agent_id!r}"
+                f"Expected a non-empty value for `agent_id` but received "
+                f"{agent_id!r}"
             )
 
         log.info(f"Making request to: /v1/agents/{agent_id}/sessions")
@@ -64,7 +65,8 @@ class EnhancedSessionResource(AsyncSessionResource):
                     if not session_id:
                         continue
                     task = http_client.get(
-                        f"{llamastack_url}/v1/agents/{agent_id}/session/{session_id}",
+                        f"{llamastack_url}/v1/agents/{agent_id}/session/"
+                        f"{session_id}",
                         headers=self._client.default_headers,
                         timeout=10.0,
                     )
@@ -116,7 +118,8 @@ class EnhancedSessionResource(AsyncSessionResource):
         """Delete a session for a specific agent"""
         if not agent_id:
             raise ValueError(
-                f"Expected a non-empty value for `agent_id` but received {agent_id!r}"
+                f"Expected a non-empty value for `agent_id` but received "
+                f"{agent_id!r}"
             )
         if not session_id:
             raise ValueError(
@@ -124,9 +127,7 @@ class EnhancedSessionResource(AsyncSessionResource):
                 f"{session_id!r}"
             )
 
-        log.info(
-            "Making DELETE request to: " f"/v1/agents/{agent_id}/session/{session_id}"
-        )
+        log.info("Making DELETE request to: /v1/agents/{agent_id}/session/{session_id}")
 
         try:
             import httpx

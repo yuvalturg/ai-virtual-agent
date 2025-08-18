@@ -31,7 +31,9 @@ router = APIRouter(prefix="/model_servers", tags=["Model Servers"])
 
 
 @router.post(
-    "/", response_model=schemas.ModelServerRead, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=schemas.ModelServerRead,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_model_server(
     server: schemas.ModelServerCreate, db: AsyncSession = Depends(get_db)
@@ -40,10 +42,12 @@ async def create_model_server(
     Create a new model server configuration.
 
     This endpoint registers a new model server (LLM provider) in the database
-    and triggers automatic synchronization with LlamaStack to make the models available.
+    and triggers automatic synchronization with LlamaStack to make the models
+    available.
 
     Args:
-        server: Model server creation data including name, provider, and configuration
+        server: Model server creation data including name, provider, and
+                configuration
         db: Database session dependency
 
     Returns:
@@ -211,7 +215,8 @@ async def sync_model_servers(db: AsyncSession):
         List[models.ModelServer]: List of synchronized model servers
 
     Raises:
-        Exception: If LlamaStack communication fails or database operations fail
+        Exception: If LlamaStack communication fails or database operations
+                   fail
     """
     try:
         logger.info("Starting model server sync")
@@ -274,7 +279,8 @@ async def sync_model_servers(db: AsyncSession):
                 synced_servers.append(server)
             except Exception as e:
                 logger.error(
-                    f"Error processing model {model.get('name', 'unknown')}: {str(e)}"
+                    f"Error processing model {model.get('name', 'unknown')}: "
+                    f"{str(e)}"
                 )
                 continue
 
@@ -306,9 +312,9 @@ async def sync_model_servers_endpoint(db: AsyncSession = Depends(get_db)):
     """
     Synchronize model servers with LlamaStack model providers.
 
-    This endpoint triggers synchronization between the local model server database
-    and LlamaStack's model provider system, discovering new models and updating
-    existing configurations.
+    This endpoint triggers synchronization between the local model server
+    database and LlamaStack's model provider system, discovering new models
+    and updating existing configurations.
 
     Args:
         db: Database session dependency

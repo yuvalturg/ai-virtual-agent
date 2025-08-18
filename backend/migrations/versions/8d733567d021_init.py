@@ -38,7 +38,9 @@ def upgrade() -> None:
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column(
-            "role", sa.Enum("admin", "devops", "user", name="role"), nullable=False
+            "role",
+            sa.Enum("admin", "devops", "user", name="role"),
+            nullable=False,
         ),
         sa.Column(
             "created_at",
@@ -192,7 +194,9 @@ def upgrade() -> None:
             ["knowledge_bases.vector_db_name"],
         ),
         sa.ForeignKeyConstraint(
-            ["virtual_assistant_id"], ["virtual_assistants.id"], ondelete="CASCADE"
+            ["virtual_assistant_id"],
+            ["virtual_assistants.id"],
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("virtual_assistant_id", "vector_db_name"),
     )
@@ -202,15 +206,22 @@ def upgrade() -> None:
         sa.Column(
             "tool_type",
             sa.Enum(
-                "BUILTIN", "MCP_SERVER", name="tool_type_enum", create_constraint=True
+                "BUILTIN",
+                "MCP_SERVER",
+                name="tool_type_enum",
+                create_constraint=True,
             ),
             nullable=False,
         ),
         sa.Column("toolgroup_id", sa.String(length=255), nullable=False),
         sa.ForeignKeyConstraint(
-            ["virtual_assistant_id"], ["virtual_assistants.id"], ondelete="CASCADE"
+            ["virtual_assistant_id"],
+            ["virtual_assistants.id"],
+            ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("virtual_assistant_id", "tool_type", "toolgroup_id"),
+        sa.PrimaryKeyConstraint(
+            "virtual_assistant_id", "tool_type", "toolgroup_id"
+        ),
     )
     # ### end Alembic commands ###
 

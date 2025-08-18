@@ -33,7 +33,8 @@ def validate_exact_text(response, expected_text):
                 if json_data.get("type") == "text" and "content" in json_data:
                     combined_text += json_data["content"]
             except (json.JSONDecodeError, KeyError):
-                # Skip lines that aren't valid JSON or don't have expected structure
+                # Skip lines that aren't valid JSON or don't have expected
+                # structure
                 continue
 
     # Check if expected text is in the combined text or raw response
@@ -43,7 +44,7 @@ def validate_exact_text(response, expected_text):
     raise AssertionError(
         f"Expected text '{expected_text}' not found in response. "
         f"Combined text from SSE chunks: '{combined_text}' "
-        f"Raw response body: {body_text[:500]}..."  # Show first 500 chars for debugging
+        f"Raw response body: {body_text[:500]}..."  # Show first 500 chars
     )
 
 

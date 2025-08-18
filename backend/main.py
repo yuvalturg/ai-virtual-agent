@@ -6,7 +6,8 @@ middleware, routes, database connections, and API documentation. It serves as
 the entry point for the backend API.
 
 The app provides a complete REST API for managing virtual agents,
-knowledge bases, chat sessions, and integration with LlamaStack for AI capabilities.
+knowledge bases, chat sessions, and integration with LlamaStack for AI
+capabilities.
 """
 
 import asyncio
@@ -40,8 +41,8 @@ from .routes import (
     validate,
     virtual_assistants,
 )
-from .utils.logging_config import get_logger, setup_logging
 from .utils.auth_utils import is_local_dev_mode
+from .utils.logging_config import get_logger, setup_logging
 
 load_dotenv()
 
@@ -193,6 +194,7 @@ app.include_router(agent_templates.router, prefix="/api")
 if os.getenv("DISABLE_ATTACHMENTS") != "true":
     app.include_router(attachments.router, prefix="/api")
 
+
 class SPAStaticFiles(StaticFiles):
     """
     Custom static file handler for Single Page Application routing.
@@ -218,5 +220,7 @@ class SPAStaticFiles(StaticFiles):
 
 
 app.mount(
-    "/", SPAStaticFiles(directory="backend/public", html=True), name="spa-static-files"
+    "/",
+    SPAStaticFiles(directory="backend/public", html=True),
+    name="spa-static-files",
 )

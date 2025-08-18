@@ -112,7 +112,7 @@ export function useChat(
 
             // Process assistant messages that might contain raw JSON
             if (msg.role === 'assistant') {
-              processedContent = [{type: 'text', text: processStoredReActResponse(textContent)}];
+              processedContent = [{ type: 'text', text: processStoredReActResponse(textContent) }];
             }
 
             return {
@@ -191,10 +191,12 @@ export function useChat(
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
-          content: [{
-            text: '',
-            type: 'text',
-          }],
+          content: [
+            {
+              text: '',
+              type: 'text',
+            },
+          ],
           timestamp: new Date(),
         };
 
@@ -244,20 +246,20 @@ export function useChat(
                   const updated = [...prev];
                   const lastMsg = updated[updated.length - 1];
                   if (lastMsg && lastMsg.role === 'assistant') {
-                    let c: SimpleContentItem[] = [...lastMsg.content];
+                    const c: SimpleContentItem[] = [...lastMsg.content];
                     if (c[0].type === 'text') {
                       // For regular agents, accumulate content (same as ReAct but without special handling)
                       if (agentType === 'Regular') {
-                          c[0].text += parsed;
-                          lastMsg.content = c;
+                        c[0].text += parsed;
+                        lastMsg.content = c;
                       } else if (parsed.includes('🤔 **Thinking:**')) {
                         // For ReAct agents, replace content for complete responses
-                          c[0].text = parsed;
-                          lastMsg.content = c;
+                        c[0].text = parsed;
+                        lastMsg.content = c;
                       } else {
                         // For ReAct agents, append for streaming responses
-                          c[0].text += parsed;
-                          lastMsg.content = c;
+                        c[0].text += parsed;
+                        lastMsg.content = c;
                       }
                     }
                   }
@@ -273,22 +275,21 @@ export function useChat(
         options?.onError?.(new Error(errorMessage));
 
         // Remove the loading assistant message on error
-        setMessages((prev) => prev.filter((msg) => {
-          msg.role !== 'assistant' || msg.content.length > 0
-        }));
+        setMessages((prev) =>
+          prev.filter((msg) => {
+            return msg.role !== 'assistant' || msg.content.length > 0;
+          })
+        );
       } finally {
         setIsLoading(false);
       }
     },
-    [agentId, messages, sessionId, isLoading, options, attachedFiles, agentType]
+    [agentId, messages, sessionId, isLoading, options, agentType]
   );
 
-  const handleAttach = useCallback(
-    (data: File[]) => {
-      setAttachedFiles((prev: File[]) => [...prev, ...data]);
-    },
-    []
-  );
+  const handleAttach = useCallback((data: File[]) => {
+    setAttachedFiles((prev: File[]) => [...prev, ...data]);
+  }, []);
 
   const append = useCallback(
     (message: { role: 'user' | 'assistant'; content: SimpleContentItem[] }) => {

@@ -13,7 +13,8 @@ mcp_server = FastMCP()
 STORE_SERVER_URL = os.getenv("STORE_SERVER_URL", "http://localhost:8001")
 
 # HTTP client (using httpx)
-# TODO: It's good practice to use a client instance for connection pooling, etc.
+# TODO: It's good practice to use a client instance for connection
+# pooling, etc.
 async_client = httpx.AsyncClient(base_url=STORE_SERVER_URL)
 
 
@@ -39,8 +40,8 @@ async def make_api_request(
             else str(e)
         )
         raise ValueError(
-            f"API Error: {e.response.status_code} - {error_detail} when calling "
-            f"{e.request.method} {e.request.url}"
+            f"API Error: {e.response.status_code} - {error_detail} when "
+            f"calling {e.request.method} {e.request.url}"
         ) from e
     except httpx.RequestError as e:
         raise ValueError(
@@ -83,7 +84,8 @@ async def get_product_by_name(name: str) -> Optional[Dict[str, Any]]:
 async def search_products(
     query: str, skip: int = 0, limit: int = 100
 ) -> List[Dict[str, Any]]:
-    """Searches for products via the Store Server API based on a query string."""
+    """Searches for products via the Store Server API based on a query
+    string."""
     try:
         return await make_api_request(
             "GET",
@@ -101,7 +103,11 @@ async def add_product(
     name: str, description: Optional[str] = None, inventory: int = 0
 ) -> Dict[str, Any]:
     """Adds a new product via the Store Server API."""
-    payload = {"name": name, "description": description, "inventory": inventory}
+    payload = {
+        "name": name,
+        "description": description,
+        "inventory": inventory,
+    }
     return await make_api_request("POST", "/products/", json_data=payload)
 
 
@@ -121,7 +127,8 @@ async def order_product(
     product_id: int, quantity: int, customer_identifier: str
 ) -> Dict[str, Any]:
     """Places an order for a product via the Store Server API.
-    Raises ValueError if product not found, insufficient inventory, or other API error.
+    Raises ValueError if product not found, insufficient inventory, or other
+    API error.
     """
     payload = {
         "product_id": product_id,

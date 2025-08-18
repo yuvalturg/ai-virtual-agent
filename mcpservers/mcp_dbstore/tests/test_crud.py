@@ -9,8 +9,8 @@ from ..models import ProductCreate, ProductOrderRequest
 
 @pytest_asyncio.fixture(scope="function")  # function scope for clean DB per test
 async def db_session() -> AsyncSession:
-    # Ensure tables are created for each test function run in an in-memory DB or
-    # test DB
+    # Ensure tables are created for each test function run in an in-memory
+    # DB or test DB.
     # For a persistent test DB, you might do this once per session/module.
     async with database.engine.begin() as conn:
         await conn.run_sync(
@@ -23,8 +23,8 @@ async def db_session() -> AsyncSession:
         yield session
     finally:
         await session.close()
-        # Optionally, drop tables again after tests if not using an in-memory DB
-        # that vanishes
+        # Optionally, drop tables again after tests if not using an
+        # in-memory DB that vanishes
         # async with database.engine.begin() as conn:
         #     await conn.run_sync(database.Base.metadata.drop_all)
 
@@ -33,7 +33,10 @@ async def db_session() -> AsyncSession:
 async def test_add_product_and_get_by_id(db_session: AsyncSession):
     """Test adding a product and retrieving it by ID."""
     product_in = ProductCreate(
-        name="Test Book", description="A book for testing", inventory=10, price=19.99
+        name="Test Book",
+        description="A book for testing",
+        inventory=10,
+        price=19.99,
     )
     created_product_db = await crud.add_product(db_session, product=product_in)
     await db_session.commit()  # Commit to save
@@ -90,7 +93,10 @@ async def test_order_product_successful(db_session: AsyncSession):
 async def test_order_product_insufficient_inventory(db_session: AsyncSession):
     """Test ordering a product with insufficient inventory."""
     product_in = ProductCreate(
-        name="Limited Stock Item", description="Low stock", inventory=1, price=25.00
+        name="Limited Stock Item",
+        description="Low stock",
+        inventory=1,
+        price=25.00,
     )
     product_db = await crud.add_product(db_session, product=product_in)
     await db_session.commit()
@@ -100,11 +106,13 @@ async def test_order_product_insufficient_inventory(db_session: AsyncSession):
     )
 
     with pytest.raises(
-        ValueError, match=f"Insufficient inventory for product {product_db.name}"
+        ValueError,
+        match=f"Insufficient inventory for product {product_db.name}",
     ):
         await crud.order_product(db_session, order_details=order_details)
 
-    # Ensure no commit happened for the order part by rolling back or checking state
+    # Ensure no commit happened for the order part by rolling back or
+    # checking state
     # The crud function itself raises before commit in this case, so
     # session.commit() wouldn't be reached in the tool.
     # Here, we check product inventory remained unchanged.
@@ -134,10 +142,12 @@ async def test_search_products(db_session: AsyncSession):
         db_session, ProductCreate(name="Alpha Game", inventory=10, price=59.99)
     )
     await crud.add_product(
-        db_session, ProductCreate(name="Beta Game Console", inventory=5, price=299.99)
+        db_session,
+        ProductCreate(name="Beta Game Console", inventory=5, price=299.99),
     )
     await crud.add_product(
-        db_session, ProductCreate(name="Alpha Accessories", inventory=20, price=19.99)
+        db_session,
+        ProductCreate(name="Alpha Accessories", inventory=20, price=19.99),
     )
     await db_session.commit()
 

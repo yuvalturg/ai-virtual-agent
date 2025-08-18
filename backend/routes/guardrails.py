@@ -1,9 +1,9 @@
 """
-Guardrails API endpoints for configuring AI safety policies, content moderation,
-and content filtering rules for AI virtual agents.
+Guardrails API endpoints for configuring AI safety policies, content
+moderation, and content filtering rules for AI virtual agents.
 
-This module provides CRUD operations for guardrails that define safety constraints
-and content filtering rules for AI virtual agents.
+This module provides CRUD operations for guardrails that define safety
+constraints and content filtering rules for AI virtual agents.
 """
 
 from typing import List
@@ -20,7 +20,9 @@ router = APIRouter(prefix="/guardrails", tags=["guardrails"])
 
 
 @router.post(
-    "/", response_model=schemas.GuardrailRead, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=schemas.GuardrailRead,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_guardrail(
     item: schemas.GuardrailCreate, db: AsyncSession = Depends(get_db)
