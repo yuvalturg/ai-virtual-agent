@@ -3,14 +3,21 @@ Pydantic models for request/response validation and serialization.
 
 This module defines all data schemas used for API request validation,
 response serialization, database model conversion, and OpenAPI documentation
-and API documentation generation throughout the AI Virtual Agent Kickstart application.
+and API documentation generation throughout the AI Virtual Agent Kickstart
+application.
 
 The schemas ensure type safety, data validation, and consistent API contracts
 across all endpoints and integrations.
 """
 
 import enum
-from typing import Any, Dict, List, Optional, Union  # Added Dict for Guardrail rules
+from typing import (  # Added Dict for Guardrail rules
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 from pydantic import UUID4, BaseModel
 
@@ -86,7 +93,6 @@ class KnowledgeBaseBase(BaseModel):
 
 
 class KnowledgeBaseCreate(KnowledgeBaseBase):
-
     def pipeline_model_dict(self) -> Dict[str, Any]:
         base = {
             "name": self.name,
@@ -116,9 +122,7 @@ class KnowledgeBaseRead(KnowledgeBaseBase):
 
 # Tool Association Info for VirtualAssistant
 class ToolAssociationInfo(BaseModel):
-    toolgroup_id: (
-        str  # This refers to MCPServer.toolgroup_id or BuiltInTool.toolgroup_id
-    )
+    toolgroup_id: str  # MCPServer.toolgroup_id or BuiltInTool.toolgroup_id
 
 
 # VirtualAssistant Schemas

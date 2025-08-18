@@ -192,7 +192,9 @@ class TestCreateUser:
 
         # Mock existing user found
         existing_user = User(
-            username="existing", email="existing@example.com", role=RoleEnum.user
+            username="existing",
+            email="existing@example.com",
+            role=RoleEnum.user,
         )
         mock_result = AsyncMock()
         mock_result.scalar_one_or_none.return_value = existing_user

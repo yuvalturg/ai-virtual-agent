@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router';
 import {
   Button,
   Card,
@@ -7,20 +7,22 @@ import {
   CardTitle,
   Page,
   PageSection,
-  Title
-} from '@patternfly/react-core'
+  Title,
+} from '@patternfly/react-core';
 
 export const Route = createFileRoute('/oauth/sign_in')({
   component: OAuthSignIn,
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: (search.redirect as string) || '/',
   }),
-})
+});
 
 function OAuthSignIn() {
   const enableLocalDevMode = () => {
-    alert('To enable Local Dev Mode:\n\n1. Stop your backend server\n2. Run: export LOCAL_DEV_ENV_MODE=true\n3. Restart your backend server\n4. Refresh this page')
-  }
+    alert(
+      'To enable Local Dev Mode:\n\n1. Stop your backend server\n2. Run: export LOCAL_DEV_ENV_MODE=true\n3. Restart your backend server\n4. Refresh this page'
+    );
+  };
 
   return (
     <Page>
@@ -28,9 +30,7 @@ function OAuthSignIn() {
         <Title headingLevel="h1" size="2xl">
           🔒 Authentication Required
         </Title>
-        <p>
-          The AI Virtual Agent requires authentication to access this application.
-        </p>
+        <p>The AI Virtual Agent requires authentication to access this application.</p>
 
         <Card>
           <CardHeader>
@@ -41,9 +41,7 @@ function OAuthSignIn() {
             </CardTitle>
           </CardHeader>
           <CardBody>
-            <p>
-              Skip authentication for local development and testing.
-            </p>
+            <p>Skip authentication for local development and testing.</p>
             <p>
               <code>export LOCAL_DEV_ENV_MODE=true</code>
             </p>
@@ -62,9 +60,7 @@ function OAuthSignIn() {
             </CardTitle>
           </CardHeader>
           <CardBody>
-            <p>
-              Configure OAuth provider for production deployment.
-            </p>
+            <p>Configure OAuth provider for production deployment.</p>
             <ul>
               <li>Set up OAuth proxy (oauth2-proxy, etc.)</li>
               <li>Configure OAuth provider (GitHub, Google, etc.)</li>
@@ -93,19 +89,24 @@ function OAuthSignIn() {
           </CardHeader>
           <CardBody>
             <p>
-              After configuring your authentication method above, refresh this page to continue to the application.
+              After configuring your authentication method above, refresh this page to continue to
+              the application.
             </p>
           </CardBody>
         </Card>
 
         <p>
           <strong>Need help?</strong> Check the{' '}
-          <a href="https://github.com/rh-ai-kickstart/ai-virtual-agent" target="_blank" rel="noopener noreferrer">
+          <a
+            href="https://github.com/rh-ai-kickstart/ai-virtual-agent"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             project documentation
           </a>{' '}
           or contact your system administrator.
         </p>
       </PageSection>
     </Page>
-  )
+  );
 }

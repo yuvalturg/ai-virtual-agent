@@ -73,7 +73,9 @@ def get_client(
     return client
 
 
-def get_client_from_request(request: Optional[Request]) -> AsyncLlamaStackClient:
+def get_client_from_request(
+    request: Optional[Request],
+) -> AsyncLlamaStackClient:
     """
     Create a client configured with authentication from the request context.
 
@@ -115,7 +117,9 @@ def token_to_auth_header(token: str) -> dict[str, str]:
     return {"Authorization": auth_header_value}
 
 
-def get_user_headers_from_request(request: Optional[Request]) -> dict[str, str]:
+def get_user_headers_from_request(
+    request: Optional[Request],
+) -> dict[str, str]:
     """
     Extract user-related headers from the request.
 
@@ -147,7 +151,8 @@ def get_sync_client() -> AsyncLlamaStackClient:
     Create a sync client with admin credentials.
 
     Returns:
-        AsyncLlamaStackClient: Configured client instance with admin credentials
+        AsyncLlamaStackClient: Configured client instance with admin
+                               credentials
     """
     token = get_sa_token()
     headers = {}

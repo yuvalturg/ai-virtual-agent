@@ -17,7 +17,10 @@ from ..api.llamastack import (
 )
 from ..database import get_db
 from ..routes.users import get_user_from_headers
-from ..utils.auth_utils import is_local_dev_mode, get_or_create_dev_user, get_mock_dev_headers
+from ..utils.auth_utils import (
+    get_or_create_dev_user,
+    is_local_dev_mode,
+)
 
 router = APIRouter(prefix="/validate", tags=["validate"])
 
@@ -90,7 +93,7 @@ async def validate(auth_request: AuthRequest, db: AsyncSession = Depends(get_db)
             },
             message="Authentication successful",
         )
-    
+
     # Prepare headers
     headers = token_to_auth_header(auth_request.api_key)
     user_headers = get_user_headers_from_request(auth_request.request)
@@ -137,7 +140,7 @@ async def validate_with_headers(request: Request) -> User:
     Raises:
         HTTPException: If authentication fails
     """
-    
+
     # Build the auth request model
     auth_request = AuthRequest(
         api_key=get_sa_token(),

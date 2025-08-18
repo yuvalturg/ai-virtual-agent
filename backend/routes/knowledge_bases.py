@@ -1,9 +1,11 @@
 """
-Knowledge Base API endpoints for managing vector databases and knowledge sources.
+Knowledge Base API endpoints for managing vector databases and knowledge
+sources.
 
 This module provides CRUD operations for knowledge bases that are used for
-Retrieval-Augmented Generation (RAG) functionality. Knowledge bases are integrated
-with LlamaStack's vector database system for semantic search and document retrieval.
+Retrieval-Augmented Generation (RAG) functionality. Knowledge bases are
+integrated with LlamaStack's vector database system for semantic search
+and document retrieval.
 
 Key Features:
 - Create and manage knowledge bases with metadata
@@ -32,7 +34,9 @@ router = APIRouter(prefix="/knowledge_bases", tags=["knowledge_bases"])
 
 
 @router.post(
-    "/", response_model=schemas.KnowledgeBaseRead, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=schemas.KnowledgeBaseRead,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_knowledge_base(
     kb: schemas.KnowledgeBaseCreate, db: AsyncSession = Depends(get_db)
@@ -40,11 +44,13 @@ async def create_knowledge_base(
     """
     Create a new knowledge base.
 
-    This endpoint creates a new knowledge base in the database and automatically
-    triggers synchronization with LlamaStack's vector database system.
+    This endpoint creates a new knowledge base in the database and
+    automatically triggers synchronization with LlamaStack's vector database
+    system.
 
     Args:
-        kb: Knowledge base creation data including name, version, and configuration
+        kb: Knowledge base creation data including name, version, and
+            configuration
         db: Database session dependency
 
     Returns:
@@ -96,8 +102,9 @@ async def read_knowledge_base(vector_db_name: str, db: AsyncSession = Depends(ge
     """
     Retrieve a specific knowledge base by its vector database name.
 
-    This endpoint fetches a single knowledge base using its vector database name
-    as the unique identifier, which corresponds to the LlamaStack vector database.
+    This endpoint fetches a single knowledge base using its vector database
+    name as the unique identifier, which corresponds to the LlamaStack vector
+    database.
 
     Args:
         vector_db_name: The unique vector database name/identifier
@@ -187,8 +194,9 @@ async def sync_knowledge_bases_endpoint(db: AsyncSession = Depends(get_db)):
     Synchronize knowledge bases between the database and LlamaStack.
 
     This endpoint performs a unidirectional sync that fetches vector databases
-    from LlamaStack and adds any missing ones to the local database. It preserves
-    knowledge bases with PENDING status (exist in DB but not yet in LlamaStack).
+    from LlamaStack and adds any missing ones to the local database. It
+    preserves knowledge bases with PENDING status (exist in DB but not yet in
+    LlamaStack).
 
     Args:
         db: Database session dependency
@@ -308,7 +316,8 @@ async def sync_knowledge_bases(db: AsyncSession):
         List[models.KnowledgeBase]: List of synchronized knowledge bases
 
     Raises:
-        Exception: If LlamaStack communication fails or database operations fail
+        Exception: If LlamaStack communication fails or database operations
+                   fail
     """
     try:
         logger.info("Starting knowledge base sync")

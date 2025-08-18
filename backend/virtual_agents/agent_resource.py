@@ -1,4 +1,5 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for
+# details.
 
 from __future__ import annotations
 
@@ -43,7 +44,8 @@ class EnhancedAgentResource(AsyncAgentsResource):
         """
         if not agent_id:
             raise ValueError(
-                f"Expected a non-empty value for `agent_id` but received {agent_id!r}"
+                f"Expected a non-empty value for `agent_id` but received "
+                f"{agent_id!r}"
             )
         return await self._get(
             f"/v1/agents/{agent_id}",
@@ -78,7 +80,8 @@ class EnhancedAgentResource(AsyncAgentsResource):
                 post_parser=DataWrapper[VirtualAgentListResponse]._unwrapper,
             ),
             cast_to=cast(
-                Type[VirtualAgentListResponse], DataWrapper[VirtualAgentListResponse]
+                Type[VirtualAgentListResponse],
+                DataWrapper[VirtualAgentListResponse],
             ),
         )
 

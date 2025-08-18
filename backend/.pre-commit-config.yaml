@@ -10,8 +10,6 @@ repos:
         exclude: '^(backend/migrations/|migrations/)'
       - id: end-of-file-fixer
         exclude: '^(backend/migrations/|migrations/)'
-      - id: check-yaml
-        exclude: '^(backend/migrations/|migrations/|deploy/|../deploy/|../ingestion/|ingestion/|tests/.*\.tavern\.yaml$|.*debug/deploy\.yaml$)'
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: debug-statements
@@ -35,9 +33,7 @@ repos:
     hooks:
       - id: flake8
         exclude: '^(backend/migrations/|migrations/|deploy/)'
-        args:
-          - --max-line-length=88
-          - --extend-ignore=E203,W503
+        args: ["--max-line-length", "88"]
 
   - repo: local
     hooks:
@@ -48,3 +44,8 @@ repos:
         types: [python]
         exclude: '^(backend/migrations/|migrations/|deploy/)'
         args: [--min-confidence=80]
+      - id: helm-lint
+        name: Helm lint
+        entry: helm lint ./helm
+        language: system
+        pass_filenames: false

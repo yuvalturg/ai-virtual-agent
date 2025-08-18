@@ -9,7 +9,8 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 # context. It might be the same as appserver, or different if it connects to a
 # different DB instance or with different credentials.
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/store_db"
+    "DATABASE_URL",
+    "postgresql+asyncpg://myuser:mypassword@127.0.0.1:5432/store_db",
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)  # echo=True for debugging SQL

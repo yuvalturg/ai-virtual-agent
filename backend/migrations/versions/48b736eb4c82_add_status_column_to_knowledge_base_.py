@@ -22,7 +22,9 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.add_column(
         "knowledge_bases",
-        sa.Column("status", sa.String(length=50), autoincrement=False, nullable=True),
+        sa.Column(
+            "status", sa.String(length=50), autoincrement=False, nullable=True
+        ),
     )
 
 

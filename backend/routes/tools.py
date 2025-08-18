@@ -20,7 +20,8 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 @router.get("/", response_model=List[Dict[str, Any]])
 async def get_all_tool_groups(request: Request):
     """
-    Get all available tool groups from LlamaStack (both MCP servers and builtin tools).
+    Get all available tool groups from LlamaStack (both MCP servers and
+    builtin tools).
 
     This endpoint fetches all tool groups directly from LlamaStack, including:
     - MCP servers

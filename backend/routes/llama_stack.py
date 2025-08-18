@@ -1,9 +1,10 @@
 """
 LlamaStack Integration API endpoints for direct LlamaStack operations.
 
-This module provides endpoints for interacting directly with LlamaStack services,
-including LLM model management, chat interactions, and session handling. It serves
-as the primary bridge between the frontend and LlamaStack infrastructure.
+This module provides endpoints for interacting directly with LlamaStack
+services, including LLM model management, chat interactions, and session
+handling. It serves as the primary bridge between the frontend and
+LlamaStack infrastructure.
 
 Key Features:
 - List available LLM models from LlamaStack
@@ -22,23 +23,34 @@ import logging
 import os
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from llama_stack_client.types import InterleavedContent
-from llama_stack_client.types.shared.interleaved_content_item import ImageContentItemImageURL
+from llama_stack_client.types.shared.interleaved_content_item import (
+    ImageContentItemImageURL,
+)
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
 from backend import models
+from backend.database import get_db
 
-from .. import models
 from ..api.llamastack import get_client_from_request
 from .chat import Chat
 from .virtual_assistants import read_virtual_assistant
 
-ATTACHMENTS_INTERNAL_API_ENDPOINT = os.getenv("ATTACHMENTS_INTERNAL_API_ENDPOINT", "http://ai-virtual-agent:8000")
+ATTACHMENTS_INTERNAL_API_ENDPOINT = os.getenv(
+    "ATTACHMENTS_INTERNAL_API_ENDPOINT", "http://ai-virtual-agent:8000"
+)
+
 
 class Message(BaseModel):
     """
@@ -84,9 +96,10 @@ async def get_llms(request: Request):
     """
     Retrieve all available Large Language Models from LlamaStack.
 
-    Fetches the complete list of LLM models available in the LlamaStack instance,
-    filtering for models with 'llm' API type and formatting them for frontend
-    consumption. Used by chat interfaces to populate model selection dropdowns.
+    Fetches the complete list of LLM models available in the LlamaStack
+    instance, filtering for models with 'llm' API type and formatting
+    them for frontend consumption. Used by chat interfaces to populate model
+    selection dropdowns.
 
     Returns:
         List of dictionaries containing LLM model information:
@@ -178,7 +191,8 @@ async def get_knowledge_bases(request: Request):
 @router.get("/tools", response_model=List[Dict[str, Any]])
 async def get_tools(request: Request):
     """
-    Retrieve all available MCP (Model Context Protocol) servers from LlamaStack.
+    Retrieve all available MCP (Model Context Protocol) servers from
+    LlamaStack.
 
     Fetches tool groups that represent MCP servers configured in LlamaStack.
     These servers provide external tools and capabilities that can be used
@@ -339,7 +353,7 @@ async def get_providers(request: Request):
             {
                 "provider_id": str(provider.provider_id),
                 "provider_type": provider.provider_type,
-                "config": provider.config if hasattr(provider, "config") else {},
+                "config": (provider.config if hasattr(provider, "config") else {}),
                 "api": provider.api,
             }
             for provider in providers
@@ -352,9 +366,9 @@ class ChatRequest(BaseModel):
     """
     Request model for LlamaStack chat interactions.
 
-    Defines the structure for chat requests sent to the LlamaStack chat endpoint.
-    Includes virtual agent selection, conversation history, streaming preferences,
-    and session management.
+    Defines the structure for chat requests sent to the LlamaStack chat
+    endpoint.  Includes virtual agent selection, conversation history,
+    streaming preferences, and session management.
 
     Attributes:
         virtualAssistantId: The ID of the virtual agent to use for chat
@@ -373,15 +387,18 @@ class ChatRequest(BaseModel):
 async def get_agent_type_from_db(db: AsyncSession, agent_id: str) -> str:
     """Get agent type from database."""
     from sqlalchemy.future import select
+
     try:
-        result = await db.execute(select(models.AgentType).where(models.AgentType.agent_id == agent_id))
+        result = await db.execute(
+            select(models.AgentType).where(models.AgentType.agent_id == agent_id)
+        )
         agent_type_record = result.scalar_one_or_none()
         if agent_type_record:
             agent_type = agent_type_record.agent_type.value
             return agent_type
         else:
             return "Regular"
-    except Exception as e:
+    except Exception:
         return "Regular"
 
 
@@ -396,15 +413,17 @@ async def chat(
     Main chat endpoint for streaming conversations with LlamaStack agents.
 
     Handles real-time chat interactions by streaming responses from LlamaStack
-    agents while maintaining session state. Automatically saves session metadata
-    to the database for UI features like conversation history sidebars.
+    agents while maintaining session state. Automatically saves session
+    metadata to the database for UI features like conversation history
+    sidebars.
 
     The endpoint validates the virtual agent exists, requires a session ID,
     and streams responses in Server-Sent Events format. Session metadata is
     saved asynchronously to avoid blocking the chat response.
 
     Args:
-        chatRequest: ChatRequest containing assistant ID, messages, and session info
+        chatRequest: ChatRequest containing assistant ID, messages, and
+                     session info
         background_task: FastAPI background tasks for async metadata saving
         db: Database session for metadata operations
 
@@ -457,15 +476,22 @@ async def chat(
         agent_type_str = await get_agent_type_from_db(db, agent_id)
         log.info(f"Retrieved agent_type: {agent_type_str} for agent: {agent_id}")
 
-        # Create stateless Chat instance (no longer needs assistant or session_state)
+        # Create stateless Chat instance (no longer needs assistant or
+        # session_state)
         chat = Chat(log, request)
 
-        # The URLs provided by the request are only the path portion, e.g. /api/attachments/...
-        # LlamaStack expects the full URL, so we need to add the protocol/host/port.
+        # The URLs provided by the request are only the path portion, e.g.
+        # /api/attachments/...
+        # LlamaStack expects the full URL, so we need to add the
+        # protocol/host/port.
         def _expand_image_urls(content: InterleavedContent):
             if isinstance(content, list):
                 for idx, item in enumerate(content):
-                    if item.type == "image" and hasattr(item, "image") and hasattr(getattr(item, "image"), "url"):
+                    if (
+                        item.type == "image"
+                        and hasattr(item, "image")
+                        and hasattr(getattr(item, "image"), "url")
+                    ):
                         current_url = item.image.url
                         if current_url:
                             uri = current_url.uri
@@ -493,7 +519,10 @@ async def chat(
 
                     def chat_stream():
                         for chunk in chat.stream(
-                            agent_id, session_id, _expand_image_urls(last_message.content), agent_type_str
+                            agent_id,
+                            session_id,
+                            _expand_image_urls(last_message.content),
+                            agent_type_str,
                         ):
                             yield f"data: {chunk}\n\n"
                         yield "data: [DONE]\n\n"
@@ -512,7 +541,7 @@ async def chat(
 
             except Exception as e:
                 log.error(f"Error in stream: {str(e)}")
-                yield f'data: {{"type":"error","content":"Error: {str(e)}"}}\n\n'
+                yield (f'data: {{"type":"error","content":"Error: {str(e)}"}}\n\n')
 
         return StreamingResponse(generate_response(), media_type="text/event-stream")
 
@@ -524,17 +553,22 @@ async def chat(
 
 
 async def save_session_metadata(
-    db: AsyncSession, session_id: str, agent_id: str, messages: list, request: Request
+    db: AsyncSession,
+    session_id: str,
+    agent_id: str,
+    messages: list,
+    request: Request,
 ):
     """
     Save session metadata to database for UI sidebar display.
 
-    Asynchronously saves or updates session information in the database to support
-    frontend features like conversation history sidebars. Generates meaningful
-    session titles from the first user message and fetches agent display names.
+    Asynchronously saves or updates session information in the database to
+    support frontend features like conversation history sidebars. Generates
+    meaningful session titles from the first user message and fetches agent
+    display names.
 
-    This function is called as a background task to avoid blocking chat responses
-    while ensuring session metadata is available for the UI.
+    This function is called as a background task to avoid blocking chat
+    responses while ensuring session metadata is available for the UI.
 
     Args:
         db: Database session for executing queries
@@ -543,7 +577,8 @@ async def save_session_metadata(
         messages: List of conversation messages for title generation
 
     Note:
-        Errors in metadata saving are logged but don't affect chat functionality.
+        Errors in metadata saving are logged but don't affect chat
+        functionality.
         Uses INSERT ... ON CONFLICT DO UPDATE for idempotent session storage.
     """
     try:

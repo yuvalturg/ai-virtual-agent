@@ -40,4 +40,4 @@ templates:
     #   is_external: false
     #   source: "URL"
     #   source_configuration:
-    #     - "ingest/data/compliance/compliance.md" 
+    #     - "ingest/data/compliance/compliance.md"

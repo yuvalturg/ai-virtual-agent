@@ -16,7 +16,16 @@ appropriate indexes and relationships for optimal performance.
 import enum
 import uuid
 
-from sqlalchemy import JSON, TIMESTAMP, Boolean, Column, Enum, ForeignKey, String, func
+from sqlalchemy import (
+    JSON,
+    TIMESTAMP,
+    Boolean,
+    Column,
+    Enum,
+    ForeignKey,
+    String,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -38,7 +47,9 @@ class User(Base):
     agent_ids = Column(JSON, nullable=False, default=list)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
     )
     knowledge_bases = relationship("KnowledgeBase", back_populates="creator")
     guardrails = relationship("Guardrail", back_populates="creator")
@@ -58,7 +69,9 @@ class KnowledgeBase(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
     )
     creator = relationship("User", back_populates="knowledge_bases")
 
@@ -74,7 +87,9 @@ class ChatSession(Base):
 
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
 
@@ -86,7 +101,9 @@ class Guardrail(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
     )
     creator = relationship("User", back_populates="guardrails")
 
@@ -108,10 +125,16 @@ class AgentTypeEnum(enum.Enum):
 
 class AgentType(Base):
     __tablename__ = "agent_types"
-    
+
     agent_id = Column(String(255), primary_key=True)
-    agent_type = Column(Enum(AgentTypeEnum, name="agent_type_enum"), nullable=False, default=AgentTypeEnum.REACT)
+    agent_type = Column(
+        Enum(AgentTypeEnum, name="agent_type_enum"),
+        nullable=False,
+        default=AgentTypeEnum.REACT,
+    )
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
     )

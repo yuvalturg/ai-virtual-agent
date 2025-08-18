@@ -37,4 +37,3 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "ai-virtual-agent.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
-

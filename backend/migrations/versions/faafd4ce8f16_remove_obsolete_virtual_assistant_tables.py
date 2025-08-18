@@ -20,7 +20,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.drop_constraint(
-        "chat_history_virtual_assistant_id_fkey", "chat_history", type_="foreignkey"
+        "chat_history_virtual_assistant_id_fkey",
+        "chat_history",
+        type_="foreignkey",
     )
     op.drop_table("virtual_assistant_tools")
     op.drop_table("virtual_assistant_knowledge_bases")
@@ -34,9 +36,13 @@ def downgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("prompt", sa.Text(), nullable=False),
         sa.Column("model_name", sa.String(length=255), nullable=False),
-        sa.Column("created_by", sa.UUID(as_uuid=True), sa.ForeignKey("users.id")),
         sa.Column(
-            "created_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now()
+            "created_by", sa.UUID(as_uuid=True), sa.ForeignKey("users.id")
+        ),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.func.now(),
         ),
         sa.Column(
             "updated_at",

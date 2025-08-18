@@ -27,7 +27,9 @@ router = APIRouter(prefix="/chat_history", tags=["chat_history"])
 
 
 @router.post(
-    "/", response_model=schemas.ChatHistoryRead, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=schemas.ChatHistoryRead,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_chat_history(
     item: schemas.ChatHistoryCreate, db: AsyncSession = Depends(get_db)
@@ -39,7 +41,8 @@ async def create_chat_history(
     message and the assistant's response for future reference and audit.
 
     Args:
-        item: Chat history data including agent_id, user_id, message, and response
+        item: Chat history data including agent_id, user_id, message, and
+              response
         db: Database session dependency
 
     Returns:

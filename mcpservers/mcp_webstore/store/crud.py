@@ -63,8 +63,8 @@ async def remove_product(db: AsyncSession, product_id: int) -> models.Product | 
         # bound to. If get_product_by_id returns an ORM object from a different
         # session context, it might cause issues. Best to fetch and delete in
         # the same session context.
-        # However, the ProductDB instance returned from get_product_by_id is what
-        # we need to delete.
+        # However, the ProductDB instance returned from get_product_by_id is
+        # what we need to delete.
 
         # To be absolutely sure, let's fetch the object again in the current
         # session for deletion

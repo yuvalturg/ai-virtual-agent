@@ -32,7 +32,7 @@ CREATE OR REPLACE FUNCTION verify_database_setup() RETURNS TABLE(
 BEGIN
     -- Test basic database connectivity
     RETURN QUERY SELECT 'Database Connection'::TEXT, 'OK'::TEXT, 'Connected successfully'::TEXT;
-    
+
     -- Test permissions
     BEGIN
         CREATE TEMP TABLE test_permissions (id SERIAL);
@@ -41,8 +41,8 @@ BEGIN
     EXCEPTION WHEN others THEN
         RETURN QUERY SELECT 'Database Permissions'::TEXT, 'ERROR'::TEXT, SQLERRM::TEXT;
     END;
-    
-    RETURN QUERY SELECT 'Database Setup'::TEXT, 'COMPLETE'::TEXT, 
+
+    RETURN QUERY SELECT 'Database Setup'::TEXT, 'COMPLETE'::TEXT,
                        ('Initialized at ' || NOW()::TEXT)::TEXT;
 END;
 $$ LANGUAGE plpgsql;

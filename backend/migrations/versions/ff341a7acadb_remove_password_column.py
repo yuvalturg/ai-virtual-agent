@@ -31,7 +31,10 @@ def downgrade() -> None:
     op.add_column(
         "users",
         sa.Column(
-            "password_hash", sa.VARCHAR(length=255), autoincrement=False, nullable=False
+            "password_hash",
+            sa.VARCHAR(length=255),
+            autoincrement=False,
+            nullable=False,
         ),
     )
     # ### end Alembic commands ###

@@ -1,8 +1,9 @@
 """
 Agent Templates API endpoints for managing predefined agent templates.
 
-This module provides endpoints for initializing agents from predefined templates,
-including automatic knowledge base creation and data ingestion for various use cases.
+This module provides endpoints for initializing agents from predefined
+templates, including automatic knowledge base creation and data ingestion
+for various use cases.
 
 Key Features:
 - Predefined agent templates with specialized roles across multiple categories
@@ -208,8 +209,9 @@ async def initialize_agent_from_template(
     """
     Initialize an agent from a template with optional knowledge base creation.
 
-    This endpoint creates an agent based on a predefined template and optionally
-    creates and ingests data into a knowledge base for RAG functionality.
+    This endpoint creates an agent based on a predefined template and
+    optionally creates and ingests data into a knowledge base for
+    RAG functionality.
 
     Args:
         request: Template initialization request with customization options
@@ -262,7 +264,8 @@ async def initialize_agent_from_template(
                         knowledge_base_created = True
                         knowledge_base_name = created_kb.name
                         logger.info(
-                            f"Successfully created knowledge base: {created_kb.name}"
+                            f"Successfully created knowledge base: "
+                            f"{created_kb.name}"
                         )
 
             except Exception as kb_error:
@@ -302,9 +305,14 @@ async def initialize_agent_from_template(
         )
 
         async with AsyncSessionLocal() as db:
-            created_agent = await create_virtual_assistant(agent_config, http_request, db)
+            created_agent = await create_virtual_assistant(
+                agent_config, http_request, db
+            )
 
-        logger.info(f"Successfully created agent '{agent_name}' from template '{request.template_name}'")
+        logger.info(
+            f"Successfully created agent '{agent_name}' from template "
+            f"'{request.template_name}'"
+        )
         return TemplateInitializationResponse(
             agent_id=created_agent.id,
             agent_name=created_agent.name,

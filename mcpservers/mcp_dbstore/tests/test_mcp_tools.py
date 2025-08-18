@@ -82,7 +82,9 @@ async def test_tool_add_product_and_get_products(initialized_test_mcp_server):
 
 
 @pytest.mark.asyncio
-async def test_tool_order_product_insufficient_inventory(initialized_test_mcp_server):
+async def test_tool_order_product_insufficient_inventory(
+    initialized_test_mcp_server,
+):
     """Test order_product tool fails correctly with insufficient inventory."""
     async with Client(initialized_test_mcp_server) as client:
         # 1. Add a product with limited inventory using the add_product tool
@@ -128,17 +130,22 @@ async def test_tool_search_products(initialized_test_mcp_server):
     """Test the search_products tool."""
     async with Client(initialized_test_mcp_server) as client:
         # Ensure a clean state or add specific products for this test
-        # For simplicity, we rely on products potentially added in other tests or
+        # For simplicity, we rely on products potentially added in other
+        # tests or
         # ensure this test is robust to it.
-        # Better: explicitly add products needed ONLY for this search test here.
+        # Better: explicitly add products needed ONLY for this search test
+        # here.
         await client.call_tool(
-            "add_product", {"name": "Search Alpha One", "inventory": 5, "price": 1.0}
+            "add_product",
+            {"name": "Search Alpha One", "inventory": 5, "price": 1.0},
         )
         await client.call_tool(
-            "add_product", {"name": "Search Beta Two", "inventory": 5, "price": 2.0}
+            "add_product",
+            {"name": "Search Beta Two", "inventory": 5, "price": 2.0},
         )
         await client.call_tool(
-            "add_product", {"name": "Another Alpha Item", "inventory": 5, "price": 3.0}
+            "add_product",
+            {"name": "Another Alpha Item", "inventory": 5, "price": 3.0},
         )
 
         search_alpha_response = await client.call_tool(
