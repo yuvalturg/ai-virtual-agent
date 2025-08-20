@@ -80,14 +80,14 @@ This is the recommended setup for active development with fast iteration cycles.
 Start PostgreSQL and MinIO using Docker Compose:
 
 ```bash
-podman compose --file compose.yaml up --detach
+podman compose --file deploy/local/compose.yaml up --detach
 ```
 
 **Optional**: Reset the database if needed:
 ```bash
 podman volume ls
 podman compose down && podman volume rm ai-virtual-agent_pgdata
-podman compose --file compose.yaml up --detach
+podman compose --file deploy/local/compose.yaml up --detach
 ```
 
 #### 2. Backend Setup

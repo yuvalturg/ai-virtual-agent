@@ -33,7 +33,9 @@ repos:
     hooks:
       - id: flake8
         exclude: '^(backend/migrations/|migrations/|deploy/)'
-        args: ["--max-line-length", "88"]
+        args:
+          - --max-line-length=120
+          - --extend-ignore=E203,W503
 
   - repo: local
     hooks:
@@ -46,6 +48,6 @@ repos:
         args: [--min-confidence=80]
       - id: helm-lint
         name: Helm lint
-        entry: helm lint ./helm
+        entry: helm lint ./deploy/helm
         language: system
         pass_filenames: false

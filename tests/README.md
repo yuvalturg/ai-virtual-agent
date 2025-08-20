@@ -240,11 +240,11 @@ If any service is not running, the script will exit with clear instructions on h
 
 Dependencies are installed automatically based on test type:
 
-- **Unit tests**: Install both `requirements-test.txt` and `backend/requirements.txt`
-- **Integration tests**: Install only `requirements-test.txt`
+- **Unit tests**: Install both `tests/requirements.txt` and `backend/requirements.txt`
+- **Integration tests**: Install only `tests/requirements.txt`
 - **All tests**: Install both dependency sets
 
-### Test Dependencies (`requirements-test.txt`)
+### Test Dependencies (`tests/requirements.txt`)
 
 ```
 pytest>=7.0.0

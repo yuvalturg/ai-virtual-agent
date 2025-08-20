@@ -62,7 +62,7 @@ BACKEND_URL=${TEST_BACKEND_URL:-"http://localhost:8000"}
 LLAMASTACK_URL=${TEST_LLAMASTACK_URL:-"http://localhost:8321"}
 
 echo "🔧 Configuration:"
-echo "  For postgresql server run: podman compose --file compose.yaml up --detach"
+echo "  For postgresql server run: podman compose --file deploy/local/compose.yaml up --detach"
 echo "  Frontend URL: $FRONTEND_URL"
 echo "  Backend URL: $BACKEND_URL"
 echo "  LlamaStack URL: $LLAMASTACK_URL"
@@ -89,7 +89,7 @@ if [[ "$RUN_UNIT" == true ]]; then
         pytest $SPECIFIC_TESTS -ra --cov=backend --cov-report=term-missing --cov-branch || {
             echo ""
             echo "❌ Unit tests failed!"
-            echo "   If you see pytest not found or import errors, try: pip install -r requirements-test.txt -r backend/requirements.txt"
+            echo "   If you see pytest not found or import errors, try: pip install -r tests/requirements.txt -r backend/requirements.txt"
             echo "   If you see 'ModuleNotFoundError: No module named backend', try: export PYTHONPATH=.:$PYTHONPATH"
             exit 1
         }
@@ -97,7 +97,7 @@ if [[ "$RUN_UNIT" == true ]]; then
         pytest tests/unit -ra --cov=backend --cov-report=term-missing --cov-branch || {
             echo ""
             echo "❌ Unit tests failed!"
-            echo "   If you see pytest not found or import errors, try: pip install -r requirements-test.txt -r backend/requirements.txt"
+            echo "   If you see pytest not found or import errors, try: pip install -r tests/requirements.txt -r backend/requirements.txt"
             echo "   If you see 'ModuleNotFoundError: No module named backend', try: export PYTHONPATH=.:$PYTHONPATH"
             exit 1
         }
@@ -150,7 +150,7 @@ if [[ "$services_ok" == false ]]; then
     echo "  ./scripts/dev/run_local.sh"
     echo ""
     echo "Or start them individually:"
-    echo "  1. podman compose --file compose.yaml up --detach"
+    echo "  1. podman compose --file deploy/local/compose.yaml up --detach"
     echo "  2. Backend: cd backend && python -m uvicorn main:app --reload --port 8000"
     echo "  3. Frontend: cd frontend && npm run dev"
     echo "  4. LlamaStack: cd scripts/dev/local_llamastack_server && ./activate_llama_server.sh"
@@ -178,7 +178,7 @@ export TEST_LLAMASTACK_URL="$LLAMASTACK_URL"
         pytest $SPECIFIC_TESTS -v || {
             echo ""
             echo "❌ Integration tests failed!"
-            echo "   If you see import errors, try: pip install -r requirements-test.txt"
+            echo "   If you see import errors, try: pip install -r tests/requirements.txt"
             echo "   If you see 'ModuleNotFoundError: No module named backend', try: export PYTHONPATH=.:$PYTHONPATH"
             exit 1
         }
@@ -186,7 +186,7 @@ export TEST_LLAMASTACK_URL="$LLAMASTACK_URL"
         pytest tests/integration/ -v || {
             echo ""
             echo "❌ Integration tests failed!"
-            echo "   If you see import errors, try: pip install -r requirements-test.txt"
+            echo "   If you see import errors, try: pip install -r tests/requirements.txt"
             echo "   If you see 'ModuleNotFoundError: No module named backend', try: export PYTHONPATH=.:$PYTHONPATH"
             exit 1
         }
@@ -201,7 +201,7 @@ if [[ "$RUN_UNIT" == false && "$RUN_INTEGRATION" == false && -n "$SPECIFIC_TESTS
     pytest $SPECIFIC_TESTS -v || {
         echo ""
         echo "❌ Tests failed!"
-        echo "   If you see import errors, try: pip install -r requirements-test.txt"
+        echo "   If you see import errors, try: pip install -r tests/requirements.txt"
         echo "   If you see 'ModuleNotFoundError: No module named backend', try: export PYTHONPATH=.:$PYTHONPATH"
         exit 1
     }
