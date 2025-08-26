@@ -1,5 +1,5 @@
 """
-Centralized logging configuration for the AI Virtual Agent Kickstart backend.
+Centralized logging configuration for the AI Virtual Agent Quickstart backend.
 
 This module provides consistent logging setup across all backend components,
 including structured logging, log levels, and formatting for production

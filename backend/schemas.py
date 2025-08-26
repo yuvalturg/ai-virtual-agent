@@ -3,7 +3,7 @@ Pydantic models for request/response validation and serialization.
 
 This module defines all data schemas used for API request validation,
 response serialization, database model conversion, and OpenAPI documentation
-and API documentation generation throughout the AI Virtual Agent Kickstart
+and API documentation generation throughout the AI Virtual Agent Quickstart
 application.
 
 The schemas ensure type safety, data validation, and consistent API contracts

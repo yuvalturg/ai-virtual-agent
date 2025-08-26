@@ -1,6 +1,6 @@
 # Backend
 
-FastAPI backend for the AI Virtual Agent Kickstart project. For complete setup instructions, see the [Contributing Guide](../CONTRIBUTING.md).
+FastAPI backend for the AI Virtual Agent Quickstart project. For complete setup instructions, see the [Contributing Guide](../CONTRIBUTING.md).
 
 ## Quick API Access
 

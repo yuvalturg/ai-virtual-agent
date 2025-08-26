@@ -29,7 +29,7 @@
 
 ## Overview
 
-This guide explains how knowledge bases work in the AI Virtual Agent Kickstart application, covering the complete data flow from creation to deletion, the integration between frontend and backend systems, and the relationship with LlamaStack for vector database management.
+This guide explains how knowledge bases work in the AI Virtual Agent Quickstart application, covering the complete data flow from creation to deletion, the integration between frontend and backend systems, and the relationship with LlamaStack for vector database management.
 
 ## System Architecture
 

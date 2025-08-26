@@ -1,4 +1,4 @@
-# AI Virtual Agent Kickstart
+# AI Virtual Agent Quickstart
 
 A platform for creating and managing AI-powered virtual agents with knowledge base integration, built on top of LlamaStack.
 
@@ -31,7 +31,7 @@ For local containerized development (without cluster):
 
 **Option 1: One-command setup**
 ```bash
-git clone https://github.com/rh-ai-kickstart/ai-virtual-agent
+git clone https://github.com/rh-ai-quickstart/ai-virtual-agent
 cd ai-virtual-agent
 make install dev
 ```
@@ -152,8 +152,8 @@ make reset-db
 
 ## Community & Support
 
-- **🐛 Issues** - [Report bugs and request features](https://github.com/rh-ai-kickstart/ai-virtual-agent/issues)
-- **💬 Discussions** - [Ask questions and share ideas](https://github.com/rh-ai-kickstart/ai-virtual-agent/discussions)
+- **🐛 Issues** - [Report bugs and request features](https://github.com/rh-ai-quickstart/ai-virtual-agent/issues)
+- **💬 Discussions** - [Ask questions and share ideas](https://github.com/rh-ai-quickstart/ai-virtual-agent/discussions)
 - **🤝 Contributing** - See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 - **📚 Documentation** - Browse `/docs` for detailed guides
 

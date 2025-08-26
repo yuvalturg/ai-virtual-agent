@@ -1,7 +1,7 @@
 <!-- omit from toc -->
-# Contributing to AI Virtual Agent Kickstart
+# Contributing to AI Virtual Agent Quickstart
 
-Thank you for your interest in contributing to the AI Virtual Agent Kickstart! This guide will help you get set up for development and understand our contribution process.
+Thank you for your interest in contributing to the AI Virtual Agent Quickstart! This guide will help you get set up for development and understand our contribution process.
 
 <!-- omit from toc -->
 ## Table of Contents
@@ -68,7 +68,7 @@ Before you begin, ensure you have the following installed:
 3. Add the upstream remote:
 
    ```bash
-   git remote add upstream https://github.com/rh-ai-kickstart/ai-virtual-agent
+   git remote add upstream https://github.com/rh-ai-quickstart/ai-virtual-agent
    ```
 
 ### Local Development Setup
@@ -668,9 +668,9 @@ When using Docker Compose, environment variables are configured in the compose f
 
 - **Documentation**: Check the architecture guides in the `docs/` directory
 - **Documentation**: Check the project documentation in the `docs/` folder
-- **Discussions**: Join [GitHub Discussions](https://github.com/rh-ai-kickstart/ai-virtual-agent/discussions)
+- **Discussions**: Join [GitHub Discussions](https://github.com/rh-ai-quickstart/ai-virtual-agent/discussions)
 - **Code Review**: Ask questions in pull request comments
 - **Local Setup**: Use this guide's troubleshooting section
 - **Production Deployment**: See [INSTALLING.md](INSTALLING.md)
 
-Thank you for contributing to AI Virtual Agent Kickstart! 🚀
+Thank you for contributing to AI Virtual Agent Quickstart! 🚀

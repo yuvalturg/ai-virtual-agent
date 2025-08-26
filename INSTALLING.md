@@ -1,7 +1,7 @@
 <!-- omit from toc -->
-# Installing AI Virtual Agent Kickstart
+# Installing AI Virtual Agent Quickstart
 
-The AI Virtual Agent Kickstart is designed for production deployment on OpenShift AI and compatible Kubernetes platforms. This guide covers installation, configuration, and production operations.
+The AI Virtual Agent Quickstart is designed for production deployment on OpenShift AI and compatible Kubernetes platforms. This guide covers installation, configuration, and production operations.
 
 <!-- omit from toc -->
 ## Table of Contents
@@ -108,7 +108,7 @@ graph TB
 
 Clone the repository:
 ```bash
-git clone https://github.com/rh-ai-kickstart/ai-virtual-agent
+git clone https://github.com/rh-ai-quickstart/ai-virtual-agent
 cd ai-virtual-agent
 ```
 

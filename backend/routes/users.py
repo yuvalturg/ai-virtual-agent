@@ -1,10 +1,10 @@
 """
 User management API endpoints for authentication, authorization, and access
-control for the AI Virtual Agent Kickstart application.
+control for the AI Virtual Agent Quickstart application.
 
 This module provides CRUD operations for user accounts, including user
 creation, authentication, role management, and profile updates.
-It handles role-based access control for the AI Virtual Agent Kickstart
+It handles role-based access control for the AI Virtual Agent Quickstart
 application.
 
 Key Features:

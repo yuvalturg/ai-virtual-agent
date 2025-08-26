@@ -1,6 +1,6 @@
 # Documentation
 
-Welcome to the AI Virtual Agent Kickstart documentation! This page provides easy access to docs on every part of the application.
+Welcome to the AI Virtual Agent Quickstart documentation! This page provides easy access to docs on every part of the application.
 
 
 ### 🚀 **Getting Started**
