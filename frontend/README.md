@@ -1,6 +1,6 @@
 # Frontend
 
-Modern React application for the AI Virtual Agent Kickstart, providing an intuitive interface for managing AI agents, knowledge bases, and real-time chat interactions.
+Modern React application for the AI Virtual Agent Quickstart, providing an intuitive interface for managing AI agents, knowledge bases, and real-time chat interactions.
 
 ## Architecture Overview
 

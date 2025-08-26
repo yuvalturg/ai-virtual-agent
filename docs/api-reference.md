@@ -1,6 +1,6 @@
 <!-- omit from toc -->
 # API Reference
-Complete reference for the AI Virtual Agent Kickstart backend API. The API is built with FastAPI and provides RESTful endpoints for managing agents, knowledge bases, chat sessions, and more.
+Complete reference for the AI Virtual Agent Quickstart backend API. The API is built with FastAPI and provides RESTful endpoints for managing agents, knowledge bases, chat sessions, and more.
 <!-- omit from toc -->
 ## Table of Contents
 - [Base URL](#base-url)

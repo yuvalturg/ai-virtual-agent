@@ -1,6 +1,6 @@
 """
 Database configuration and session management
-for the AI Virtual Agent Kickstart application.
+for the AI Virtual Agent Quickstart application.
 
 This module sets up SQLAlchemy with async PostgreSQL support,
 configures the database connection, and provides utilities

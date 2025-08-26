@@ -28,7 +28,7 @@
 
 ## Overview
 
-This guide explains how virtual agents (AI assistants) work in the AI Virtual Agent Kickstart application, covering the complete data flow from creation to deletion, the integration between frontend and backend systems, and the relationship with LlamaStack for agent management.
+This guide explains how virtual agents (AI assistants) work in the AI Virtual Agent Quickstart application, covering the complete data flow from creation to deletion, the integration between frontend and backend systems, and the relationship with LlamaStack for agent management.
 
 ## System Architecture
 

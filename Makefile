@@ -1,10 +1,10 @@
-# AI Virtual Agent Kickstart – Top-level Makefile
+# AI Virtual Agent Quickstart – Top-level Makefile
 # This makefile routes targets to local or helm specific makefiles
 
 .PHONY: all local helm help
 
 all: ## Show usage instructions
-	@echo "AI Virtual Agent Kickstart"
+	@echo "AI Virtual Agent Quickstart"
 	@echo "========================="
 	@echo ""
 	@echo "Usage:"

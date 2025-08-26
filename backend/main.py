@@ -1,5 +1,5 @@
 """
-FastAPI main application module for AI Virtual Agent Kickstart.
+FastAPI main application module for AI Virtual Agent Quickstart.
 
 This module initializes and configures the FastAPI application, including
 middleware, routes, database connections, and API documentation. It serves as

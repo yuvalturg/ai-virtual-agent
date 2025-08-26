@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) Servers
 
-Model Context Protocol (MCP) servers provide external tool capabilities to AI agents in the AI Virtual Agent Kickstart. These servers implement standardized interfaces that allow agents to access external data sources and perform complex operations.
+Model Context Protocol (MCP) servers provide external tool capabilities to AI agents in the AI Virtual Agent Quickstart. These servers implement standardized interfaces that allow agents to access external data sources and perform complex operations.
 
 ## Overview
 
@@ -10,7 +10,7 @@ MCP (Model Context Protocol) is a standard for connecting AI agents to external 
 
 ```mermaid
 graph TD
-    subgraph "AI Virtual Agent Kickstart"
+    subgraph "AI Virtual Agent Quickstart"
         AGENT[LlamaStack Agent]
         LLAMA[LlamaStack Platform]
     end

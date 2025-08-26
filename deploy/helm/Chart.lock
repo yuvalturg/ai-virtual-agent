@@ -1,24 +1,24 @@
 dependencies:
 - name: minio
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.1.0
 - name: pgvector
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.1.0
 - name: mcp-weather
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.1.0
 - name: llm-service
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.1.0
 - name: llama-stack
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.2.16
 - name: configure-pipeline
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.1.0
 - name: ingestion-pipeline
-  repository: https://rh-ai-kickstart.github.io/ai-architecture-charts
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.2.16
-digest: sha256:744e1087d94eef9a8e90a0fdd739383648f366240dc5067703e9440d64660117
-generated: "2025-07-29T08:20:11.415619094-04:00"
+digest: sha256:b0d53c7df6009c65eea7044b93fc05549c4be74c7b073b92e0c90bd42af7af53
+generated: "2025-08-26T13:58:00.309372494-04:00"

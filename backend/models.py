@@ -1,5 +1,5 @@
 """
-SQLAlchemy database models for the AI Virtual Agent Kickstart application.
+SQLAlchemy database models for the AI Virtual Agent Quickstart application.
 
 This module defines the database schema and relationships for:
 - Users and authentication
