@@ -498,7 +498,8 @@ export function Chat() {
   }
 
   return (
-    <Chatbot displayMode={displayMode}>
+    <div style={{ height: '100%', margin: 0, padding: 0 }}>
+      <Chatbot displayMode={displayMode} isCompact={true}>
       <ChatbotConversationHistoryNav
         displayMode={displayMode}
         onDrawerToggle={() => {
@@ -555,7 +556,7 @@ export function Chat() {
                 </ChatbotHeaderSelectorDropdown>
               </ChatbotHeaderActions>
             </ChatbotHeader>
-            <ChatbotContent>
+            <ChatbotContent style={{ flexGrow: 1, overflow: 'auto' }}>
               <MessageBox announcement={announcement}>
                 {messages.map((message, index) => {
                   if (index === messages.length - 1) {
@@ -633,5 +634,6 @@ export function Chat() {
         </ModalFooter>
       </Modal>
     </Chatbot>
+    </div>
   );
 }
