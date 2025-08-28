@@ -149,18 +149,10 @@ export function Chat() {
     }
   }, [sessionId, scrollToBottom]);
 
-  // Auto-scroll during streaming (when loading)
+  // Auto-scroll when loading starts
   useEffect(() => {
     if (isLoading) {
-      // Scroll immediately when starting to load
       scrollToBottom();
-
-      // Set up interval to keep scrolling during message generation
-      const scrollInterval = setInterval(() => {
-        scrollToBottom();
-      }, 100); // Scroll every 100ms while loading
-
-      return () => clearInterval(scrollInterval);
     }
   }, [isLoading, scrollToBottom]);
   const contentToText = (content: SimpleContentItem): string => {
@@ -306,7 +298,6 @@ export function Chat() {
       try {
         console.log('fetchSessionsData called with agentId:', agentId);
         const sessions = await fetchChatSessions(agentId);
-        console.log('Fetched sessions:', sessions);
         setChatSessions(sessions);
 
         // Auto-select first session if no session is currently selected and sessions exist
