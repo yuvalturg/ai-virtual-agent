@@ -78,7 +78,6 @@ function groupAgentsBySuite(
     { suiteId: string | undefined; suiteName: string | undefined; agents: Agent[] }
   >();
   for (const agent of agents) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const key: string = agent.suite_id ?? '__uncategorized__';
     const existing:
       | { suiteId: string | undefined; suiteName: string | undefined; agents: Agent[] }
@@ -100,9 +99,8 @@ function groupAgentsBySuite(
         suiteName: string | undefined;
         agents: Agent[];
       } = {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         suiteId: agent.suite_id ?? undefined,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         suiteName: agent.suite_name ?? undefined,
         agents: [agent],
       };

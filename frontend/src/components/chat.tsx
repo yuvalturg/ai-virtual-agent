@@ -32,6 +32,7 @@ import {
   PanelMain,
   PanelMainBody,
 } from '@patternfly/react-core';
+import { TrashIcon } from '@patternfly/react-icons';
 import { Agent } from '@/types/agent';
 import { fetchUserAgents } from '@/services/agents';
 import { useChat } from '@/hooks/useChat';
@@ -271,6 +272,7 @@ export function Chat() {
           id={`delete-${sessionId}`}
           onClick={() => handleDeleteSession(sessionId)}
         >
+          <TrashIcon style={{ marginRight: '8px' }} />
           Delete
         </DropdownItem>
       </DropdownList>,
@@ -500,140 +502,149 @@ export function Chat() {
   return (
     <div style={{ height: '100%', margin: 0, padding: 0 }}>
       <Chatbot displayMode={displayMode} isCompact={true}>
-      <ChatbotConversationHistoryNav
-        displayMode={displayMode}
-        onDrawerToggle={() => {
-          setIsDrawerOpen(!isDrawerOpen);
-        }}
-        isDrawerOpen={isDrawerOpen}
-        setIsDrawerOpen={setIsDrawerOpen}
-        activeItemId={sessionId || undefined}
-        onSelectActiveItem={onSelectActiveItem}
-        conversations={conversations}
-        onNewChat={onNewChat}
-        handleTextInputChange={(value: string) => {
-          if (value === '') {
-            // Convert sessions to conversations format
-            const conversations = chatSessions.map((session) => ({
-              id: session.id,
-              text: session.title,
-              description: session.agent_name,
-              timestamp: new Date(session.updated_at).toLocaleDateString(),
-              menuItems: createSessionMenuItems(session.id),
-            }));
-            setConversations(conversations);
-          }
-          const newConversations = findMatchingItems(value);
-          setConversations(newConversations);
-        }}
-        drawerContent={
-          <Fragment>
-            <ChatbotHeader>
-              <ChatbotHeaderMain>
-                <ChatbotHeaderMenu
-                  ref={historyRef}
-                  aria-expanded={isDrawerOpen}
-                  onMenuToggle={() => setIsDrawerOpen(!isDrawerOpen)}
-                />
-                <ChatbotHeaderTitle>Chat</ChatbotHeaderTitle>
-              </ChatbotHeaderMain>
-              <ChatbotHeaderActions>
-                <ChatbotHeaderSelectorDropdown
-                  value={
-                    availableAgents.find((agent) => agent.id === selectedAgent)?.name ||
-                    'Select Agent'
-                  }
-                  onSelect={onSelectAgent}
-                  tooltipContent="Select Agent"
-                >
-                  <DropdownList>
-                    {availableAgents.map((agent) => (
-                      <DropdownItem value={agent.id} key={agent.id}>
-                        {agent.name}
-                      </DropdownItem>
-                    ))}
-                  </DropdownList>
-                </ChatbotHeaderSelectorDropdown>
-              </ChatbotHeaderActions>
-            </ChatbotHeader>
-            <ChatbotContent style={{ flexGrow: 1, overflow: 'auto' }}>
-              <MessageBox announcement={announcement}>
-                {messages.map((message, index) => {
-                  if (index === messages.length - 1) {
-                    return (
-                      <Fragment key={message.id}>
-                        <div ref={scrollToBottomRef}></div>
-                        <Message key={message.id} {...message} />
-                      </Fragment>
-                    );
-                  }
-                  return <Message key={message.id} {...message} />;
-                })}
-              </MessageBox>
-            </ChatbotContent>
-            <ChatbotFooter>
-              <Panel variant="secondary">
-                <PanelMain>
-                  <PanelMainBody>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        paddingTop: '0.5em',
-                        paddingBottom: '0.5em',
-                      }}
-                    >
-                      {attachedFiles.map((file, index) => (
-                        <div key={file.name} style={{ margin: '0.5em' }}>
-                          <FileDetailsLabel
-                            fileName={file.name}
-                            onClose={() => {
-                              setAttachedFiles(attachedFiles.filter((_, i) => i !== index));
-                            }}
-                          />
-                        </div>
+        <ChatbotConversationHistoryNav
+          displayMode={displayMode}
+          onDrawerToggle={() => {
+            setIsDrawerOpen(!isDrawerOpen);
+          }}
+          isDrawerOpen={isDrawerOpen}
+          setIsDrawerOpen={setIsDrawerOpen}
+          activeItemId={sessionId || undefined}
+          onSelectActiveItem={onSelectActiveItem}
+          conversations={conversations}
+          onNewChat={onNewChat}
+          handleTextInputChange={(value: string) => {
+            if (value === '') {
+              // Convert sessions to conversations format
+              const conversations = chatSessions.map((session) => ({
+                id: session.id,
+                text: session.title,
+                description: session.agent_name,
+                timestamp: new Date(session.updated_at).toLocaleDateString(),
+                menuItems: createSessionMenuItems(session.id),
+              }));
+              setConversations(conversations);
+            }
+            const newConversations = findMatchingItems(value);
+            setConversations(newConversations);
+          }}
+          drawerContent={
+            <Fragment>
+              <ChatbotHeader>
+                <ChatbotHeaderMain>
+                  <ChatbotHeaderMenu
+                    ref={historyRef}
+                    aria-expanded={isDrawerOpen}
+                    onMenuToggle={() => setIsDrawerOpen(!isDrawerOpen)}
+                  />
+                  <ChatbotHeaderTitle>Chat</ChatbotHeaderTitle>
+                </ChatbotHeaderMain>
+                <ChatbotHeaderActions>
+                  <ChatbotHeaderSelectorDropdown
+                    value={
+                      availableAgents.find((agent) => agent.id === selectedAgent)?.name ||
+                      'Select Agent'
+                    }
+                    onSelect={onSelectAgent}
+                    tooltipContent="Select Agent"
+                  >
+                    <DropdownList>
+                      {availableAgents.map((agent) => (
+                        <DropdownItem value={agent.id} key={agent.id}>
+                          {agent.name}
+                        </DropdownItem>
                       ))}
-                    </div>
-                    <MessageBar
-                      onSendMessage={handleSendMessage as (message: string | number) => void}
-                      hasMicrophoneButton
-                      isSendButtonDisabled={isLoading || !selectedAgent}
-                      value={input}
-                      onChange={handleInputChange}
-                      handleAttach={handleAttach}
-                    />
-                  </PanelMainBody>
-                </PanelMain>
-              </Panel>
-              <ChatbotFootnote {...footnoteProps} />
-            </ChatbotFooter>
-          </Fragment>
-        }
-      ></ChatbotConversationHistoryNav>
-      <Modal
-        variant={ModalVariant.small}
-        title="Confirm Delete"
-        isOpen={isDeleteModalOpen}
-        onClose={cancelDeleteSession}
-      >
-        <ModalHeader title="Delete Session" labelId="delete-session-modal-title" />
-        <ModalBody id="delete-session-modal-desc">
-          Are you sure you want to delete this session?
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="link" onClick={cancelDeleteSession}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            isLoading={deleteSessionMutation.isPending}
-            onClick={confirmDeleteSession}
-          >
-            Delete
-          </Button>
-        </ModalFooter>
-      </Modal>
-    </Chatbot>
+                    </DropdownList>
+                  </ChatbotHeaderSelectorDropdown>
+                </ChatbotHeaderActions>
+              </ChatbotHeader>
+              <ChatbotContent style={{ flexGrow: 1, overflow: 'auto' }}>
+                <MessageBox announcement={announcement}>
+                  {messages.map((message, index) => {
+                    if (index === messages.length - 1) {
+                      return (
+                        <Fragment key={message.id}>
+                          <div ref={scrollToBottomRef}></div>
+                          <Message key={message.id} {...message} />
+                        </Fragment>
+                      );
+                    }
+                    return <Message key={message.id} {...message} />;
+                  })}
+                </MessageBox>
+              </ChatbotContent>
+              <ChatbotFooter>
+                <Panel variant="secondary">
+                  <PanelMain>
+                    <PanelMainBody>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          paddingTop: '0.5em',
+                          paddingBottom: '0.5em',
+                        }}
+                      >
+                        {attachedFiles.map((file, index) => (
+                          <div key={file.name} style={{ margin: '0.5em' }}>
+                            <FileDetailsLabel
+                              fileName={file.name}
+                              onClose={() => {
+                                setAttachedFiles(attachedFiles.filter((_, i) => i !== index));
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <MessageBar
+                        onSendMessage={handleSendMessage as (message: string | number) => void}
+                        hasMicrophoneButton
+                        isSendButtonDisabled={isLoading || !selectedAgent}
+                        value={input}
+                        onChange={handleInputChange}
+                        handleAttach={handleAttach}
+                      />
+                    </PanelMainBody>
+                  </PanelMain>
+                </Panel>
+                <ChatbotFootnote {...footnoteProps} />
+              </ChatbotFooter>
+            </Fragment>
+          }
+        ></ChatbotConversationHistoryNav>
+        <Modal
+          variant={ModalVariant.small}
+          title="Confirm Delete"
+          isOpen={isDeleteModalOpen}
+          onClose={cancelDeleteSession}
+        >
+          <ModalHeader
+            title={
+              <>
+                <TrashIcon style={{ marginRight: '8px' }} />
+                Delete Session
+              </>
+            }
+            labelId="delete-session-modal-title"
+          />
+          <ModalBody id="delete-session-modal-desc">
+            Are you sure you want to delete this session?
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="link" onClick={cancelDeleteSession}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              isLoading={deleteSessionMutation.isPending}
+              onClick={confirmDeleteSession}
+            >
+              <TrashIcon style={{ marginRight: '8px' }} />
+              Delete
+            </Button>
+          </ModalFooter>
+        </Modal>
+      </Chatbot>
     </div>
   );
 }

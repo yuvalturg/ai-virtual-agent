@@ -1,6 +1,6 @@
 import { MCPServer } from '@/types';
 import { Alert, Button, Flex, FlexItem, Spinner, Title } from '@patternfly/react-core';
-import { SyncIcon } from '@patternfly/react-icons';
+import { SyncIcon, ServerIcon } from '@patternfly/react-icons';
 import { useMCPServers } from '@/hooks';
 import React, { useState } from 'react';
 import { NewMCPServerCard } from '@/components/NewMCPServerCard';
@@ -60,7 +60,10 @@ export function MCPServerList() {
         className="pf-v6-u-mb-md"
       >
         <FlexItem>
-          <Title headingLevel="h2">MCP Servers</Title>
+          <Title headingLevel="h2">
+            <ServerIcon style={{ marginRight: '8px' }} />
+            MCP Servers
+          </Title>
         </FlexItem>
         <FlexItem>
           <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>

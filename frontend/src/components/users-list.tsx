@@ -16,6 +16,7 @@ import {
   DataListCell,
   Alert,
 } from '@patternfly/react-core';
+import { UsersIcon } from '@patternfly/react-icons';
 import { NewUserCard } from './new-user-card';
 
 interface UsersListProps {
@@ -28,7 +29,10 @@ export function UsersList({ users, onUserClick }: UsersListProps) {
     <PageSection>
       <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
         <FlexItem>
-          <Title headingLevel="h1">Users</Title>
+          <Title headingLevel="h1">
+            <UsersIcon style={{ marginRight: '8px' }} />
+            Users
+          </Title>
         </FlexItem>
         <FlexItem>
           <NewUserCard />

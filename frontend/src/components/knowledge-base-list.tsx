@@ -1,6 +1,6 @@
 import { KnowledgeBaseCard } from '@/components/knowledge-base-card';
 import { Alert, Button, Flex, FlexItem, Spinner, Title } from '@patternfly/react-core';
-import { SyncIcon } from '@patternfly/react-icons';
+import { SyncIcon, BookIcon } from '@patternfly/react-icons';
 import { useKnowledgeBases } from '@/hooks';
 import React, { useState } from 'react';
 import { NewKnowledgeBaseCard } from './new-knowledge-base-card';
@@ -54,7 +54,10 @@ export function KnowledgeBaseList() {
         className="pf-v6-u-mb-md"
       >
         <FlexItem>
-          <Title headingLevel="h2">Knowledge Bases</Title>
+          <Title headingLevel="h2">
+            <BookIcon style={{ marginRight: '8px' }} />
+            Knowledge Bases
+          </Title>
         </FlexItem>
         <FlexItem>
           <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
