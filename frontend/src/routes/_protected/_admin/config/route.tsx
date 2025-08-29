@@ -1,7 +1,6 @@
 import { Nav, NavItem, NavList, Page, PageSidebar, PageSidebarBody } from '@patternfly/react-core';
 import { RobotIcon, BookIcon, ServerIcon, UsersIcon } from '@patternfly/react-icons';
 import { createFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
-import React from 'react';
 import { Masthead } from '../../../../components/masthead';
 
 export const Route = createFileRoute('/_protected/_admin/config')({
@@ -10,22 +9,15 @@ export const Route = createFileRoute('/_protected/_admin/config')({
 
 function ConfigLayout() {
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-
-  const onSidebarToggle = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
 
   const masthead = (
     <Masthead
-      showSidebarToggle={true}
-      isSidebarOpen={isSidebarOpen}
-      onSidebarToggle={onSidebarToggle}
+      showSidebarToggle={false}
     />
   );
 
   const sidebar = (
-    <PageSidebar isSidebarOpen={isSidebarOpen} id="main-padding-sidebar">
+    <PageSidebar isSidebarOpen={true} id="main-padding-sidebar">
       <PageSidebarBody>
         <Nav aria-label="Config Nav">
           <NavList>
