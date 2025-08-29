@@ -581,6 +581,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
           onSelectActiveItem={onSelectActiveItem}
           conversations={conversations}
           onNewChat={onNewChat}
+          isCompact={true}
           handleTextInputChange={(value: string) => {
             if (value === '') {
               // Convert sessions to conversations format
