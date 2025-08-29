@@ -569,7 +569,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
           style={{ marginBottom: '8px' }}
         />
       )}
-      <Chatbot displayMode={displayMode}>
+      <Chatbot displayMode={displayMode} isCompact={true}>
         <ChatbotConversationHistoryNav
           displayMode={displayMode}
           onDrawerToggle={() => {
