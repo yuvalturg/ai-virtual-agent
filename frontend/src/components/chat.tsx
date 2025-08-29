@@ -209,6 +209,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     }
   }, [chatMessages.length, demoQuestions.length]);
 
+
   const onSelectAgent = (
     _event: React.MouseEvent<Element, MouseEvent> | undefined,
     value: string | number | undefined
@@ -627,10 +628,10 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                   </ChatbotHeaderSelectorDropdown>
                 </ChatbotHeaderActions>
               </ChatbotHeader>
-              <ChatbotContent>
+              <ChatbotContent style={{ maxWidth: '85%', width: '85%', margin: '0 auto' }}>
                 {demoQuestions.length > 0 && (
                   <div style={{ padding: '8px 16px' }}>
-                    <div style={{ marginLeft: '16px', maxWidth: '960px' }}>
+                    <div style={{ margin: '0 auto', maxWidth: '85%' }}>
                       <div
                         style={{
                           marginBottom: '8px',
@@ -687,7 +688,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                     </div>
                   </div>
                 )}
-                <MessageBox announcement={announcement}>
+                <MessageBox announcement={announcement} style={{ maxWidth: '85%', width: '85%', margin: '0 auto' }}>
                   {messages.map((message, index) => {
                     if (index === messages.length - 1) {
                       return (
