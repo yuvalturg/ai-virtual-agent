@@ -85,6 +85,17 @@ build_helm_cmd() {
         cmd_args+=("--set" "seed.admin_user.email=$ADMIN_EMAIL")
     fi
 
+	# GCP args
+	if [ -n "$GCP_SERVICE_ACCOUNT_FILE" ]; then
+		cmd_args+=("--set-file" "llama-stack.gcpServiceAccountFile=$(realpath $GCP_SERVICE_ACCOUNT_FILE)")
+	fi
+
+	if [ -n "$VERTEX_AI_PROJECT" -a -n "$VERTEX_AI_LOCATION" ]; then
+		cmd_args+=("--set" "llama-stack.vertexai.enabled=true")
+		cmd_args+=("--set" "llama-stack.vertexai.projectId=$VERTEX_AI_PROJECT")
+		cmd_args+=("--set" "llama-stack.vertexai.location=$VERTEX_AI_LOCATION")
+	fi
+
     # extra helm args
     if [ -n "$EXTRA_HELM_ARGS" ]; then
         # Split EXTRA_HELM_ARGS and add each argument separately
