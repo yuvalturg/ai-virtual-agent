@@ -19,10 +19,7 @@ function ChatPage() {
 
   return (
     <Page mainContainerId={pageId} masthead={<Masthead />} style={{ padding: 0 }}>
-      <PageSection
-        hasBodyWrapper={false}
-        style={{ height: 'calc(100vh - 110px)', padding: 0 }}
-      >
+      <PageSection hasBodyWrapper={false} style={{ height: 'calc(100vh - 110px)', padding: 0 }}>
         <Chat preSelectedAgentId={search.agentId} />
       </PageSection>
     </Page>

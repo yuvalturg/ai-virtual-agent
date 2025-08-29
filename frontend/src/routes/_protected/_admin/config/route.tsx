@@ -10,11 +10,7 @@ export const Route = createFileRoute('/_protected/_admin/config')({
 function ConfigLayout() {
   const location = useLocation();
 
-  const masthead = (
-    <Masthead
-      showSidebarToggle={false}
-    />
-  );
+  const masthead = <Masthead showSidebarToggle={false} />;
 
   const sidebar = (
     <PageSidebar isSidebarOpen={true} id="main-padding-sidebar">
