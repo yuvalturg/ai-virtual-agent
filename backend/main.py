@@ -11,7 +11,6 @@ capabilities.
 """
 
 import asyncio
-import os
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -28,7 +27,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .database import AsyncSessionLocal
 from .routes import (
     agent_templates,
-    attachments,
     chat_sessions,
     debug,
     guardrails,
@@ -42,6 +40,7 @@ from .routes import (
     virtual_assistants,
 )
 from .utils.auth_utils import is_local_dev_mode
+from .utils.feature_flags import is_attachments_feature_enabled
 from .utils.logging_config import get_logger, setup_logging
 
 load_dotenv()
@@ -209,7 +208,10 @@ app.include_router(llama_stack.router, prefix="/api")
 app.include_router(chat_sessions.router, prefix="/api")
 app.include_router(agent_templates.router, prefix="/api")
 
-if os.getenv("DISABLE_ATTACHMENTS") != "true":
+if is_attachments_feature_enabled():
+    # Import lazily to avoid importing attachments when disabled
+    from .routes import attachments
+
     app.include_router(attachments.router, prefix="/api")
 
 

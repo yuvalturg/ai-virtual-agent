@@ -3,6 +3,14 @@
 
 .PHONY: all local helm help
 
+SHELL := /bin/bash
+
+ifneq (,$(wildcard .env))
+include .env
+endif
+
+.EXPORT_ALL_VARIABLES:
+
 all: ## Show usage instructions
 	@echo "AI Virtual Agent Quickstart"
 	@echo "========================="
