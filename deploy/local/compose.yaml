@@ -55,9 +55,9 @@ services:
     entrypoint:
       - bash
       - -c
-      - "ollama serve & sleep 10; ollama run llama3.2:3b-instruct-fp16 --keepalive 60m hi; wait"
+      - "ollama serve & sleep 10; ollama run llama3.2:1b-instruct-fp16 --keepalive 60m hi; wait"
     healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep -q llama3.2:3b-instruct-fp16"]
+      test: ["CMD-SHELL", "ollama list | grep -q llama3.2:1b-instruct-fp16"]
       interval: 30s
       timeout: 10s
       retries: 30

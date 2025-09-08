@@ -41,7 +41,7 @@ metadata_store:
   db_path: /root/.llama/distributions/ollama/registry.db
 models:
 - metadata: {}
-  model_id: llama3.2:3b-instruct-fp16
+  model_id: llama3.2:1b-instruct-fp16
   provider_id: ollama
 shields: []
 memory_banks: []
