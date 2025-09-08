@@ -14,7 +14,7 @@ providers:
   - provider_id: ollama
     provider_type: remote::ollama
     config:
-      url: http://host.docker.internal:11434
+      url: http://ollama:11434
   safety:
   - provider_id: llama-guard
     provider_type: inline::llama-guard

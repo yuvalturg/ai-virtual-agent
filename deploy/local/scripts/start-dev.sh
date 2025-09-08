@@ -8,7 +8,7 @@ set -e
 # Change to project root directory
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$PROJECT_ROOT"
-COMPOSE_FILE="$PROJECT_ROOT/deploy/local/compose.dev.yaml"
+COMPOSE_FILE="$PROJECT_ROOT/deploy/local/compose.yaml"
 
 echo "🚀 Starting AI Virtual Agent Development Environment..."
 
@@ -44,18 +44,18 @@ else
     export DISABLE_ATTACHMENTS=true
 fi
 
-# Ensure ollama is running (required for LlamaStack)
-echo "🦙 Checking Ollama status..."
-if ! curl -s http://localhost:11434/api/tags &> /dev/null; then
-    echo "⚠️  Ollama is not running. Please start Ollama first:"
-    echo "   ollama serve"
-    echo ""
-    echo "   Then load the required model:"
-    echo "   echo '/bye' | ollama run llama3.2:3b-instruct-fp16 --keepalive 60m"
-    echo ""
-    read -p "Press Enter once Ollama is running and the model is loaded..."
-fi
-
+## Ensure ollama is running (required for LlamaStack)
+#echo "🦙 Checking Ollama status..."
+#if ! curl -s http://localhost:11434/api/tags &> /dev/null; then
+#    echo "⚠️  Ollama is not running. Please start Ollama first:"
+#    echo "   ollama serve"
+#    echo ""
+#    echo "   Then load the required model:"
+#    echo "   echo '/bye' | ollama run llama3.2:3b-instruct-fp16 --keepalive 60m"
+#    echo ""
+#    read -p "Press Enter once Ollama is running and the model is loaded..."
+#fi
+#
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."
 podman compose -f "$COMPOSE_FILE" $COMPOSE_PROFILES down --remove-orphans
@@ -87,9 +87,9 @@ if [ "$ENABLE_ATTACHMENTS" = "true" ]; then
 fi
 echo ""
 echo "📚 Useful commands:"
-echo "   View logs:      podman compose -f compose.dev.yaml logs -f"
-echo "   Stop services:  ./scripts/dev/stop-dev.sh"
-echo "   Restart:        podman compose -f compose.dev.yaml restart [service]"
+echo "   View logs:      podman compose -f compose.yaml logs -f"
+echo "   Stop services:  ./scripts/stop-dev.sh"
+echo "   Restart:        podman compose -f compose.yaml restart [service]"
 echo ""
 echo "🔧 Development features:"
 echo "   ✅ Hot reload enabled for backend and frontend"

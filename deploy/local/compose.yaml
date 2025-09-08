@@ -1,67 +1,166 @@
-# AI Virtual Agent - Container Compose Configuration
+# AI Virtual Agent - Development Environment
 #
-# Usage: podman compose up -d
-# or:    docker-compose up -d
+# This compose file starts all services needed for local development:
+# - PostgreSQL database (always)
+# - LlamaStack AI service (always)
+# - Backend API (FastAPI) (always)
+# - Frontend (React/Vite) (always)
+# - MinIO object storage (optional, controlled by ENABLE_ATTACHMENTS)
 #
-# This will automatically start PostgreSQL with full database initialization
-
-version: '3'
-
+# Environment Variables:
+#   ENABLE_ATTACHMENTS=true|false   # Enable/disable MinIO and attachment features
+#   DISABLE_ATTACHMENTS=true|false  # Backend env var (set automatically)
+#   LOCAL_DEV_ENV_MODE=true|false   # Enable development mode (disables auth)
+#
+# Usage:
+#   make compose-up                             # Start with attachments and dev mode enabled
+#   ENABLE_ATTACHMENTS=false make compose-up   # Start without attachments
+#   LOCAL_DEV_ENV_MODE=false make compose-up   # Start with auth enabled (production-like)
+#   make compose-down                      # Stop all services
+#
+# Profiles:
+#   attachments - MinIO service (only started when ENABLE_ATTACHMENTS=true)
+#
 services:
+  # Database service (existing, enhanced)
   db:
     image: postgres:15
-    container_name: postgresql
+    container_name: postgresql-dev
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ai_virtual_agent
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      # Enable detailed logging for debugging
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      - POSTGRES_DB=${POSTGRES_DB:-ai_virtual_agent}
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./scripts/dev/db-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d ai_virtual_agent"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-ai_virtual_agent}"]
+      interval: 10s
       timeout: 5s
       retries: 5
-    command: >
-      postgres
-      -c log_statement=mod
-      -c log_destination=stderr
-      -c log_min_messages=info
-      -c shared_preload_libraries=''
-      -c log_line_prefix='%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+    networks:
+      - ai-va-network
 
-  minio:
-    image: quay.io/minio/minio
-    container_name: minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ACCESS_KEY: minio_rag_user
-      MINIO_SECRET_KEY: minio_rag_password
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-dev
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '${OLLAMA_PORT:-11434}:11434'
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - ai-va-network
+    entrypoint:
+      - bash
+      - -c
+      - "ollama serve & sleep 10; ollama run llama3.2:3b-instruct-fp16 --keepalive 60m hi; wait"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep -q llama3.2:3b-instruct-fp16"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+
+  # LlamaStack service
+  llamastack:
+    image: llamastack/distribution-starter:0.2.18
+    container_name: llamastack-dev
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - '${LLAMASTACK_PORT:-8321}:8321'
+    volumes:
+      - llama:/root/.llama
+      - ${PWD}/deploy/local/llamastack-run.yaml:/run.yaml:Z
+    entrypoint: ["python", "-m", "llama_stack.core.server.server", "/run.yaml"]
+    networks:
+      - ai-va-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8321/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # Backend service
+  backend:
+    build:
+      context: ../../
+      dockerfile: deploy/local/Containerfile.backend.dev
+    container_name: ai-va-backend-dev
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-ai_virtual_agent}
+      - LOCAL_DEV_ENV_MODE=${LOCAL_DEV_ENV_MODE:-true}
+      - LLAMASTACK_URL=${LLAMASTACK_URL:-http://llamastack:8321}
+      - DISABLE_ATTACHMENTS=${DISABLE_ATTACHMENTS:-false}
+    ports:
+      - '${BACKEND_PORT:-8000}:8000'
+    volumes:
+      - ../../backend:/app/backend:Z
+    depends_on:
+      db:
+        condition: service_healthy
+      llamastack:
+        condition: service_healthy
+    networks:
+      - ai-va-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Frontend service
+  frontend:
+    build:
+      context: ../../
+      dockerfile: deploy/local/Containerfile.frontend.dev
+    container_name: ai-va-frontend-dev
+    restart: unless-stopped
+    environment:
+      - VITE_API_BASE_URL=http://backend:8000
+    ports:
+      - '${FRONTEND_PORT:-5173}:5173'
+    volumes:
+      - ../../frontend:/app:Z
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ai-va-network
+
+  # MinIO service for attachments (optional - use profile 'attachments')
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio-dev
+    restart: unless-stopped
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio_rag_user}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio_rag_password}
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
       - minio_data:/data
-
-  # Example backend service configuration for local development
-  # backend:
-  #   build: .
-  #   container_name: ai-va-backend
-  #   environment:
-  #     DATABASE_URL: postgresql+asyncpg://admin:password@db:5432/ai_virtual_assistant
-  #     LOCAL_DEV_ENV_MODE: true  # Enable auth bypass for local development
-  #   ports:
-  #     - '8080:8080'
-  #   depends_on:
-  #     - db
+    command: server /data --console-address ":9001"
+    networks:
+      - ai-va-network
+    profiles:
+      - attachments
 
 volumes:
   pgdata:
   minio_data:
+  ollama:
+  llama:
+
+networks:
+  ai-va-network:
+    driver: bridge
