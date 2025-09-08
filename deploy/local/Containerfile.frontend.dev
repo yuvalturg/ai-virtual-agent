@@ -6,7 +6,7 @@ USER root
 WORKDIR /app
 
 # Ensure the directory is owned by the default user (1001)
-RUN chown -R 1001:0 /app
+RUN chown -R 1001:0 /app && chmod -R g+w /app
 
 # Switch to non-root user (UBI images use 1001 by default)
 USER 1001
@@ -14,10 +14,14 @@ USER 1001
 # Copy package files first to leverage Docker cache
 COPY --chown=1001:0 frontend/package*.json ./
 
-# Install dependencies
-RUN npm install
+# Configure npm for faster installs
+RUN npm config set audit false && \
+    npm config set fund false
 
-# Copy frontend source code
+# Install dependencies with optimizations
+RUN npm ci --no-audit --no-fund
+
+# Copy frontend source code (excluding node_modules via .dockerignore)
 COPY --chown=1001:0 frontend/ ./
 
 # Expose Vite dev server port

@@ -44,18 +44,6 @@ else
     export DISABLE_ATTACHMENTS=true
 fi
 
-## Ensure ollama is running (required for LlamaStack)
-#echo "🦙 Checking Ollama status..."
-#if ! curl -s http://localhost:11434/api/tags &> /dev/null; then
-#    echo "⚠️  Ollama is not running. Please start Ollama first:"
-#    echo "   ollama serve"
-#    echo ""
-#    echo "   Then load the required model:"
-#    echo "   echo '/bye' | ollama run llama3.2:3b-instruct-fp16 --keepalive 60m"
-#    echo ""
-#    read -p "Press Enter once Ollama is running and the model is loaded..."
-#fi
-#
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."
 podman compose -f "$COMPOSE_FILE" $COMPOSE_PROFILES down --remove-orphans
