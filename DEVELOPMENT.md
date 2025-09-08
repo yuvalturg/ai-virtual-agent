@@ -16,7 +16,7 @@ Ensure you have the following running on your system:
 
 ```bash
 # Option 1: Using Makefile (recommended)
-make dev-compose-up
+make compose-up
 
 # Option 2: Using the script directly
 ./scripts/dev/start-dev.sh
@@ -37,7 +37,7 @@ That's it! All services will be running:
 
 ```bash
 # Option 1: Using Makefile (recommended)
-make dev-compose-down
+make compose-down
 
 # Option 2: Using the script directly
 ./scripts/dev/stop-dev.sh
@@ -73,12 +73,12 @@ Key development environment variables:
 
 Start without attachments (faster startup):
 ```bash
-ENABLE_ATTACHMENTS=false make dev-compose-up
+ENABLE_ATTACHMENTS=false make compose-up
 ```
 
 Start with authentication enabled (production-like):
 ```bash
-LOCAL_DEV_ENV_MODE=false make dev-compose-up
+LOCAL_DEV_ENV_MODE=false make compose-up
 ```
 
 Default configuration:
@@ -123,7 +123,7 @@ Default configuration:
 4. **View service logs**
    ```bash
    # All services (using Makefile)
-   make dev-compose-logs
+   make compose-logs
 
    # All services (direct command)
    podman compose -f compose.dev.yaml logs -f
@@ -138,16 +138,16 @@ Default configuration:
 
 ```bash
 # View service logs
-make dev-compose-logs
+make compose-logs
 
 # Check service status
-make dev-compose-status
+make compose-status
 
 # Restart all services
-make dev-compose-restart
+make compose-restart
 
 # Rebuild and restart services
-make dev-compose-build
+make compose-build
 
 # See all available development commands
 make help
@@ -190,7 +190,7 @@ cd frontend && npm install && npm run dev
 ### After (1 Command)
 ```bash
 # Using Makefile (recommended)
-make dev-compose-up
+make compose-up
 
 # Or using script directly
 ./scripts/dev/start-dev.sh
@@ -198,7 +198,7 @@ make dev-compose-up
 
 ## When to Rebuild Containers
 
-Use `make dev-compose-build` when you modify:
+Use `make compose-build` when you modify:
 
 - **Dependencies**: `backend/requirements.txt` or `frontend/package.json`
 - **Container files**: `Containerfile`, `Dockerfile.*`
@@ -210,12 +210,12 @@ Code changes in `backend/` and `frontend/` directories use hot reload - no rebui
 
 The following Makefile targets are available for containerized development:
 
-- `make dev-compose-up` - Start development services (uses .env and compose.dev.yaml)
-- `make dev-compose-down` - Stop development services
-- `make dev-compose-restart` - Restart development services
-- `make dev-compose-logs` - View logs from development services
-- `make dev-compose-build` - Rebuild and start development services
-- `make dev-compose-status` - Show status of development services
+- `make compose-up` - Start development services (uses .env and compose.dev.yaml)
+- `make compose-down` - Stop development services
+- `make compose-restart` - Restart development services
+- `make compose-logs` - View logs from development services
+- `make compose-build` - Rebuild and start development services
+- `make compose-status` - Show status of development services
 
 For all available make targets, run `make help`.
 

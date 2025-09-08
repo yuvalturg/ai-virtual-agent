@@ -226,7 +226,7 @@ When prompted, enter your **[Hugging Face Token](https://huggingface.co/settings
 Monitor the installation progress and verify when components are ready:
 
 ```bash
-make status NAMESPACE=ai-virtual-agent
+make install-status NAMESPACE=ai-virtual-agent
 ```
 
 Wait for all pods to show `Running` status before proceeding to access the application.
@@ -246,7 +246,7 @@ oc get routes ai-virtual-agent -n ai-virtual-agent
 If installation fails or the application isn't accessible, use the status command to identify issues:
 
 ```bash
-make status NAMESPACE=ai-virtual-agent
+make install-status NAMESPACE=ai-virtual-agent
 ```
 
 This will show detailed information about pods, services, and other resources.
