@@ -36,7 +36,7 @@ For local development setup:
 cd deploy/local
 
 # Start all services with Docker Compose
-make dev-compose-up
+make compose-up
 
 # Or start step-by-step:
 # 1. Start database (automatically initializes with permissions)
@@ -159,13 +159,19 @@ const expert = await initializeAgentTemplate({
 cd deploy/local
 
 # Start everything locally with Docker Compose
-make dev-compose-up
+make compose-up
 
 # Stop all services
-make dev-compose-down
+make compose-down
 
-# Reset database
-make reset-db
+# View logs from development services
+make compose-logs
+
+# Restart development services
+make compose-restart
+
+# Show status of development services
+make compose-status
 ```
 
 **Cluster Deployment:**
