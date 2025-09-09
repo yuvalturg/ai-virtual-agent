@@ -267,7 +267,7 @@ The test runner is designed to work in CI/CD environments where services are pre
 ```bash
 # GitLab CI example
 before_script:
-  - ./scripts/dev/run_local.sh &
+  # Use the new containerized development setup
   - sleep 30  # Wait for services to start
 script:
   - ./run_tests.sh --all
@@ -276,7 +276,7 @@ script:
 
 # GitHub Actions example
 - name: Start Services
-  run: ./scripts/dev/run_local.sh &
+  # Use make compose-up for containerized development
 - name: Wait for Services
   run: sleep 30
 - name: Run All Tests
@@ -296,7 +296,7 @@ For CI environments that want to run tests separately:
 
 # Then start services and run integration tests
 - name: Start Services
-  run: ./scripts/dev/run_local.sh &
+  # Use make compose-up for containerized development
 - name: Wait for Services
   run: sleep 30
 - name: Run Integration Tests

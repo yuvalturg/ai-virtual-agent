@@ -34,13 +34,13 @@ lint-frontend: ## Run frontend linters (eslint & prettier)
 lint: lint-backend lint-frontend ## Run all linters
 
 test-unit: ## Run unit tests only
-	cd ../../ && ./scripts/ci/run_tests.sh --unit
+	cd ../../ && ./tests/run_tests.sh --unit
 
 test-int: ## Run integration tests only
-	cd ../../ && ./scripts/ci/run_tests.sh --integration
+	cd ../../ && ./tests/run_tests.sh --integration
 
 test-all: ## Run all tests (unit + integration)
-	cd ../../ && ./scripts/ci/run_tests.sh --all
+	cd ../../ && ./tests/run_tests.sh --all
 
 test: lint test-all ## Run full test & lint suite
 

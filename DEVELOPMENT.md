@@ -19,7 +19,7 @@ Ensure you have the following running on your system:
 make compose-up
 
 # Option 2: Using the script directly
-./scripts/dev/start-dev.sh
+./scripts/start-dev.sh
 ```
 
 **Note**: First startup takes longer due to image downloads.
@@ -40,7 +40,7 @@ That's it! All services will be running:
 make compose-down
 
 # Option 2: Using the script directly
-./scripts/dev/stop-dev.sh
+./scripts/stop-dev.sh
 ```
 
 ## Service Details
@@ -117,7 +117,7 @@ Default configuration:
 3. **Permission issues**
    ```bash
    # Ensure scripts are executable
-   chmod +x scripts/dev/*.sh
+   chmod +x scripts/*.sh
    ```
 
 4. **View service logs**
@@ -177,8 +177,7 @@ podman compose -f compose.dev.yaml down --volumes
 podman compose --file compose.yaml up --detach
 
 # Terminal 2: LlamaStack
-cd scripts/dev/local_llamastack_server/
-bash activate_llama_server.sh
+# LlamaStack is now integrated into the compose setup
 
 # Terminal 3: Backend
 source venv/bin/activate && export LOCAL_DEV_ENV_MODE=true && uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
@@ -193,7 +192,7 @@ cd frontend && npm install && npm run dev
 make compose-up
 
 # Or using script directly
-./scripts/dev/start-dev.sh
+./scripts/start-dev.sh
 ```
 
 ## When to Rebuild Containers
@@ -202,7 +201,7 @@ Use `make compose-build` when you modify:
 
 - **Dependencies**: `backend/requirements.txt` or `frontend/package.json`
 - **Container files**: `Containerfile`, `Dockerfile.*`
-- **Startup scripts**: `scripts/dev/start-backend-dev.sh`
+- **Startup scripts**: `scripts/start-backend-dev.sh`
 
 Code changes in `backend/` and `frontend/` directories use hot reload - no rebuild needed.
 

@@ -158,9 +158,8 @@ podman compose --file deploy/local/compose.yaml up --detach
 For local AI functionality, start a local LlamaStack server:
 
 ```bash
-cd scripts/dev/local_llamastack_server/
-chmod +x activate_llama_server.sh
-bash activate_llama_server.sh
+# LlamaStack is now integrated into the compose setup
+# See DEVELOPMENT.md for the new containerized development workflow
 ```
 
 ### Container Development Setup
@@ -207,7 +206,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Containerfile
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://admin:password@postgres:5432/ai_virtual_agent
       LLAMASTACK_URL: http://llamastack:8321
