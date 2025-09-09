@@ -12,8 +12,8 @@ stages:
       headers:
         content-type: application/json
       json:
-        - model_name: "llama3.2:3b-instruct-fp16"
-          provider_resource_id: "llama3.2:3b-instruct-fp16"
+        - model_name: "ollama/llama3.2:1b-instruct-fp16"
+          provider_resource_id: "llama3.2:1b-instruct-fp16"
           model_type: "llm"
 ---
 test_name: Test Virtual Assistants API Endpoint
@@ -29,16 +29,11 @@ stages:
       json:
         name: "Test Assistant"
         prompt: "You are a helpful assistant."
-        model_name: "llama3.2:3b-instruct-fp16"
+        model_name: "ollama/llama3.2:1b-instruct-fp16"
         input_shields: []
         output_shields: []
-        temperature: 0.1
-        repetition_penalty: 1
-        max_tokens: 4096
-        top_p: 0.95
         knowledge_base_ids: []
         tools: []
-        max_infer_iters: 10
         enable_session_persistence: false
     response:
       status_code: 201
@@ -61,15 +56,29 @@ stages:
       headers:
         content-type: application/json
       json:
+        agent_type: "ReAct"
+        category: null
+        metadata: null
+        template_id: null
+        template_name: null
+        suite_id: null
+        suite_name: null
+        sampling_strategy: greedy
         name: "Test Assistant"
-        prompt: "You are a helpful assistant."
-        model_name: "llama3.2:3b-instruct-fp16"
+        prompt: "You are a helpful assistant.\n\nProvide clear, helpful responses."
+        stop_sequences:
+          - "\n\n"
+          - "Thank you"
+          - "I hope this helps"
+          - "Let me know if you have any other questions"
+        model_name: "ollama/llama3.2:1b-instruct-fp16"
         input_shields: []
         output_shields: []
-        temperature: 0.1
-        repetition_penalty: 1
-        max_tokens: 4096
+        temperature: 0.0
+        repetition_penalty: 1.5
+        max_tokens: 512
         top_p: 0.95
+        top_k: 40
         knowledge_base_ids: []
         tools: []
         max_infer_iters: 10
@@ -103,7 +112,7 @@ stages:
         - provider_id: "ollama"
           provider_type: "remote::ollama"
           config:
-            url: "http://localhost:11434"
+            url: "http://ollama:11434"
           api: "inference"
         - provider_id: "llama-guard"
           provider_type: "inline::llama-guard"

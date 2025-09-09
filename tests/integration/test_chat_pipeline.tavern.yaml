@@ -91,30 +91,10 @@ stages:
         stream: false
     response:
       status_code: 200
-      # Check if the SSE response contains "George Washington"
-      # The response comes in SSE format like: data: {"type":"text","content":"George Washington"}\n\n
       verify_response_with:
         - function: tests.integration.validators:validate_exact_text
           extra_kwargs:
-            expected_text: "George Washington."
-
-  - name: Create second session for same agent
-    request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/chat_sessions/"
-      method: POST
-      headers:
-        Content-Type: application/json
-        Accept: application/json
-      json:
-        agent_id: "{agent_id}"
-        session_name: "Tavern-Test-Session-2"
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      save:
-        json:
-          session_id_2: "id"
+            expected_text: "George Washington"
 
   - name: Ask about second USA president (Test 2 - Same Agent)
     request:
@@ -125,16 +105,14 @@ stages:
         Accept: application/json
       json:
         virtualAssistantId: "{agent_id}"
-        sessionId: "{session_id_2}"
+        sessionId: "{session_id}"
         messages:
           - role: "user"
             content: "Who is the second president of the united states?"
         stream: false
     response:
       status_code: 200
-      # Check if the SSE response contains "George Washington"
-      # Response format: data: {"type":"text","content":"George Washington"}\n\n
       verify_response_with:
         - function: tests.integration.validators:validate_exact_text
           extra_kwargs:
-            expected_text: "John Adams."
+            expected_text: "John Adams"

@@ -30,7 +30,9 @@ def validate_exact_text(response, expected_text):
             try:
                 # Remove 'data: ' prefix and parse JSON
                 json_data = json.loads(line[6:])  # Remove 'data: ' (6 chars)
-                if json_data.get("type") == "text" and "content" in json_data:
+                if answer := json_data.get("answer"):
+                    combined_text += str(answer)
+                elif json_data.get("type") == "text" and "content" in json_data:
                     combined_text += json_data["content"]
             except (json.JSONDecodeError, KeyError):
                 # Skip lines that aren't valid JSON or don't have expected
@@ -46,6 +48,7 @@ def validate_exact_text(response, expected_text):
         f"Combined text from SSE chunks: '{combined_text}' "
         f"Raw response body: {body_text[:500]}..."  # Show first 500 chars
     )
+
 
 
 def validate_users_list_contains_admin(response):
