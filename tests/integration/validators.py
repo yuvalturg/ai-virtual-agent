@@ -50,7 +50,6 @@ def validate_exact_text(response, expected_text):
     )
 
 
-
 def validate_users_list_contains_admin(response):
     """
     Validate that the users list response contains an admin user.
