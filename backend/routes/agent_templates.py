@@ -14,6 +14,7 @@ Key Features:
 """
 
 import asyncio
+import logging
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -24,8 +25,7 @@ from .. import models, schemas
 from ..api.llamastack import get_client_from_request
 from ..database import AsyncSessionLocal
 from ..routes.knowledge_bases import create_knowledge_base
-from ..routes.virtual_assistants import create_virtual_assistant
-from ..utils.logging_config import get_logger
+from ..routes.virtual_agents import create_virtual_agent
 from ..utils.template_loader import (
     get_suites_by_category as get_suites_by_category_util,
 )
@@ -33,7 +33,7 @@ from ..utils.template_loader import (
     load_all_templates_from_directory,
 )
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent_templates", tags=["agent_templates"])
 
@@ -258,12 +258,14 @@ async def initialize_agent_from_template(
             )
             existing_metadata = result.scalars().first()
             if existing_metadata:
-                # Verify the agent still exists in LlamaStack; if gone, clean stale metadata
+                # Verify the agent still exists in LlamaStack; if gone, clean stale
+                # metadata
                 try:
                     client = get_client_from_request(http_request)
                     await client.agents.retrieve(agent_id=existing_metadata.agent_id)
                     logger.info(
-                        f"Agent already deployed for template {request.template_name}: {existing_metadata.agent_id}"
+                        f"Agent already deployed for template "
+                        f"{request.template_name}: {existing_metadata.agent_id}"
                     )
                     return TemplateInitializationResponse(
                         agent_id="",
@@ -289,7 +291,8 @@ async def initialize_agent_from_template(
                         await db.commit()
                     except Exception as cleanup_error:
                         logger.warning(
-                            f"Failed to delete stale metadata for template {request.template_name}: {cleanup_error}"
+                            f"Failed to delete stale metadata for template "
+                            f"{request.template_name}: {cleanup_error}"
                         )
 
         # Step 1: Create knowledge base if requested
@@ -303,15 +306,15 @@ async def initialize_agent_from_template(
                 async with AsyncSessionLocal() as db:
                     result = await db.execute(
                         select(models.KnowledgeBase).where(
-                            models.KnowledgeBase.vector_db_name
-                            == kb_config["vector_db_name"]
+                            models.KnowledgeBase.vector_store_name
+                            == kb_config["vector_store_name"]
                         )
                     )
                     existing_kb = result.scalar_one_or_none()
 
                     if existing_kb:
                         logger.info(
-                            f"Knowledge base '{kb_config['vector_db_name']}' "
+                            f"Knowledge base '{kb_config['vector_store_name']}' "
                             f"already exists, skipping creation"
                         )
                         knowledge_base_created = True
@@ -350,7 +353,7 @@ async def initialize_agent_from_template(
         # Determine model: prefer override if provided and non-empty
         model_to_use = request.model_name or template.model_name
 
-        agent_config = schemas.VirtualAssistantCreate(
+        agent_config = schemas.VirtualAgentCreate(
             name=agent_name,
             prompt=agent_prompt,
             model_name=model_to_use,
@@ -369,9 +372,7 @@ async def initialize_agent_from_template(
         )
 
         async with AsyncSessionLocal() as db:
-            created_agent = await create_virtual_assistant(
-                agent_config, http_request, db
-            )
+            created_agent = await create_virtual_agent(agent_config, http_request, db)
 
             # Persist agent metadata for suite/template grouping
             try:

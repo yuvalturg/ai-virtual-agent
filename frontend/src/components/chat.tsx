@@ -103,9 +103,8 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     refetch: refetchUser,
   } = useCurrentUser();
 
-  // Get the agent type for the selected agent
+  // Get the selected agent object
   const selectedAgentObj = availableAgents.find((agent) => agent.id === selectedAgent);
-  const agentType = selectedAgentObj?.agent_type === 'ReAct' ? 'ReAct' : 'Regular';
 
   // Use our custom hook for chat functionality - only when we have a valid agent
   const {
@@ -115,12 +114,16 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     append,
     isLoading,
     loadSession,
+    loadMoreMessages,
     sessionId,
     attachedFiles,
     handleAttach,
     clearAttachedFiles,
     setAttachedFiles,
-  } = useChat(selectedAgent || 'default', agentType, {
+    hasMoreMessages,
+    isLoadingMore,
+    totalMessages,
+  } = useChat(selectedAgent || 'default', {
     onError: (error: Error) => {
       console.error('Chat error:', error);
       setAnnouncement(`Error: ${error.message}`);
@@ -130,16 +133,20 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       if (scrollToBottomRef.current) {
         scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' });
       }
+      // Session list will be refreshed when user opens the drawer (on-demand)
     },
   });
   const contentToText = (content: SimpleContentItem): string => {
-    if (content.type === 'text') {
-      return content.text || '';
+    if (content.type === 'input_text' || content.type === 'output_text') {
+      return content.text;
     }
 
-    // The backend does not set/store the sourceType, so we need to check for the url property
-    if (content.type === 'image' && 'url' in content.image) {
-      return `![Image](${content.image.url.uri})`;
+    if (content.type === 'input_image') {
+      // Convert relative URLs to full URLs for browser display
+      const imageUrl = content.image_url.startsWith('/')
+        ? `${window.location.origin}${content.image_url}`
+        : content.image_url;
+      return `![Image](${imageUrl})`;
     }
 
     return '';
@@ -157,7 +164,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
           id: msg.id,
           role: msg.role === 'user' ? 'user' : 'bot',
           content: multipleContentToText(msg.content),
-          name: msg.role === 'user' ? 'You' : 'Assistant',
+          name: msg.role === 'user' ? 'You' : 'Agent',
           timestamp: msg.timestamp.toLocaleString(),
           avatar: msg.role === 'user' ? userAvatar : botAvatar,
           avatarProps: { isBordered: true },
@@ -491,10 +498,11 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     if (typeof message === 'string' && message.trim() && selectedAgent) {
       console.log('Sending message via append:', message, 'using session:', sessionId);
       const contents: SimpleContentItem[] = [];
-      contents.push({ type: 'text', text: message });
+      contents.push({ type: 'input_text', text: message });
       for (const file of attachedFiles) {
         const attachmentUrl = await handleUploadAttachment(file, sessionId);
-        contents.push({ type: 'image', image: { sourceType: 'url', url: { uri: attachmentUrl } } });
+        // Pass relative URL - backend will expand to full URL for LlamaStack
+        contents.push({ type: 'input_image', image_url: attachmentUrl });
       }
       // Add the message to the chat
       append({
@@ -573,7 +581,12 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         <ChatbotConversationHistoryNav
           displayMode={displayMode}
           onDrawerToggle={() => {
-            setIsDrawerOpen(!isDrawerOpen);
+            const newDrawerState = !isDrawerOpen;
+            setIsDrawerOpen(newDrawerState);
+            // Fetch fresh session data when opening the drawer
+            if (newDrawerState && selectedAgent) {
+              void fetchSessionsData(selectedAgent);
+            }
           }}
           isDrawerOpen={isDrawerOpen}
           setIsDrawerOpen={setIsDrawerOpen}
@@ -604,7 +617,14 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                   <ChatbotHeaderMenu
                     ref={historyRef}
                     aria-expanded={isDrawerOpen}
-                    onMenuToggle={() => setIsDrawerOpen(!isDrawerOpen)}
+                    onMenuToggle={() => {
+                      const newDrawerState = !isDrawerOpen;
+                      setIsDrawerOpen(newDrawerState);
+                      // Fetch fresh session data when opening the drawer
+                      if (newDrawerState && selectedAgent) {
+                        void fetchSessionsData(selectedAgent);
+                      }
+                    }}
                   />
                   <ChatbotHeaderTitle>Chat</ChatbotHeaderTitle>
                 </ChatbotHeaderMain>
@@ -691,6 +711,22 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                   announcement={announcement}
                   style={{ maxWidth: '85%', width: '85%', margin: '0 auto' }}
                 >
+                  {/* Show load more messages button if there are more messages to load */}
+                  {hasMoreMessages && (
+                    <div style={{ textAlign: 'center', padding: '16px' }}>
+                      <Button
+                        variant="link"
+                        onClick={() => void loadMoreMessages()}
+                        isLoading={isLoadingMore}
+                        size="sm"
+                        style={{ fontSize: '14px' }}
+                      >
+                        {isLoadingMore
+                          ? 'Loading...'
+                          : `Load earlier messages (${totalMessages - messages.length} more)`}
+                      </Button>
+                    </div>
+                  )}
                   {messages.map((message, index) => {
                     if (index === messages.length - 1) {
                       return (

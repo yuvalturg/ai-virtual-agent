@@ -10,10 +10,11 @@ import logging
 from typing import List
 
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..api.llamastack import sync_client
+from ..routes.virtual_agents import get_virtual_agent_config
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -38,18 +39,19 @@ class UserService:
             if agent_id not in user_agent_ids:
                 unique_agent_ids.append(agent_id)
             else:
-                log.info(f"Agent {agent_id} already assigned to user, skipping")
+                logger.info(f"Agent {agent_id} already assigned to user, skipping")
 
         return unique_agent_ids
 
     @staticmethod
     async def assign_agents_to_user(
-        user_agent_ids: List[str], requested_agent_ids: List[str]
+        db: AsyncSession, user_agent_ids: List[str], requested_agent_ids: List[str]
     ) -> List[str]:
         """
         Add requested agents to user's agent list, preventing duplicates.
 
         Args:
+            db: Database session for agent verification
             user_agent_ids: List of agent IDs currently assigned to the user
             requested_agent_ids: List of agent IDs to assign to the user
 
@@ -58,18 +60,17 @@ class UserService:
             ones)
 
         Raises:
-            HTTPException: If any agent doesn't exist in LlamaStack
+            HTTPException: If any agent doesn't exist in VirtualAgentConfig
         """
-        # Verify all requested agents exist in LlamaStack
+        # Verify all requested agents exist in our VirtualAgentConfig table
         for agent_id in requested_agent_ids:
-            try:
-                sync_client.agents.retrieve(agent_id=agent_id)  # type: ignore
-                log.info(f"Verified agent exists: {agent_id}")
-            except Exception as e:
-                log.error(f"Agent {agent_id} not found in LlamaStack: {str(e)}")
+            agent_config = await get_virtual_agent_config(db, agent_id)
+            if not agent_config:
+                logger.error(f"Agent {agent_id} not found in VirtualAgentConfig")
                 raise HTTPException(
                     status_code=404, detail=f"Agent {agent_id} not found"
                 )
+            logger.info(f"Verified agent exists: {agent_id} ({agent_config.name})")
 
         # Check for duplicates and get only new unique agent IDs
         new_agent_ids = await UserService.get_unique_agents_ids(
@@ -79,7 +80,7 @@ class UserService:
         # Combine existing and new agent IDs
         all_agent_ids = user_agent_ids + new_agent_ids
 
-        log.info(f"Added {len(new_agent_ids)} new agents to user")
+        logger.info(f"Added {len(new_agent_ids)} new agents to user")
         return all_agent_ids
 
     @staticmethod
@@ -103,5 +104,5 @@ class UserService:
             if agent_id not in agents_to_remove
         ]
 
-        log.info(f"Removed {len(agents_to_remove)} agents from user")
+        logger.info(f"Removed {len(agents_to_remove)} agents from user")
         return remaining_agent_ids

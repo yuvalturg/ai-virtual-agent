@@ -16,11 +16,11 @@ stages:
           provider_resource_id: "llama3.2:1b-instruct-fp16"
           model_type: "llm"
 ---
-test_name: Test Virtual Assistants API Endpoint
+test_name: Test Virtual Agents API Endpoint
 stages:
-  - name: Test POST /api/virtual_assistants
+  - name: Test POST /api/virtual_agents
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_assistants/"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/"
       method: POST
       headers:
         Accept: application/json
@@ -42,10 +42,10 @@ stages:
       save:
         json:
           agent_id: "id"
-  - name: Test GET /api/virtual_assistants
+  - name: Test GET /api/virtual_agents
     request:
       url: >-
-        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_assistants/{agent_id}
+        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}
       method: GET
       headers:
         Accept: application/json
@@ -56,7 +56,6 @@ stages:
       headers:
         content-type: application/json
       json:
-        agent_type: "ReAct"
         category: null
         metadata: null
         template_id: null
@@ -65,7 +64,7 @@ stages:
         suite_name: null
         sampling_strategy: greedy
         name: "Test Assistant"
-        prompt: "You are a helpful assistant.\n\nProvide clear, helpful responses."
+        prompt: "You are a helpful assistant."
         stop_sequences:
           - "\n\n"
           - "Thank you"
@@ -84,10 +83,10 @@ stages:
         max_infer_iters: 10
         enable_session_persistence: false
         id: "{agent_id}"
-  - name: Test DELETE /api/virtual_assistants
+  - name: Test DELETE /api/virtual_agents
     request:
       url: >-
-        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_assistants/{agent_id}
+        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}
       method: DELETE
       headers:
         Accept: application/json

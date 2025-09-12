@@ -35,7 +35,7 @@ stages:
         username: "workflow_user_{tavern.env_vars.TAVERN_UNIQUE}"
         email: "workflow_{tavern.env_vars.TAVERN_UNIQUE}@example.com"
         role: "user"
-        agent_ids: []
+        agent_ids: !anything
         created_at: !anything
         updated_at: !anything
 
@@ -52,14 +52,13 @@ stages:
         username: "updated_workflow_user_{tavern.env_vars.TAVERN_UNIQUE}"
         email: "updated_workflow_{tavern.env_vars.TAVERN_UNIQUE}@example.com"
         role: "devops"
-        agent_ids: []
     response:
       status_code: 200
       json:
         username: "updated_workflow_user_{tavern.env_vars.TAVERN_UNIQUE}"
         email: "updated_workflow_{tavern.env_vars.TAVERN_UNIQUE}@example.com"
         role: "devops"
-        agent_ids: []
+        agent_ids: !anything
         id: !anything
         created_at: !anything
         updated_at: !anything
@@ -77,7 +76,7 @@ stages:
         username: "updated_workflow_user_{tavern.env_vars.TAVERN_UNIQUE}"
         email: "updated_workflow_{tavern.env_vars.TAVERN_UNIQUE}@example.com"
         role: "devops"
-        agent_ids: []
+        agent_ids: !anything
         id: !anything
         created_at: !anything
         updated_at: !anything
@@ -119,7 +118,7 @@ stages:
         username: "dev-user"
         email: "dev@localhost.dev"
         role: "admin"
-        agent_ids: []
+        agent_ids: !anything
         id: !anything
         created_at: !anything
         updated_at: !anything
@@ -175,7 +174,7 @@ stages:
 #         username: "admin"
 #         email: "admin@example.com"  # Original email should be intact
 #         role: "admin"
-#         agent_ids: []
+#         agent_ids: !anything
 #         id: !anything
 #         created_at: !anything
 #         updated_at: !anything

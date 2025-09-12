@@ -236,7 +236,7 @@ POST /api/knowledge_bases
 **Request Body:**
 ```json
 {
-  "vector_db_name": "support-docs-v1",
+  "vector_store_name": "support-docs-v1",
   "name": "Support Documentation",
   "version": "1.0",
   "embedding_model": "all-MiniLM-L6-v2",
@@ -254,7 +254,7 @@ POST /api/knowledge_bases
 **Response:**
 ```json
 {
-  "vector_db_name": "support-docs-v1",
+  "vector_store_name": "support-docs-v1",
   "name": "Support Documentation",
   "version": "1.0",
   "embedding_model": "all-MiniLM-L6-v2",
@@ -283,7 +283,7 @@ GET /api/knowledge_bases
 ```json
 [
   {
-    "vector_db_name": "support-docs-v1",
+    "vector_store_name": "support-docs-v1",
     "name": "Support Documentation",
     "version": "1.0",
     "embedding_model": "all-MiniLM-L6-v2",
@@ -305,16 +305,16 @@ GET /api/knowledge_bases
 Retrieve a specific knowledge base by vector database name.
 
 ```http
-GET /api/knowledge_bases/{vector_db_name}
+GET /api/knowledge_bases/{vector_store_name}
 ```
 
 **Parameters:**
-- `vector_db_name` (path): The vector database identifier
+- `vector_store_name` (path): The vector store identifier
 
 **Response:**
 ```json
 {
-  "vector_db_name": "support-docs-v1",
+  "vector_store_name": "support-docs-v1",
   "name": "Support Documentation",
   "version": "1.0",
   "embedding_model": "all-MiniLM-L6-v2",
@@ -334,11 +334,11 @@ GET /api/knowledge_bases/{vector_db_name}
 Delete a knowledge base and its associated vector data.
 
 ```http
-DELETE /api/knowledge_bases/{vector_db_name}
+DELETE /api/knowledge_bases/{vector_store_name}
 ```
 
 **Parameters:**
-- `vector_db_name` (path): The vector database identifier
+- `vector_store_name` (path): The vector store identifier
 
 **Response:**
 ```http
@@ -357,7 +357,7 @@ POST /api/knowledge_bases/sync
 ```json
 [
   {
-    "vector_db_name": "support-docs-v1",
+    "vector_store_name": "support-docs-v1",
     "name": "Support Documentation",
     "status": "READY",
     "synced": true

@@ -30,5 +30,5 @@ export interface LlamaStackResponse {
 }
 
 export type LlamaStackParser = {
-  parse(text: string, agentType?: 'Regular' | 'ReAct'): string | null;
+  parse(text: string): string | null;
 };

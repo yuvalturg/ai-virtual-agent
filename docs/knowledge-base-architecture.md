@@ -79,7 +79,7 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     UI->>API: POST /knowledge_bases
-    Note right of UI: User provides:<br/>- name: "Product Docs"<br/>- vector_db_name: "product-docs-v1"<br/>- S3 configuration
+    Note right of UI: User provides:<br/>- name: "Product Docs"<br/>- vector_store_name: "product-docs-v1"<br/>- S3 configuration
     API->>DB: INSERT knowledge base metadata
     DB-->>API: KB record created
     API-->>UI: Return KB metadata
@@ -127,7 +127,7 @@ sequenceDiagram
     Note right of DOC: • Parse PDFs with Docling<br/>• Intelligent chunking<br/>• Generate embeddings
 
     DOC->>LS: Register vector database
-    Note right of DOC: vector_db_id: "{name}-v{version}"<br/>provider_id: "pgvector"
+    Note right of DOC: vector_store_id: "{name}-v{version}"<br/>provider_id: "pgvector"
     LS-->>DOC: Vector DB registered
 
     DOC->>LS: Insert document embeddings
@@ -152,7 +152,7 @@ sequenceDiagram
         API->>DB: SELECT * FROM knowledge_bases
         DB-->>API: KB metadata records
     and Fetch vector databases
-        API->>LS: GET /vector_dbs
+        API->>LS: GET /vector_stores
         LS-->>API: Vector database list
     end
 
@@ -263,8 +263,8 @@ graph TD
        SELECT name, source_configuration::text
        FROM knowledge_bases
        WHERE NOT EXISTS (
-           SELECT 1 FROM llamastack_vector_dbs
-           WHERE kb_name = knowledge_bases.vector_db_name
+           SELECT 1 FROM llamastack_vector_stores
+           WHERE kb_name = knowledge_bases.vector_store_name
        );
    """
    ```
@@ -291,8 +291,8 @@ graph TD
 4. **Vector Database Creation**
    ```python
    # Register vector database with LlamaStack
-   client.vector_dbs.register(
-       vector_db_id=f"{name}-v{version}",
+   client.vector_stores.register(
+       vector_store_id=f"{name}-v{version}",
        embedding_model="all-MiniLM-L6-v2",
        provider_id="pgvector"
    )
@@ -300,7 +300,7 @@ graph TD
    # Insert chunked documents with embeddings
    client.tool_runtime.rag_tool.insert(
        documents=llama_documents,
-       vector_db_id=vector_db_name,
+       vector_store_id=vector_store_name,
        chunk_size_in_tokens=512
    )
    ```
@@ -320,7 +320,7 @@ The system maintains consistency between three data sources:
 ```sql
 -- Backend: models.py - Only stores metadata, NO status field
 class KnowledgeBase(Base):
-    vector_db_name: str (Primary Key, LlamaStack identifier)
+    vector_store_name: str (Primary Key, LlamaStack identifier)
     name: str (Display name)
     version: str
     embedding_model: str
@@ -336,9 +336,9 @@ class KnowledgeBase(Base):
 <!-- omit from toc -->
 #### LlamaStack Vector Database
 ```python
-# LlamaStack vector_db structure
+# LlamaStack vector_store structure
 {
-    "kb_name": str,              # Matches vector_db_name in DB
+    "kb_name": str,              # Matches vector_store_name in DB
     "provider_resource_id": str,
     "description": str,
     "configuration": dict
@@ -349,7 +349,7 @@ class KnowledgeBase(Base):
 ```typescript
 // Frontend types - status is computed, not stored
 interface KnowledgeBase {
-  vector_db_name: string;  // Primary key
+  vector_store_name: string;  // Primary key
   name: string;
   version: string;
   embedding_model: string;
@@ -438,7 +438,7 @@ export const getStatusLabel = (status: KBStatus): string => ({
 # Backend sync logic (simplified)
 async def sync_knowledge_bases(db: AsyncSession):
     # Fetch from both sources
-    llamastack_kbs = client.vector_dbs.list()
+    llamastack_kbs = client.vector_stores.list()
     db_kbs = await db.execute(select(KnowledgeBase)).scalars().all()
 
     # Add missing LlamaStack items to DB
@@ -480,7 +480,7 @@ Knowledge bases are used for RAG (Retrieval-Augmented Generation) through the Ll
 const virtualAssistant = {
   name: "Product Support Assistant",
   model: "llama3.1-8b",
-  knowledge_bases: ["product-docs-v1", "faq-kb-v2"], // KB vector_db_names
+  knowledge_bases: ["product-docs-v1", "faq-kb-v2"], // KB vector_store_names
   tools: ["builtin::rag"], // Built-in RAG tool enabled
   // ... other agent configuration
 };
@@ -518,7 +518,7 @@ const chatMessage = {
 # S3-based knowledge base
 {
   "name": "Support Docs",
-  "vector_db_name": "support-docs-v1",
+  "vector_store_name": "support-docs-v1",
   "source": "s3",
   "source_configuration": {
     "bucket_name": "support-documentation",
@@ -554,7 +554,7 @@ curl -X POST http://localhost:8081/api/knowledge_bases \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Company Documentation",
-    "vector_db_name": "company-docs-v1",
+    "vector_store_name": "company-docs-v1",
     "source": "s3",
     "source_configuration": {
       "bucket_name": "company-docs",
@@ -573,7 +573,7 @@ kubectl get jobs -w -l pipelines.kubeflow.org/v2_component=true
 kubectl logs -f job/ingestion-pipeline-company-docs-v1
 
 # Check status transition (PENDING → READY)
-watch "curl -s http://localhost:8081/api/knowledge_bases | jq '.[] | select(.vector_db_name==\"company-docs-v1\") | .status'"
+watch "curl -s http://localhost:8081/api/knowledge_bases | jq '.[] | select(.vector_store_name==\"company-docs-v1\") | .status'"
 ```
 <!-- omit from toc -->
 #### 4. Test Knowledge Retrieval
@@ -586,7 +586,7 @@ curl -X POST http://localhost:8081/api/llama_stack/rag \
   -H "Content-Type: application/json" \
   -d '{
     "query": "how to install the software",
-    "vector_db_ids": ["company-docs-v1"],
+    "vector_store_ids": ["company-docs-v1"],
     "top_k": 5
   }'
 ```
@@ -650,10 +650,10 @@ kubectl logs job/ingestion-pipeline-{kb-name}
 **If agent can't use knowledge base:**
 ```bash
 # 1. Verify KB status is READY (not PENDING)
-curl http://localhost:8081/api/knowledge_bases | jq '.[] | select(.vector_db_name=="your-kb")'
+curl http://localhost:8081/api/knowledge_bases | jq '.[] | select(.vector_store_name=="your-kb")'
 # 2. Test vector search directly
 curl -X POST http://localhost:8081/api/llama_stack/rag \
-  -d '{"query": "test search", "vector_db_ids": ["your-kb"], "top_k": 3}'
+  -d '{"query": "test search", "vector_store_ids": ["your-kb"], "top_k": 3}'
 # 3. Check agent configuration includes correct KB ID
 curl http://localhost:8081/api/virtual_assistants/{agent-id} | jq '.knowledge_base_ids'
 ```

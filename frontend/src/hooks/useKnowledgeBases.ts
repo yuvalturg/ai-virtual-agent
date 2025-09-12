@@ -1,9 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { KnowledgeBase, KnowledgeBaseWithStatus, LSKnowledgeBase } from '@/types';
+import { KnowledgeBase, KnowledgeBaseWithStatus } from '@/types';
 import {
-  fetchKnowledgeBases,
   fetchKnowledgeBasesWithStatus,
-  fetchLlamaStackKnowledgeBases,
   createKnowledgeBase,
   deleteKnowledgeBase,
 } from '@/services/knowledge-bases';
@@ -11,22 +9,10 @@ import {
 export const useKnowledgeBases = () => {
   const queryClient = useQueryClient();
 
-  // Query for knowledge bases
+  // Query for knowledge bases with status
   const knowledgeBasesQuery = useQuery<KnowledgeBaseWithStatus[], Error>({
     queryKey: ['knowledgeBases'],
     queryFn: fetchKnowledgeBasesWithStatus,
-  });
-
-  // Query for basic knowledge bases without status
-  const basicKnowledgeBasesQuery = useQuery<KnowledgeBaseWithStatus[], Error>({
-    queryKey: ['knowledgeBases', 'basic'],
-    queryFn: fetchKnowledgeBases,
-  });
-
-  // Query for LlamaStack knowledge bases
-  const llamaStackKnowledgeBasesQuery = useQuery<LSKnowledgeBase[], Error>({
-    queryKey: ['knowledgeBases', 'llamastack'],
-    queryFn: fetchLlamaStackKnowledgeBases,
   });
 
   // Mutation for creating knowledge bases
@@ -67,16 +53,6 @@ export const useKnowledgeBases = () => {
     knowledgeBases: knowledgeBasesQuery.data,
     isLoading: knowledgeBasesQuery.isLoading,
     error: knowledgeBasesQuery.error,
-
-    // Basic knowledge bases
-    basicKnowledgeBases: basicKnowledgeBasesQuery.data,
-    isLoadingBasic: basicKnowledgeBasesQuery.isLoading,
-    basicError: basicKnowledgeBasesQuery.error,
-
-    // LlamaStack knowledge bases
-    llamaStackKnowledgeBases: llamaStackKnowledgeBasesQuery.data,
-    isLoadingLlamaStack: llamaStackKnowledgeBasesQuery.isLoading,
-    llamaStackError: llamaStackKnowledgeBasesQuery.error,
 
     // Mutations
     createKnowledgeBase: createKnowledgeBaseMutation.mutateAsync,

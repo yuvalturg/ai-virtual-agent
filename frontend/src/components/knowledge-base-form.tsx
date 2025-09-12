@@ -79,7 +79,7 @@ export function KnowledgeBaseForm({
   // State for URL inputs (special case since it's an array)
   const [urlInputs, setUrlInputs] = useState<string[]>(['']);
   const [urlErrors, setUrlErrors] = useState<(string | undefined)[]>(['']);
-  const [defaultVectorDbName, setDefaultVectorDbName] = useState<string>('');
+  const [defaultVectorStoreName, setDefaultVectorStoreName] = useState<string>('');
 
   // State for configuration preview
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
@@ -173,7 +173,7 @@ export function KnowledgeBaseForm({
         version: '',
         embedding_model: '',
         provider_id: '',
-        vector_db_name: '',
+        vector_store_name: '',
         is_external: false,
         source: '',
         source_configuration: {},
@@ -227,8 +227,8 @@ export function KnowledgeBaseForm({
         finalValue = value;
       }
 
-      if (finalValue.vector_db_name.trim() === '') {
-        finalValue.vector_db_name = defaultVectorDbName;
+      if (finalValue.vector_store_name.trim() === '') {
+        finalValue.vector_store_name = defaultVectorStoreName;
       }
 
       // Remove the individual source fields from the final value
@@ -288,7 +288,7 @@ export function KnowledgeBaseForm({
       version: currentValues.version || '',
       embedding_model: currentValues.embedding_model || '',
       provider_id: currentValues.provider_id || '',
-      vector_db_name: currentValues.vector_db_name || '',
+      vector_store_name: currentValues.vector_store_name || '',
       is_external: currentValues.is_external || false,
       source: currentValues.source || '',
       source_configuration: {},
@@ -318,7 +318,7 @@ export function KnowledgeBaseForm({
     return JSON.stringify(previewConfig, null, 2);
   };
 
-  const buildDefaultVectorDbName = () => {
+  const buildDefaultVectorStoreName = () => {
     const name = form.getFieldValue('name')?.trim() || '';
     const version = form.getFieldValue('version')?.trim() || '';
     const env = form.getFieldValue('source')?.trim() || '';
@@ -326,7 +326,7 @@ export function KnowledgeBaseForm({
     const parts = [name, version, env].filter(Boolean);
     const dbname = parts.join('-').toLowerCase();
 
-    setDefaultVectorDbName(dbname);
+    setDefaultVectorStoreName(dbname);
   };
 
   return (
@@ -350,7 +350,7 @@ export function KnowledgeBaseForm({
               value={field.state.value}
               onChange={(_e, v) => {
                 field.handleChange(v);
-                buildDefaultVectorDbName();
+                buildDefaultVectorStoreName();
               }}
               validated={
                 !field.state.meta.isTouched
@@ -375,7 +375,7 @@ export function KnowledgeBaseForm({
               value={field.state.value}
               onChange={(_e, v) => {
                 field.handleChange(v);
-                buildDefaultVectorDbName();
+                buildDefaultVectorStoreName();
               }}
               validated={
                 !field.state.meta.isTouched
@@ -477,13 +477,13 @@ export function KnowledgeBaseForm({
           </FormGroup>
         )}
       </form.Field>
-      <form.Field name="vector_db_name">
+      <form.Field name="vector_store_name">
         {(field) => (
-          <FormGroup label="Vector DB Name" fieldId="kb-form-vector-db-name">
+          <FormGroup label="Vector Store Name" fieldId="kb-form-vector-store-name">
             <TextInput
-              id="kb-form-vector-db-name"
+              id="kb-form-vector-store-name"
               value={field.state.value}
-              placeholder={defaultVectorDbName}
+              placeholder={defaultVectorStoreName}
               onChange={(_e, v) => field.handleChange(v)}
             />
           </FormGroup>
@@ -507,7 +507,7 @@ export function KnowledgeBaseForm({
                 if (value === 'URL') {
                   setUrlInputs(['']);
                 }
-                buildDefaultVectorDbName();
+                buildDefaultVectorStoreName();
               }}
               aria-label="Select Source"
               validated={

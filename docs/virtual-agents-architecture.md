@@ -97,7 +97,7 @@ sequenceDiagram
     Note right of UI: User provides:<br/>- name: "Support Assistant"<br/>- model: "llama3.1-8b"<br/>- tools: ["builtin::rag"]<br/>- knowledge_bases: ["docs-kb"]<br/>- prompt: "You are a helpful..."
 
     API->>API: Process tool configuration
-    Note right of API: Convert tools to LlamaStack format:<br/>- builtin::rag with vector_db_ids<br/>- MCP servers as tool references
+    Note right of API: Convert tools to LlamaStack format:<br/>- builtin::rag with vector_store_ids<br/>- MCP servers as tool references
 
     API->>LS: agents.create(agent_config)
     Note right of API: AgentUtils.get_agent_config()<br/>with sampling params
@@ -141,7 +141,7 @@ agent_config = {
         {
             "name": "builtin::rag",
             "args": {
-                "vector_db_ids": ["product-docs-v1", "faq-kb-v2"]
+                "vector_store_ids": ["product-docs-v1", "faq-kb-v2"]"
             }
         },
         "mcp-server-tool-id"
@@ -167,7 +167,7 @@ for tool_info in agent.tools:
             tool_dict = {
                 "name": "builtin::rag",
                 "args": {
-                    "vector_db_ids": list(agent.knowledge_base_ids),
+                    "vector_store_ids": list(agent.knowledge_base_ids),
                 }
             }
             tools.append(tool_dict)
@@ -433,7 +433,7 @@ if tool_info.toolgroup_id == "builtin::rag":
         tool_dict = {
             "name": "builtin::rag",
             "args": {
-                "vector_db_ids": list(agent.knowledge_base_ids),
+                "vector_store_ids": list(agent.knowledge_base_ids),
             }
         }
 ```
@@ -601,6 +601,6 @@ curl -X POST http://localhost:8081/api/llama_stack/chat \
 curl http://localhost:8081/api/virtual_assistants/{agent-id} | jq '.tools'
 # 2. Test knowledge base search directly
 curl -X POST http://localhost:8081/api/llama_stack/rag \
-  -d '{"query": "test", "vector_db_ids": ["kb-name"]}'
+  -d '{"query": "test", "vector_store_ids": ["kb-name"]}'
 # 3. Check if KB is actually attached to agent
 ```

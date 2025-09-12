@@ -20,7 +20,6 @@ export interface SamplingParameters {
 
 export interface AgentBase {
   name: string;
-  agent_type?: string;
   model_name: string;
   prompt: string;
   knowledge_base_ids: string[];
@@ -58,7 +57,7 @@ export interface AgentTemplate {
     version: string;
     embedding_model: string;
     provider_id: string;
-    vector_db_name: string;
+    vector_store_name: string;
     is_external: boolean;
     source: string;
     source_configuration: string[];

@@ -6,6 +6,7 @@ is enabled, allowing for easier local development without requiring OAuth
 setup.
 """
 
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -65,7 +66,8 @@ async def get_or_create_dev_user(db: AsyncSession) -> models.User:
     dev_user = models.User(
         username=dev_username,
         email=dev_email,
-        role=models.RoleEnum.admin,  # Give admin role for full access during development
+        role=models.RoleEnum.admin,  # Give admin role for full access during
+        # development
         # QUICK TEST MODE: force dev user role to 'user' for UI verification
         # role=models.RoleEnum.user,
         agent_ids=[],  # Will be populated when agents are available
@@ -74,6 +76,24 @@ async def get_or_create_dev_user(db: AsyncSession) -> models.User:
     db.add(dev_user)
     await db.commit()
     await db.refresh(dev_user)
+
+    # Assign all existing agents to the new dev user
+    try:
+        from .. import models as agent_models
+
+        result = await db.execute(select(agent_models.VirtualAgentConfig.id))
+        all_agent_ids = [row[0] for row in result.all()]
+
+        if all_agent_ids:
+            dev_user.agent_ids = all_agent_ids
+            await db.commit()
+            logging.info(f"Assigned {len(all_agent_ids)} existing agents to dev user")
+        else:
+            logging.info("No existing agents to assign to dev user")
+
+    except Exception as assign_error:
+        logging.error(f"Error assigning agents to dev user: {str(assign_error)}")
+        # Don't fail dev user creation if agent assignment fails
 
     return dev_user
 

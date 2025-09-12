@@ -1,5 +1,4 @@
-import { KnowledgeBaseWithStatus } from '@/types';
-import { getStatusColor, getStatusLabel } from '@/utils/knowledge-base-status';
+import { KnowledgeBaseWithStatus, getStatusColor, getStatusLabel } from '@/types';
 import {
   Card,
   CardHeader,
@@ -27,7 +26,7 @@ import { useState, Fragment } from 'react';
 
 interface KnowledgeBaseCardProps {
   knowledgeBase: KnowledgeBaseWithStatus;
-  onDelete?: (vectorDbName: string) => void;
+  onDelete?: (vectorStoreName: string) => void;
   isDeleting?: boolean;
 }
 
@@ -47,7 +46,7 @@ export function KnowledgeBaseCard({
   };
 
   const handleDeleteKnowledgeBase = () => {
-    onDelete?.(knowledgeBase.vector_db_name);
+    onDelete?.(knowledgeBase.vector_store_name);
   };
 
   const dropdownItems = (
@@ -118,7 +117,7 @@ export function KnowledgeBaseCard({
 
   return (
     <Card
-      id={`expandable-kb-card-${knowledgeBase.vector_db_name}`}
+      id={`expandable-kb-card-${knowledgeBase.vector_store_name}`}
       isExpanded={isExpanded}
       className="pf-v6-u-mb-md"
     >
@@ -126,13 +125,13 @@ export function KnowledgeBaseCard({
         actions={{ actions: headerActions }}
         onExpand={onExpand}
         toggleButtonProps={{
-          id: `toggle-kb-button-${knowledgeBase.vector_db_name}`,
+          id: `toggle-kb-button-${knowledgeBase.vector_store_name}`,
           'aria-label': 'Details',
-          'aria-labelledby': `expandable-kb-title-${knowledgeBase.vector_db_name} toggle-kb-button-${knowledgeBase.vector_db_name}`,
+          'aria-labelledby': `expandable-kb-title-${knowledgeBase.vector_store_name} toggle-kb-button-${knowledgeBase.vector_store_name}`,
           'aria-expanded': isExpanded,
         }}
       >
-        <CardTitle id={`expandable-kb-title-${knowledgeBase.vector_db_name}`}>
+        <CardTitle id={`expandable-kb-title-${knowledgeBase.vector_store_name}`}>
           <Flex alignItems={{ default: 'alignItemsCenter' }} gap={{ default: 'gapSm' }}>
             <FlexItem>
               <Title className="pf-v6-u-mb-0" headingLevel="h2">
@@ -164,8 +163,8 @@ export function KnowledgeBaseCard({
               {knowledgeBase.provider_id}
             </FlexItem>
             <FlexItem>
-              <span className="pf-v6-u-text-color-subtle">Vector DB: </span>
-              {knowledgeBase.vector_db_name}
+              <span className="pf-v6-u-text-color-subtle">Vector Store: </span>
+              {knowledgeBase.vector_store_name}
             </FlexItem>
             <FlexItem>
               <span className="pf-v6-u-text-color-subtle">External: </span>

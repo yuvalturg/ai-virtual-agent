@@ -21,22 +21,19 @@ like conversation history sidebars.
 import json
 import logging
 import os
-from typing import Any, Dict, List, Literal, Optional
+import uuid
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     HTTPException,
     Request,
     status,
 )
 from fastapi.responses import StreamingResponse
-from llama_stack_client.types import InterleavedContent
-from llama_stack_client.types.shared.interleaved_content_item import (
-    ImageContentItemImageURL,
-)
 from pydantic import BaseModel
+from sqlalchemy import case, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,11 +42,33 @@ from backend.database import get_db
 
 from ..api.llamastack import get_client_from_request
 from .chat import Chat
-from .virtual_assistants import read_virtual_assistant
+from .virtual_agents import get_virtual_agent_config
 
 ATTACHMENTS_INTERNAL_API_ENDPOINT = os.getenv(
     "ATTACHMENTS_INTERNAL_API_ENDPOINT", "http://ai-virtual-agent:8000"
 )
+
+
+class TextContentItem(BaseModel):
+    """
+    Text content item for LlamaStack Responses API format.
+    """
+
+    type: Literal["input_text"]
+    text: str
+
+
+class ImageContentItem(BaseModel):
+    """
+    Image content item for LlamaStack Responses API format.
+    """
+
+    type: Literal["input_image"]
+    image_url: str
+
+
+# Union type for content items
+ContentItem = Union[TextContentItem, ImageContentItem]
 
 
 class Message(BaseModel):
@@ -58,11 +77,11 @@ class Message(BaseModel):
 
     Attributes:
         role: The role of the message sender ('user', 'assistant', or 'system')
-        content: The text content of the message
+        content: List of content items (text or images) in OpenAI/Responses API format
     """
 
     role: Literal["user", "assistant", "system"]
-    content: InterleavedContent
+    content: List[ContentItem]
 
 
 class VAChatMessage(BaseModel):
@@ -85,7 +104,7 @@ class VAChatMessage(BaseModel):
     parts: List[str] = []  # Add parts field to match useChat format
 
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/llama_stack", tags=["llama_stack"])
 
@@ -112,19 +131,19 @@ async def get_llms(request: Request):
     """
     client = get_client_from_request(request)
     try:
-        log.info(f"Attempting to fetch models from LlamaStack at {client.base_url}")
+        logger.info(f"Attempting to fetch models from LlamaStack at {client.base_url}")
         try:
             models = await client.models.list()
-            log.info(f"Received response from LlamaStack: {models}")
+            logger.info(f"Received response from LlamaStack: {models}")
         except Exception as client_error:
-            log.error(f"Error calling LlamaStack API: {str(client_error)}")
+            logger.error(f"Error calling LlamaStack API: {str(client_error)}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Failed to connect to LlamaStack API: {str(client_error)}",
             )
 
         if not models:
-            log.warning("No models returned from LlamaStack")
+            logger.warning("No models returned from LlamaStack")
             return []
 
         llms = []
@@ -138,54 +157,20 @@ async def get_llms(request: Request):
                     }
                     llms.append(llm_config)
             except AttributeError as ae:
-                log.error(
+                logger.error(
                     f"Error processing model data: {str(ae)}. Model data: {model}"
                 )
                 continue
 
-        log.info(f"Successfully processed {len(llms)} LLM models")
+        logger.info(f"Successfully processed {len(llms)} LLM models")
         return llms
 
     except Exception as e:
-        log.error(f"Unexpected error in get_llms: {str(e)}")
+        logger.error(f"Unexpected error in get_llms: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}",
         )
-
-
-@router.get("/knowledge_bases", response_model=List[Dict[str, Any]])
-async def get_knowledge_bases(request: Request):
-    """
-    Retrieve all available knowledge bases from LlamaStack vector databases.
-
-    Fetches the complete list of vector databases available in LlamaStack,
-    which represent knowledge bases that can be used for RAG (Retrieval
-    Augmented Generation) operations with virtual agents.
-
-    Returns:
-        List of dictionaries containing knowledge base information:
-        - kb_name: The knowledge base identifier
-        - provider_resource_id: Provider-specific resource identifier
-
-    Raises:
-        HTTPException: If LlamaStack communication fails
-    """
-    client = get_client_from_request(request)
-    try:
-        kbs = await client.vector_dbs.list()
-        return [
-            {
-                "kb_name": str(kb.identifier),
-                "provider_resource_id": kb.provider_resource_id,
-                "provider_id": kb.provider_id,
-                "type": kb.type,
-                "embedding_model": kb.embedding_model,
-            }
-            for kb in kbs
-        ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/tools", response_model=List[Dict[str, Any]])
@@ -367,45 +352,25 @@ class ChatRequest(BaseModel):
     Request model for LlamaStack chat interactions.
 
     Defines the structure for chat requests sent to the LlamaStack chat
-    endpoint.  Includes virtual agent selection, conversation history,
+    endpoint. Includes virtual agent selection, message content,
     streaming preferences, and session management.
 
     Attributes:
-        virtualAssistantId: The ID of the virtual agent to use for chat
-        messages: List of conversation messages (user, assistant, system)
+        virtualAgentId: The ID of the virtual agent to use for chat
+        message: Single message with content items (text, images, etc.)
         stream: Whether to stream the response (default: False)
-        sessionId: Optional session ID for conversation continuity
+        sessionId: Optional session ID for UI purposes
     """
 
-    virtualAssistantId: str
-    messages: list[Message]
+    virtualAgentId: str
+    message: Message
     stream: bool = False
     sessionId: Optional[str] = None
-
-
-# Add helper function to get agent type from database
-async def get_agent_type_from_db(db: AsyncSession, agent_id: str) -> str:
-    """Get agent type from database."""
-    from sqlalchemy.future import select
-
-    try:
-        result = await db.execute(
-            select(models.AgentType).where(models.AgentType.agent_id == agent_id)
-        )
-        agent_type_record = result.scalar_one_or_none()
-        if agent_type_record:
-            agent_type = agent_type_record.agent_type.value
-            return agent_type
-        else:
-            return "Regular"
-    except Exception:
-        return "Regular"
 
 
 @router.post("/chat")
 async def chat(
     chatRequest: ChatRequest,
-    background_task: BackgroundTasks,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
@@ -415,138 +380,126 @@ async def chat(
     Handles real-time chat interactions by streaming responses from LlamaStack
     agents while maintaining session state. Automatically saves session
     metadata to the database for UI features like conversation history
-    sidebars.
+    sidebars and handles response chaining by looking up previous response IDs.
 
-    The endpoint validates the virtual agent exists, requires a session ID,
-    and streams responses in Server-Sent Events format. Session metadata is
-    saved asynchronously to avoid blocking the chat response.
+    The endpoint validates the virtual agent exists, looks up the previous
+    response ID from the database for conversation chaining, and streams
+    responses in Server-Sent Events format. Session metadata is saved
+    synchronously after the response completes.
 
     Args:
-        chatRequest: ChatRequest containing assistant ID, messages, and
-                     session info
-        background_task: FastAPI background tasks for async metadata saving
-        db: Database session for metadata operations
+        chatRequest: ChatRequest containing agent ID, message, and session info
+        request: FastAPI request object for LlamaStack client access
+        db: Database session for metadata operations and response ID lookup
 
     Returns:
         StreamingResponse: Server-Sent Events stream of chat responses
 
     Raises:
         HTTPException:
-            - 404 if virtual agent not found in LlamaStack
-            - 400 if session ID is missing
+            - 404 if virtual agent not found in database
             - 500 for internal server errors during chat processing
     """
-    client = get_client_from_request(request)
     try:
-        log.info(f"Received chatRequest: {chatRequest.model_dump()}")
+        logger.info(f"Received chatRequest: {chatRequest.model_dump()}")
 
-        # Get the agent directly from LlamaStack
+        # Get the agent config from our local database instead of LlamaStack
         try:
-            agent = await client.agents.retrieve(
-                agent_id=chatRequest.virtualAssistantId
+            result = await db.execute(
+                select(models.VirtualAgentConfig).where(
+                    models.VirtualAgentConfig.id == chatRequest.virtualAgentId
+                )
             )
-            log.info(f"Found agent: {agent.agent_id}")
+            agent_config = result.scalar_one_or_none()
+            if not agent_config:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Virtual agent {chatRequest.virtualAgentId} not found",
+                )
+        except HTTPException:
+            raise
         except Exception as e:
-            log.error(
-                f"Agent {chatRequest.virtualAssistantId} not found \
-                    in LlamaStack: {str(e)}"
-            )
+            logger.error(f"Error retrieving agent config: {str(e)}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Virtual agent {chatRequest.virtualAssistantId} not found",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error retrieving agent configuration: {str(e)}",
             )
 
-        # Use the agent_id directly from LlamaStack
-        agent_id = chatRequest.virtualAssistantId
+        # Use the agent_id from our database
+        agent_id = chatRequest.virtualAgentId
 
-        # Session ID is required - no session creation in chat endpoint
+        # Session ID for UI purposes - generate one if not provided
         session_id = chatRequest.sessionId
         if not session_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Session ID is required. Please select or create a "
-                    "session first."
-                ),
-            )
+            session_id = str(uuid.uuid4())
+            logger.info(f"Generated new session ID: {session_id}")
 
-        log.info(f"Using agent: {agent_id} with session: {session_id}")
-
-        # Get agent type from database
-        agent_type_str = await get_agent_type_from_db(db, agent_id)
-        log.info(f"Retrieved agent_type: {agent_type_str} for agent: {agent_id}")
-
-        # Create stateless Chat instance (no longer needs assistant or
-        # session_state)
-        chat = Chat(log, request)
-
-        # The URLs provided by the request are only the path portion, e.g.
-        # /api/attachments/...
-        # LlamaStack expects the full URL, so we need to add the
-        # protocol/host/port.
-        def _expand_image_urls(content: InterleavedContent):
-            if isinstance(content, list):
-                for idx, item in enumerate(content):
-                    if (
-                        item.type == "image"
-                        and hasattr(item, "image")
-                        and hasattr(getattr(item, "image"), "url")
-                    ):
-                        current_url = item.image.url
-                        if current_url:
-                            uri = current_url.uri
-                            item.image.url = ImageContentItemImageURL(
-                                uri=f"{ATTACHMENTS_INTERNAL_API_ENDPOINT}{uri}"
-                            )
-                            content[idx] = item
-            elif isinstance(content, dict):
-                for key, value in content.items():
-                    if key == "image" and hasattr(value, "url"):
-                        current_url = value.url
-                        if current_url:
-                            uri = current_url.uri
-                            value.url = ImageContentItemImageURL(
-                                uri=f"{ATTACHMENTS_INTERNAL_API_ENDPOINT}{uri}"
-                            )
-                            content[key] = value
-            return content
-
-        def generate_response():
+        # Look up previous response ID from database session state
+        previous_response_id = None
+        if session_id:
             try:
-                if len(chatRequest.messages) > 0:
-                    # Get the last user message
-                    last_message = chatRequest.messages[-1]
+                session_result = await db.execute(
+                    select(models.ChatSession).where(
+                        models.ChatSession.id == session_id
+                    )
+                )
+                session_record = session_result.scalar_one_or_none()
+                if session_record and session_record.session_state:
+                    previous_response_id = session_record.session_state.get(
+                        "last_response_id"
+                    )
+            except Exception as e:
+                logger.warning(f"Error looking up previous response ID: {e}")
 
-                    def chat_stream():
-                        for chunk in chat.stream(
-                            agent_id,
-                            session_id,
-                            _expand_image_urls(last_message.content),
-                            agent_type_str,
-                        ):
-                            yield f"data: {chunk}\n\n"
-                        yield "data: [DONE]\n\n"
+        # Create responses-based Chat instance with database access
+        chat = Chat(request, db)
 
-                yield from chat_stream()
+        async def chat_stream():
+            response_id = None
+            try:
+                logger.info(
+                    f"About to call chat.stream with agent_id: {agent_id}, "
+                    f"session_id: {session_id}, "
+                    f"previous_response_id: {previous_response_id}"
+                )
+                async for chunk in chat.stream(
+                    agent_id,
+                    session_id,
+                    chatRequest.message.content,
+                    previous_response_id=previous_response_id,
+                ):
+                    logger.info(f"Received chunk from chat.stream: {chunk}")
 
-                # Save session metadata to database
-                background_task.add_task(
-                    save_session_metadata,
+                    # Extract response_id from chunk if available
+                    try:
+                        chunk_data = json.loads(chunk)
+                        if chunk_data.get("response_id"):
+                            response_id = chunk_data["response_id"]
+                    except (json.JSONDecodeError, KeyError, TypeError):
+                        pass  # Not all chunks contain JSON or response_id
+
+                    yield f"data: {chunk}\n\n"
+
+                yield "data: [DONE]\n\n"
+
+                # Save session metadata to database with response_id (synchronously)
+                await save_session_metadata(
                     db,
                     session_id,
                     agent_id,
-                    chatRequest.messages,
+                    chatRequest.message,
                     request,
+                    response_id,
                 )
 
             except Exception as e:
-                log.error(f"Error in stream: {str(e)}")
+                logger.error(f"Error in stream: {str(e)}")
                 yield (f'data: {{"type":"error","content":"Error: {str(e)}"}}\n\n')
 
-        return StreamingResponse(generate_response(), media_type="text/event-stream")
+        return StreamingResponse(chat_stream(), media_type="text/event-stream")
 
     except Exception as e:
-        log.error(f"Error in chat endpoint: {str(e)}")
+        logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -556,8 +509,9 @@ async def save_session_metadata(
     db: AsyncSession,
     session_id: str,
     agent_id: str,
-    messages: list,
+    message: Message,
     request: Request,
+    response_id: Optional[str] = None,
 ):
     """
     Save session metadata to database for UI sidebar display.
@@ -582,33 +536,30 @@ async def save_session_metadata(
         Uses INSERT ... ON CONFLICT DO UPDATE for idempotent session storage.
     """
     try:
-        # Generate title from first user message
+        # Generate title from user message
         title = "New Chat"
-        title_set = False
-        if messages:
+        if message and message.role == "user":
             txt = ""
-            # Find first user message for title
-            for msg in messages:
-                if msg.role == "user":
-                    for item in msg.content:
-                        if hasattr(item, "text"):
-                            txt = item.text
-                            title_set = True
-                            break
-                    title = txt[:50] + "..." if len(txt) > 50 else txt[:50]
-                    if title_set:
-                        break
+            # Extract text from message content
+            for item in message.content:
+                if item.type == "input_text":
+                    txt = item.text
+                    break
+            if txt:
+                title = txt[:50] + "..." if len(txt) > 50 else txt[:50]
 
         # Get agent name
         agent_name = "Unknown Agent"
         try:
-            # Fetch agent details from LlamaStack
-            agent_details = await read_virtual_assistant(agent_id, request)
+            # Fetch agent details from VirtualAgentConfig
+            agent_config = await get_virtual_agent_config(db, agent_id)
             agent_name = (
-                agent_details.name if agent_details.name else f"Agent {agent_id[:8]}..."
+                agent_config.name
+                if agent_config and agent_config.name
+                else f"Agent {agent_id[:8]}..."
             )
         except Exception as e:
-            log.error(f"Error fetching agent details: {e}")
+            logger.error(f"Error fetching agent details: {e}")
             agent_name = f"Agent {agent_id[:8]}..."
 
         # Insert or update session metadata
@@ -616,21 +567,34 @@ async def save_session_metadata(
             id=session_id,
             title=title,
             agent_name=agent_name,
-            session_state=json.dumps({"agent_id": agent_id, "session_id": session_id}),
+            session_state={
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "last_response_id": response_id,
+            },
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=["id"],
             set_=dict(
-                title=stmt.excluded.title,
+                # Only update title if current title is a generated/default title
+                title=case(
+                    (
+                        models.ChatSession.title.in_(["New Chat", "Chat", ""])
+                        | models.ChatSession.title.like("Chat-%"),
+                        stmt.excluded.title,
+                    ),
+                    else_=models.ChatSession.title,
+                ),
                 agent_name=stmt.excluded.agent_name,
                 updated_at=stmt.excluded.updated_at,
+                session_state=stmt.excluded.session_state,
             ),
         )
 
         await db.execute(stmt)
         await db.commit()
-        log.info(f"Saved session metadata for {session_id}")
+        logger.info(f"Saved session metadata for {session_id}")
 
     except Exception as e:
-        log.error(f"Error saving session metadata: {e}")
+        logger.error(f"Error saving session metadata: {e}")
         await db.rollback()

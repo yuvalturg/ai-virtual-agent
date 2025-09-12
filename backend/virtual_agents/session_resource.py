@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from llama_stack_client._types import NOT_GIVEN, Body, Headers, NotGiven, Query
 from llama_stack_client.resources.agents.session import AsyncSessionResource
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class EnhancedSessionResource(AsyncSessionResource):
@@ -30,10 +30,10 @@ class EnhancedSessionResource(AsyncSessionResource):
                 f"{agent_id!r}"
             )
 
-        log.info(f"Making request to: /v1/agents/{agent_id}/sessions")
+        logger.info(f"Making request to: /v1/agents/{agent_id}/sessions")
 
         try:
-            log.info("About to call self._get()...")
+            logger.info("About to call self._get()...")
 
             import httpx
 
@@ -48,12 +48,12 @@ class EnhancedSessionResource(AsyncSessionResource):
                 response.raise_for_status()
                 data = response.json()
 
-            log.info("Successfully got response from self._get()")
-            log.info(f"Response type: {type(response)}")
+            logger.info("Successfully got response from self._get()")
+            logger.info(f"Response type: {type(response)}")
 
             # Extract sessions data
             sessions_data = data.get("data", [])
-            log.info(f"Found {len(sessions_data)} sessions in response")
+            logger.info(f"Found {len(sessions_data)} sessions in response")
 
             # Check "get" permission on each session
             allowed_sessions = []
@@ -78,7 +78,7 @@ class EnhancedSessionResource(AsyncSessionResource):
 
                 for (session, _), resp in zip(tasks, responses):
                     if isinstance(resp, Exception):
-                        log.warning(
+                        logger.warning(
                             f"Failed to check session \
                                 {session.get('session_id')}: {resp}"
                         )
@@ -86,21 +86,21 @@ class EnhancedSessionResource(AsyncSessionResource):
                     if resp.status_code == 200:
                         allowed_sessions.append(session)
                     else:
-                        log.info(
+                        logger.info(
                             f"Session {session.get('session_id')} not \
                                 accessible (status {resp.status_code})"
                         )
 
-            log.info(f"{len(allowed_sessions)} sessions have 'get' permission")
+            logger.info(f"{len(allowed_sessions)} sessions have 'get' permission")
 
             return allowed_sessions
 
         except Exception as e:
-            log.error(f"Error in session list: {e}")
-            log.error(f"Exception type: {type(e)}")
+            logger.error(f"Error in session list: {e}")
+            logger.error(f"Exception type: {type(e)}")
             import traceback
 
-            log.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=500, detail=f"Failed to fetch sessions: {str(e)}"
             )
@@ -127,7 +127,9 @@ class EnhancedSessionResource(AsyncSessionResource):
                 f"{session_id!r}"
             )
 
-        log.info("Making DELETE request to: /v1/agents/{agent_id}/session/{session_id}")
+        logger.info(
+            "Making DELETE request to: /v1/agents/{agent_id}/session/{session_id}"
+        )
 
         try:
             import httpx
@@ -142,14 +144,14 @@ class EnhancedSessionResource(AsyncSessionResource):
                 )
                 response.raise_for_status()
 
-                log.info(
+                logger.info(
                     f"Successfully deleted session {session_id} for agent "
                     f"{agent_id}"
                 )
                 return {"message": "Session deleted successfully"}
 
         except httpx.HTTPStatusError as e:
-            log.error(
+            logger.error(
                 "HTTP error deleting session: "
                 f"{e.response.status_code} - {e.response.text}"
             )
@@ -164,11 +166,11 @@ class EnhancedSessionResource(AsyncSessionResource):
                     detail=f"Failed to delete session: {e.response.text}",
                 )
         except Exception as e:
-            log.error(f"Error deleting session: {e}")
-            log.error(f"Exception type: {type(e)}")
+            logger.error(f"Error deleting session: {e}")
+            logger.error(f"Exception type: {type(e)}")
             import traceback
 
-            log.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=500, detail=f"Failed to delete session: {str(e)}"
             )

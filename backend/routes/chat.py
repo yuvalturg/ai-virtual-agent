@@ -1,877 +1,326 @@
-import asyncio
-import enum
+"""
+Responses-based Chat implementation using LlamaStack's Responses API.
+
+This module provides chat functionality using LlamaStack's modern Responses API
+instead of the deprecated Agents API. Key features:
+- Uses virtual agent configs as templates for model/tools/prompt
+- Dynamically passes model and tools from config to each Responses API call
+- Response chaining for conversation continuity
+- OpenAI-compatible tool patterns
+- No need for persistent agent creation
+"""
+
 import json
+import logging
 import os
-import re
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from fastapi import Request
-from llama_stack_client.lib.agents.react.tool_parser import ReActOutput
-from llama_stack_client.types.shared.interleaved_content import (
-    InterleavedContent,
-)
-from llama_stack_client.types.shared.user_message import UserMessage
-from llama_stack_client.types.shared_params.agent_config import (
-    AgentConfig,
-    Toolgroup,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..agents import ExistingAsyncAgent, ExistingReActAgent
+from .. import models
 from ..api.llamastack import get_client_from_request
-from ..utils.logging_config import get_logger
+from .virtual_agents import get_virtual_agent_config
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
-class AgentType(enum.Enum):
-    REGULAR = "Regular"
-    REACT = "ReAct"
+def expand_image_url(content_item: Dict[str, Any]) -> None:
+    """
+    Expand relative image URL to full URL for LlamaStack inference service.
+
+    Args:
+        content_item: Content item that may contain a relative image URL
+                     (modified in-place)
+    """
+    if content_item.get("type") == "input_image" and content_item.get("image_url"):
+        image_url = content_item["image_url"]
+        if image_url.startswith("/"):
+            attachments_endpoint = os.getenv(
+                "ATTACHMENTS_INTERNAL_API_ENDPOINT", "http://ai-virtual-agent:8000"
+            )
+            content_item["image_url"] = f"{attachments_endpoint}{image_url}"
+
+
+async def build_responses_tools(
+    tools: Optional[List[Any]],
+    vector_store_ids: Optional[List[str]],
+    request: Optional[Any] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Convert virtual agent tools to OpenAI Responses API compatible format.
+
+    The Responses API uses OpenAI-compatible tool patterns:
+    - file_search for RAG/knowledge base queries
+    - web_search for web searches
+    - code_interpreter for code execution
+
+    Args:
+        tools: List of virtual agent tools to convert
+        vector_store_ids: List of LlamaStack vector store IDs for file_search tools
+
+    Returns:
+        List of tools in OpenAI Responses API format
+    """
+    responses_tools = []
+
+    if not tools:
+        return responses_tools
+
+    for tool_info in tools:
+        tool_id = tool_info["toolgroup_id"]
+
+        # Convert to OpenAI Responses API tool format
+        if tool_id == "builtin::rag":
+            if vector_store_ids:
+                responses_tools.append(
+                    {"type": "file_search", "vector_store_ids": vector_store_ids}
+                )
+        elif "web_search" in tool_id or "search" in tool_id:
+            responses_tools.append({"type": "web_search"})
+        elif tool_id.startswith("mcp::"):
+            # For MCP tools, we need to get server info from LlamaStack
+            if request:
+                try:
+                    client = get_client_from_request(request)
+                    # Get all toolgroups to find the one matching our tool
+                    toolgroups = await client.toolgroups.list()
+                    for toolgroup in toolgroups:
+                        if str(toolgroup.identifier) == tool_id:
+                            responses_tools.append(
+                                {
+                                    "type": "mcp",
+                                    "server_label": toolgroup.args.get(
+                                        "name", str(toolgroup.identifier)
+                                    ),
+                                    "server_url": toolgroup.mcp_endpoint.uri,
+                                }
+                            )
+                            break
+                except Exception as e:
+                    logger.warning(f"Failed to get MCP server info for {tool_id}: {e}")
+                    # Fallback: skip this tool if we can't get server info
+            else:
+                logger.warning(
+                    f"Cannot get MCP server info for {tool_id} without request object"
+                )
+        else:
+            # For other tools, try to use the toolgroup_id directly
+            responses_tools.append({"type": tool_id})
+
+    return responses_tools
 
 
 class Chat:
     """
-    A stateless class for handling chat interactions with LlamaStack.
+    A chat class using LlamaStack's Responses API with virtual agent configurations.
 
-    This class no longer maintains local state and instead retrieves
-    everything from LlamaStack APIs using agent_id and session_id.
+    This approach:
+    - Uses virtual agent configs as templates for model/tools/prompt
+    - Dynamically passes model and tools from config to each Responses API call
+    - Chains conversations using previous_response_id
+    - No need to pre-create persistent agents
 
     Args:
-        logger: Logger object for logging messages.
-
-    Methods:
-        stream: Streams the chatbot's response based on agent_id,
-                session_id, and prompt.
+        request: FastAPI request object for LlamaStack client access
+        db: Database session for accessing virtual agent configurations
     """
 
-    def __init__(self, logger, request: Request):
+    def __init__(self, request: Request, db: AsyncSession):
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
-        self.log = logger
         self.request = request
+        self.db = db
 
-    def _get_client(self):
-        return get_client_from_request(self.request)
-
-    async def _get_agent_config(self, agent_id: str) -> AgentConfig | None:
+    async def _get_virtual_agent_config(
+        self, agent_id: str
+    ) -> Optional[models.VirtualAgentConfig]:
         """
-        Retrieve agent configuration from LlamaStack.
+        Retrieve virtual agent configuration from our database.
 
         Args:
-            agent_id: The unique identifier of the agent
+            agent_id: The unique identifier of the virtual agent
 
         Returns:
-            Agent configuration object or None if not found
+            VirtualAgentConfig object or None if not found
         """
-        try:
-            agent = await self._get_client().agents.retrieve(agent_id=agent_id)
-            return agent.agent_config
-        except Exception as e:
-            self.log.error(f"Error retrieving agent config for {agent_id}: {e}")
-            return None
+        config = await get_virtual_agent_config(self.db, agent_id)
+        if not config:
+            logger.warning(f"No agent config found for ID: {agent_id}")
+        return config
 
-    async def _get_toolgroups_for_agent(self, agent_id: str) -> List[Toolgroup]:
+    async def create_response(
+        self, agent_id: str, user_input, previous_response_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Retrieve tools configuration for an agent from LlamaStack.
+        Create a new response using the Responses API with virtual agent config.
 
         Args:
-            agent_id: The unique identifier of the agent
+            agent_id: Virtual agent configuration ID
+            user_input: User's message/input
+            previous_response_id: ID of previous response for conversation chaining
 
         Returns:
-            List of tools available to the agent
+            Response data including response ID and content
+
+        Raises:
+            Exception: If virtual agent not found or response creation fails
         """
+        # Get virtual agent configuration from database
+        agent_config = await self._get_virtual_agent_config(agent_id)
+        if not agent_config:
+            raise Exception(f"Virtual agent {agent_id} not found")
+
+        # Build tools in Responses API format using agent config
+        tools = await build_responses_tools(
+            agent_config.tools, agent_config.vector_store_ids, self.request
+        )
+
+        # Use OpenAI message format for LlamaStack Responses API
+        if isinstance(user_input, list):
+            # For multimodal content, serialize Pydantic objects to dicts and
+            # expand image URLs for LlamaStack
+            content_items_for_llamastack = []
+            for item in user_input:
+                content_item = item.model_dump()
+                expand_image_url(
+                    content_item
+                )  # Expand relative URLs to full URLs for LlamaStack
+                content_items_for_llamastack.append(content_item)
+
+            openai_input = [{"role": "user", "content": content_items_for_llamastack}]
+        else:
+            # For text-only content
+            openai_input = str(user_input)
+
+        # Prepare response creation parameters using agent config
+        response_params = {
+            "model": agent_config.model_name,  # Use model from agent config
+            "input": openai_input,
+        }
+
+        # Add optional parameters from agent config
+        param_mapping = {
+            "temperature": "temperature",
+        }
+
+        for agent_attr, api_param in param_mapping.items():
+            if hasattr(agent_config, agent_attr):
+                value = getattr(agent_config, agent_attr)
+                if value is not None and (
+                    not isinstance(value, list) or len(value) > 0
+                ):
+                    response_params[api_param] = value
+
+        # Add system prompt if available
+        if agent_config.prompt:
+            # Use the instructions parameter for system prompt in LlamaStack
+            # Responses API
+            response_params["instructions"] = agent_config.prompt
+
+        # Add tools from agent config if any
+        if tools:
+            response_params["tools"] = tools
+
+        # Add previous response for conversation chaining
+        if previous_response_id:
+            response_params["previous_response_id"] = previous_response_id
+
+        # Always store messages for conversation history
+        response_params["store"] = True
+
+        # Note: Input/output shields not yet supported in Responses API
+        if agent_config.input_shields:
+            logger.warning("Input shields not yet supported in Responses API")
+        if agent_config.output_shields:
+            logger.warning("Output shields not yet supported in Responses API")
+
         try:
-            agent_config = await self._get_agent_config(agent_id)
-            if agent_config and agent_config["toolgroups"]:
-                return agent_config["toolgroups"]
-            return []
+            # Call LlamaStack Responses API
+            client = get_client_from_request(self.request)
+
+            # Log the exact call parameters and client info
+            logger.info(f"LlamaStack send: {response_params}")
+            response = await client.responses.create(**response_params)
+            logger.info(f"LlamaStack recv: {response}")
+
+            # Extract content from response.output array
+            content = ""
+            if hasattr(response, "output") and response.output:
+                for output_item in response.output:
+                    if hasattr(output_item, "content") and output_item.content:
+                        for content_item in output_item.content:
+                            if hasattr(content_item, "text"):
+                                content += content_item.text
+
+            return {
+                "response_id": response.id,
+                "model": response.model,
+                "usage": getattr(response, "usage", None),
+                "content": content,
+                "previous_response_id": previous_response_id,
+                "agent_id": agent_id,
+            }
+
         except Exception as e:
-            self.log.error(f"Error retrieving tools for agent {agent_id}: {e}")
-            return []
-
-    async def _get_model_for_agent(self, agent_id: str) -> str:
-        """
-        Retrieve model configuration for an agent from LlamaStack.
-
-        Args:
-            agent_id: The unique identifier of the agent
-
-        Returns:
-            Model identifier string, defaults to llama-3.1-8b-instruct if
-            not found
-        """
-        try:
-            agent_config = await self._get_agent_config(agent_id)
-            if agent_config and hasattr(agent_config, "model"):
-                return agent_config.model
-            # Fallback to default model if not found
-            models = await self._get_client().models.list()
-            model_list = [
-                model.identifier for model in models if model.api_model_type == "llm"
-            ]
-            return model_list[0] if model_list else "llama-3.1-8b-instruct"
-        except Exception as e:
-            self.log.error(f"Error retrieving model for agent {agent_id}: {e}")
-            return "llama-3.1-8b-instruct"
-
-    async def _create_agent_with_existing_id(self, agent_id: str):
-        """Create an agent instance using an existing agent_id from
-        LlamaStack."""
-        try:
-            agent_config = await self._get_agent_config(agent_id)
-            if not agent_config:
-                raise Exception(f"Agent {agent_id} not found")
-
-            model = await self._get_model_for_agent(agent_id)
-            toolgroups = await self._get_toolgroups_for_agent(agent_id)
-
-            # Determine agent type from database - for now, check if it's a
-            # ReAct agent by looking for response_format.
-            # This is a simpler approach that doesn't require database access
-            agent_type = (
-                AgentType.REACT
-                if agent_config.get("response_format")
-                else AgentType.REGULAR
-            )
-
-            # Create agent instance using existing ID
-            if agent_type == AgentType.REACT:
-                # Get the actual sampling parameters from the agent config
-                agent_sampling_params = agent_config.get(
-                    "sampling_params",
-                    {
-                        "strategy": {"type": "greedy"},
-                        "max_tokens": 512,
-                    },
-                )
-
-                return ExistingReActAgent(
-                    self._get_client(),
-                    agent_id=agent_id,
-                    model=model,
-                    tools=toolgroups,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": ReActOutput.model_json_schema(),
-                    },
-                    sampling_params=agent_sampling_params,
-                )
-            else:
-                # Get the actual sampling parameters from the agent config
-                agent_sampling_params = agent_config.get(
-                    "sampling_params",
-                    {
-                        "strategy": {"type": "greedy"},
-                        "max_tokens": 512,
-                    },
-                )
-
-                return ExistingAsyncAgent(
-                    self._get_client(),
-                    agent_id=agent_id,
-                    model=model,
-                    tools=toolgroups,
-                    sampling_params=agent_sampling_params,
-                )
-        except Exception as e:
-            self.log.error(f"Error creating agent with ID {agent_id}: {e}")
+            logger.error(f"Error creating response: {str(e)}")
             raise
 
-    def _response_generator(
-        self, turn_response, session_id: str, agent_type: AgentType
-    ):
-        if agent_type == AgentType.REACT:
-            return self._handle_react_response(turn_response, session_id)
-        else:
-            return self._handle_regular_response(turn_response, session_id)
-
-    def _handle_react_response(self, turn_response, session_id: str):
-        """
-        Simplified ReAct response handler with proper error handling.
-
-        This method processes ReAct agent responses with:
-        - Robust error handling for missing payloads
-        - Simplified processing logic
-        - Graceful fallbacks for malformed responses
-        - Clear error messages for debugging
-        """
-        # Send session ID first to help client initialize the connection
-        yield json.dumps({"type": "session", "sessionId": session_id})
-
-        current_step_content = ""
-        final_answer = None
-        tool_results = []
-
-        try:
-            for response in turn_response:
-                # Robust payload validation
-                if not hasattr(response, "event") or not hasattr(
-                    response.event, "payload"
-                ):
-                    logger.error(f"Invalid response structure: {response}")
-                    yield json.dumps(
-                        {
-                            "type": "error",
-                            "content": (
-                                "Received malformed response from server. "
-                                "Please try again."
-                            ),
-                        }
-                    )
-                    return
-
-                payload = response.event.payload
-
-                # Handle step progress (accumulate text)
-                if payload.event_type == "step_progress" and hasattr(
-                    payload.delta, "text"
-                ):
-                    current_step_content += payload.delta.text
-                    continue
-
-                # Handle step completion
-                if payload.event_type == "step_complete":
-                    step_details = payload.step_details
-
-                    if step_details.step_type == "inference":
-                        # Process inference step with simplified logic
-                        for chunk in self._process_inference_step_simple(
-                            current_step_content, tool_results, final_answer
-                        ):
-                            yield chunk
-                        current_step_content = ""
-
-                    elif step_details.step_type == "tool_execution":
-                        # Process tool execution
-                        tool_results = self._process_tool_execution_simple(
-                            step_details, tool_results
-                        )
-                        current_step_content = ""
-                    else:
-                        current_step_content = ""
-
-            # Handle final tool results if no final answer
-            if not final_answer and tool_results:
-                for chunk in self._format_tool_results_simple(tool_results):
-                    yield chunk
-
-        except Exception as e:
-            logger.error(f"Error in ReAct response processing: {e}")
-            yield json.dumps(
-                {
-                    "type": "error",
-                    "content": (
-                        f"An error occurred while processing the response: {str(e)}"
-                    ),
-                }
-            )
-
-    def _process_inference_step(self, current_step_content, tool_results, final_answer):
-        """Original method for backward compatibility"""
-        try:
-            react_output_data = json.loads(current_step_content)
-            answer = react_output_data.get("answer")
-
-            if answer and answer != "null" and answer is not None:
-                final_answer = answer
-
-            if answer and answer != "null" and answer is not None:
-                yield f"\n\n✅ **Final Answer:**\n{answer}"
-
-        except json.JSONDecodeError:
-            yield (
-                f"\n\nFailed to parse ReAct step content:\n"
-                f"```json\n{current_step_content}\n```"
-            )
-        except Exception as e:
-            yield (
-                f"\n\nFailed to process ReAct step: {e}\n"
-                f"```json\n{current_step_content}\n```"
-            )
-
-        return final_answer
-
-    def _process_inference_step_json(
-        self, current_step_content, tool_results, final_answer
-    ):
-        """Simplified JSON-emitting version for unified ReAct format"""
-        try:
-            # Try to parse as JSON first
-            react_output_data = json.loads(current_step_content.strip())
-            thought = react_output_data.get("thought")
-            action = react_output_data.get("action")
-            answer = react_output_data.get("answer")
-
-            if answer and answer != "null" and answer is not None:
-                final_answer = answer
-
-            # Emit unified ReAct response
-            unified_response = {
-                "type": "react_unified",
-                "thought": thought if thought else None,
-                "action": action if isinstance(action, dict) else None,
-                "answer": answer if answer and answer != "null" else None,
-                "tool_results": tool_results if tool_results else [],
-            }
-            yield json.dumps(unified_response)
-
-        except json.JSONDecodeError:
-            # If JSON parsing fails, treat as plain text
-            cleaned_text = current_step_content.strip()
-            if cleaned_text:
-                unified_response = {
-                    "type": "react_unified",
-                    "thought": (
-                        "I'm processing your request and providing a helpful "
-                        "response."
-                    ),
-                    "action": None,
-                    "answer": cleaned_text,
-                    "tool_results": tool_results if tool_results else [],
-                }
-                yield json.dumps(unified_response)
-            else:
-                # Empty response fallback
-                unified_response = {
-                    "type": "react_unified",
-                    "thought": "Processing your request.",
-                    "action": None,
-                    "answer": (
-                        "I understand your question. Let me provide "
-                        "helpful response."
-                    ),
-                    "tool_results": tool_results if tool_results else [],
-                }
-                yield json.dumps(unified_response)
-        except Exception as e:
-            # Final fallback for any other errors
-            logger.error(f"Error processing ReAct step: {e}")
-            yield json.dumps(
-                {
-                    "type": "react_unified",
-                    "thought": "Processing your request.",
-                    "action": None,
-                    "answer": (
-                        "I understand your question. Let me provide "
-                        "helpful response."
-                    ),
-                    "tool_results": tool_results if tool_results else [],
-                }
-            )
-
-        return final_answer
-
-    def _format_tool_results_summary(self, tool_results):
-        yield "\n\n**Here's what I found:**\n"
-        for tool_name, content in tool_results:
-            try:
-                parsed_content = json.loads(content)
-
-                if tool_name == "web_search" and "top_k" in parsed_content:
-                    yield from self._format_web_search_results(parsed_content)
-                elif "results" in parsed_content and isinstance(
-                    parsed_content["results"], list
-                ):
-                    yield from self._format_results_list(parsed_content["results"])
-                elif isinstance(parsed_content, dict) and len(parsed_content) > 0:
-                    yield from self._format_dict_results(parsed_content)
-                elif isinstance(parsed_content, list) and len(parsed_content) > 0:
-                    yield from self._format_list_results(parsed_content)
-            except json.JSONDecodeError:
-                yield (
-                    f"\n**{tool_name}** returned complex data. "
-                    "Check the observation for details.\n"
-                )
-            except (TypeError, AttributeError, KeyError, IndexError) as e:
-                logger.error(
-                    f"Error processing {tool_name} result: {type(e).__name__}: {e}"
-                )
-
-    def _process_tool_execution(self, step_details, tool_results):
-        try:
-            if hasattr(step_details, "tool_responses") and step_details.tool_responses:
-                for tool_response in step_details.tool_responses:
-                    tool_name = tool_response.tool_name
-                    content = tool_response.content
-                    tool_results.append((tool_name, content))
-
-                    logger.debug("")
-                    try:
-                        parsed_content = json.loads(content)
-                        logger.debug(parsed_content)
-                    except json.JSONDecodeError:
-                        logger.debug(content)
-
-            else:
-                logger.debug("⚙️ Observation")
-                logger.debug(
-                    "Tool execution step completed, but no response data found."
-                )
-                pass
-        except Exception as e:
-            logger.error(f"Error processing tool execution: {str(e)}")
-
-        return tool_results
-
-    def _format_web_search_results(self, parsed_content):
-        for i, result in enumerate(parsed_content["top_k"], 1):
-            if i <= 3:
-                title = result.get("title", "Untitled")
-                url = result.get("url", "")
-                content_text = result.get("content", "").strip()
-                yield f"\n- **{title}**\n  {content_text}\n  [Source]({url})\n"
-
-    def _format_results_list(self, results):
-        for i, result in enumerate(results, 1):
-            if i <= 3:
-                if isinstance(result, dict):
-                    name = result.get("name", result.get("title", "Result " + str(i)))
-                    description = result.get(
-                        "description",
-                        result.get("content", result.get("summary", "")),
-                    )
-                    yield f"\n- **{name}**\n  {description}\n"
-                else:
-                    yield f"\n- {result}\n"
-
-    def _format_dict_results(self, parsed_content):
-        yield "\n```\n"
-        for key, value in list(parsed_content.items())[:5]:
-            if isinstance(value, str) and len(value) < 100:
-                yield f"{key}: {value}\n"
-            else:
-                yield f"{key}: [Complex data]\n"
-        yield "```\n"
-
-    def _format_list_results(self, parsed_content):
-        yield "\n"
-        for _, item in enumerate(parsed_content[:3], 1):
-            if isinstance(item, str):
-                yield f"- {item}\n"
-            elif isinstance(item, dict) and "text" in item:
-                yield f"- {item['text']}\n"
-            elif isinstance(item, dict) and len(item) > 0:
-                first_value = next(iter(item.values()))
-                if isinstance(first_value, str) and len(first_value) < 100:
-                    yield f"- {first_value}\n"
-
-    def _format_tool_results_summary_json(self, tool_results):
-        """JSON-emitting version of tool results summary for AI SDK
-        compatibility"""
-        summary_text = "Here's what I found:\n"
-
-        for tool_name, content in tool_results:
-            try:
-                parsed_content = json.loads(content)
-
-                if tool_name == "web_search" and "top_k" in parsed_content:
-                    # Format web search results
-                    for i, result in enumerate(parsed_content["top_k"], 1):
-                        if i <= 3:
-                            title = result.get("title", "Untitled")
-                            url = result.get("url", "")
-                            content_text = result.get("content", "").strip()
-                            summary_text += (
-                                f"\n- **{title}**\n  {content_text}\n  "
-                                f"[Source]({url})\n"
-                            )
-
-                elif "results" in parsed_content and isinstance(
-                    parsed_content["results"], list
-                ):
-                    # Format results list
-                    for i, result in enumerate(parsed_content["results"], 1):
-                        if i <= 3:
-                            if isinstance(result, dict):
-                                name = result.get(
-                                    "name",
-                                    result.get("title", "Result " + str(i)),
-                                )
-                                description = result.get(
-                                    "description",
-                                    result.get("content", result.get("summary", "")),
-                                )
-                                summary_text += f"\n- **{name}**\n  {description}\n"
-                            else:
-                                summary_text += f"\n- {result}\n"
-
-                elif isinstance(parsed_content, dict) and len(parsed_content) > 0:
-                    # Format dictionary results
-                    summary_text += "\n```\n"
-                    for key, value in list(parsed_content.items())[:5]:
-                        if isinstance(value, str) and len(value) < 100:
-                            summary_text += f"{key}: {value}\n"
-                        else:
-                            summary_text += f"{key}: [Complex data]\n"
-                    summary_text += "```\n"
-
-                elif isinstance(parsed_content, list) and len(parsed_content) > 0:
-                    # Format list results
-                    summary_text += "\n"
-                    for _, item in enumerate(parsed_content[:3], 1):
-                        if isinstance(item, str):
-                            summary_text += f"- {item}\n"
-                        elif isinstance(item, dict) and "text" in item:
-                            summary_text += f"- {item['text']}\n"
-                        elif isinstance(item, dict) and len(item) > 0:
-                            first_value = next(iter(item.values()))
-                            if isinstance(first_value, str) and len(first_value) < 100:
-                                summary_text += f"- {first_value}\n"
-
-            except json.JSONDecodeError:
-                summary_text += (
-                    f"\n**{tool_name}** was used but returned complex data.\n"
-                )
-            except (TypeError, AttributeError, KeyError, IndexError) as e:
-                summary_text += (
-                    f"\n**{tool_name}** was used but encountered an error: "
-                    f"{type(e).__name__}\n"
-                )
-
-        # Return as JSON object with type and content
-        yield json.dumps({"type": "text", "content": summary_text})
-
-    def _handle_regular_response(self, turn_response, session_id: str):
-        # Send session ID first to help client initialize the connection
-        yield json.dumps({"type": "session", "sessionId": session_id})
-
-        current_step_content = ""
-
-        try:
-            for response in turn_response:
-                # Robust payload validation (same as ReAct)
-                if not hasattr(response, "event") or not hasattr(
-                    response.event, "payload"
-                ):
-                    logger.error(f"Invalid response structure: {response}")
-                    yield json.dumps(
-                        {
-                            "type": "error",
-                            "content": (
-                                "Received malformed response from server. "
-                                "Please try again."
-                            ),
-                        }
-                    )
-                    return
-
-                payload = response.event.payload
-                logger.debug(f"Regular agent response: {payload}")
-
-                # Handle step progress (accumulate text like ReAct)
-                if payload.event_type == "step_progress" and hasattr(
-                    payload.delta, "text"
-                ):
-                    text_chunk = payload.delta.text
-                    logger.debug(f"Regular agent received text chunk: '{text_chunk}'")
-                    current_step_content += text_chunk
-                    logger.debug(
-                        f"Regular agent accumulated text: '{current_step_content}'"
-                    )
-                    continue
-
-                # Handle step completion (send accumulated content)
-                if payload.event_type == "step_complete":
-                    step_details = payload.step_details
-
-                    if step_details.step_type == "inference":
-                        # Send accumulated content as single chunk (like ReAct)
-                        if current_step_content.strip():
-                            # Clean the content like ReAct agents do
-                            cleaned_text = current_step_content.strip()
-                            # Filter out system tokens like [Inst] << SYSt>>
-                            cleaned_text = re.sub(
-                                r"\[Inst\].*?<<\s*SYSt\s*>>",
-                                "",
-                                cleaned_text,
-                                flags=re.DOTALL,
-                            )
-                            cleaned_text = re.sub(r"<<\s*SYSt\s*>>", "", cleaned_text)
-                            cleaned_text = re.sub(r"\[Inst\]", "", cleaned_text)
-                            cleaned_text = cleaned_text.strip()
-
-                            if cleaned_text:
-                                logger.debug(
-                                    f"Regular agent sending cleaned inference "
-                                    f"response: '{cleaned_text}'"
-                                )
-                                yield json.dumps(
-                                    {
-                                        "type": "text",
-                                        "content": cleaned_text,
-                                    }
-                                )
-                        current_step_content = ""
-
-                    elif step_details.step_type == "tool_execution":
-                        # Send accumulated content before tool info
-                        if current_step_content.strip():
-                            yield json.dumps(
-                                {
-                                    "type": "text",
-                                    "content": current_step_content,
-                                }
-                            )
-                        current_step_content = ""
-
-                        if step_details.tool_calls:
-                            tool_call = step_details.tool_calls[0]
-                            tool_name = str(tool_call.tool_name)
-                            yield json.dumps(
-                                {
-                                    "type": "tool",
-                                    "content": f'Using "{tool_name}" tool:',
-                                    "tool": {"name": tool_name},
-                                }
-                            )
-                    else:
-                        current_step_content = ""
-
-            # Send any remaining accumulated content
-            if current_step_content.strip():
-                # Clean the content like ReAct agents do
-                cleaned_text = current_step_content.strip()
-                # Filter out system tokens like [Inst] << SYSt>>
-                cleaned_text = re.sub(
-                    r"\[Inst\].*?<<\s*SYSt\s*>>",
-                    "",
-                    cleaned_text,
-                    flags=re.DOTALL,
-                )
-                cleaned_text = re.sub(r"<<\s*SYSt\s*>>", "", cleaned_text)
-                cleaned_text = re.sub(r"\[Inst\]", "", cleaned_text)
-                cleaned_text = cleaned_text.strip()
-
-                if cleaned_text:
-                    logger.debug(
-                        f"Regular agent sending cleaned final response: "
-                        f"'{cleaned_text}'"
-                    )
-                    yield json.dumps(
-                        {
-                            "type": "text",
-                            "content": cleaned_text,
-                        }
-                    )
-
-        except Exception as e:
-            logger.error(f"Error in Regular response processing: {e}")
-            yield json.dumps(
-                {
-                    "type": "error",
-                    "content": (
-                        f"An error occurred while processing the response: {str(e)}"
-                    ),
-                }
-            )
-
-    def stream(
+    async def stream(
         self,
         agent_id: str,
-        session_id: str,
-        prompt: InterleavedContent,
-        agent_type_str: str = "ReAct",
+        session_id: str,  # Session ID for updating session state
+        prompt,  # Can be str or InterleavedContent
+        previous_response_id: Optional[str] = None,
     ):
         """
-        Stream chat response using LlamaStack with timeout and resource
-        management.
+        Stream a response using the Responses API with virtual agent configuration.
+
+        This method maintains compatibility with the old interface while using
+        the new Responses API under the hood.
 
         Args:
-            agent_id: The ID of the agent from LlamaStack
-            session_id: The ID of the session from LlamaStack
-            prompt: The user's message
-            agent_type_str: The agent type ("ReAct" or "Regular")
+            agent_id: Virtual agent configuration ID
+            session_id: Legacy session ID (not used in Responses API)
+            prompt: User's message/input
+            previous_response_id: ID of previous response for conversation chaining
+
+        Yields:
+            JSON strings containing response chunks
         """
         try:
-            # Create agent instance using existing agent_id
-            agent = asyncio.run(self._create_agent_with_existing_id(agent_id))
-
-            self.log.info(f"Using agent: {agent_id} with session: {session_id}")
-
-            # Get existing messages from the session
-            messages = [UserMessage(role="user", content=prompt)]
-
-            async def async_iterator_to_iterator():
-                # Create turn with LlamaStack with timeout
-                try:
-                    response = await asyncio.wait_for(
-                        agent.create_turn(
-                            session_id=session_id,
-                            messages=messages,
-                            stream=True,
-                        ),
-                        timeout=120.0,  # 120 second timeout for large models
-                    )
-                    result_list = []
-                    async for item in response:
-                        result_list.append(item)
-                    return result_list
-                except asyncio.TimeoutError:
-                    self.log.error(f"Timeout occurred for agent {agent_id}")
-                    raise Exception(
-                        (
-                            "Request timed out after 2 minutes. Large models "
-                            "may take longer to respond. Please try again or "
-                            "use a simpler question."
-                        )
-                    )
-                except Exception as e:
-                    self.log.error(f"Error in agent turn creation: {e}")
-                    raise
-
-            turn_response = asyncio.run(async_iterator_to_iterator())
-
-            # Use passed agent type
-            agent_type = (
-                AgentType.REACT if agent_type_str == "ReAct" else AgentType.REGULAR
+            # Pass InterleavedContent directly to create_response to preserve images
+            response_data = await self.create_response(
+                agent_id, prompt, previous_response_id
             )
 
-            # Stream the response
-            yield from self._response_generator(turn_response, session_id, agent_type)
+            # Session state will be updated by the background task in llama_stack.py
+
+            # Stream the response content
+            # TODO: When LlamaStack Responses API supports streaming, update this
+            yield json.dumps(
+                {
+                    "type": "content",
+                    "content": response_data["content"],
+                    "response_id": response_data["response_id"],
+                    "model": response_data["model"],
+                }
+            )
+
+            # End stream marker
+            yield json.dumps(
+                {
+                    "type": "done",
+                    "response_id": response_data["response_id"],
+                    "session_id": session_id,  # Return for compatibility
+                }
+            )
 
         except Exception as e:
-            self.log.error(
-                f"Error in stream for agent {agent_id}, session {session_id}: {e}"
-            )
+            logger.error(f"Error in stream for agent {agent_id}: {e}")
             yield json.dumps(
                 {
                     "type": "error",
-                    "content": (
-                        f"Error occurred while processing your request: {str(e)}"
-                    ),
+                    "content": f"Error occurred while processing your request: "
+                    f"{str(e)}",
                 }
             )
-
-    def _process_inference_step_simple(
-        self, current_step_content, tool_results, final_answer
-    ):
-        """
-        Simplified inference step processing with robust error handling.
-
-        This method handles both JSON and plain text responses gracefully.
-        """
-        try:
-            # Try to parse as JSON first
-            if current_step_content.strip().startswith("{"):
-                react_output_data = json.loads(current_step_content.strip())
-                thought = react_output_data.get("thought")
-                answer = react_output_data.get("answer")
-
-                if answer and answer != "null" and answer is not None:
-                    final_answer = answer
-
-                unified_response = {
-                    "type": "react_unified",
-                    "thought": (thought if thought else "Processing your request..."),
-                    "action": None,
-                    "answer": (
-                        answer
-                        if answer and answer != "null"
-                        else "I'm working on your question."
-                    ),
-                    "tool_results": tool_results if tool_results else [],
-                }
-                yield json.dumps(unified_response)
-            else:
-                # Handle plain text response
-                cleaned_text = current_step_content.strip()
-                if cleaned_text:
-                    unified_response = {
-                        "type": "react_unified",
-                        "thought": (
-                            "I'm processing your request and providing a "
-                            "helpful response."
-                        ),
-                        "action": None,
-                        "answer": cleaned_text,
-                        "tool_results": tool_results if tool_results else [],
-                    }
-                    yield json.dumps(unified_response)
-                else:
-                    # Empty response fallback
-                    unified_response = {
-                        "type": "react_unified",
-                        "thought": "Processing your request.",
-                        "action": None,
-                        "answer": (
-                            "I understand your question. Let me provide "
-                            "helpful response."
-                        ),
-                        "tool_results": tool_results if tool_results else [],
-                    }
-                    yield json.dumps(unified_response)
-
-        except json.JSONDecodeError:
-            # JSON parsing failed, treat as plain text
-            cleaned_text = current_step_content.strip()
-            if cleaned_text:
-                unified_response = {
-                    "type": "react_unified",
-                    "thought": (
-                        "I'm processing your request and providing a helpful "
-                        "response."
-                    ),
-                    "action": None,
-                    "answer": cleaned_text,
-                    "tool_results": tool_results if tool_results else [],
-                }
-                yield json.dumps(unified_response)
-            else:
-                # Empty response fallback
-                unified_response = {
-                    "type": "react_unified",
-                    "thought": "Processing your request.",
-                    "action": None,
-                    "answer": (
-                        "I understand your question. Let me provide "
-                        "helpful response."
-                    ),
-                    "tool_results": tool_results if tool_results else [],
-                }
-                yield json.dumps(unified_response)
-        except Exception as e:
-            logger.error(f"Error in inference step processing: {e}")
-            # Final fallback
-            yield json.dumps(
-                {
-                    "type": "react_unified",
-                    "thought": "Processing your request.",
-                    "action": None,
-                    "answer": (
-                        "I understand your question. Let me provide "
-                        "helpful response."
-                    ),
-                    "tool_results": tool_results if tool_results else [],
-                }
-            )
-
-        return final_answer
-
-    def _process_tool_execution_simple(self, step_details, tool_results):
-        """Simplified tool execution processing."""
-        try:
-            if step_details.tool_calls:
-                tool_call = step_details.tool_calls[0]
-                tool_name = str(tool_call.tool_name)
-                tool_results.append(
-                    {"name": tool_name, "result": "Tool executed successfully"}
-                )
-        except Exception as e:
-            logger.error(f"Error in tool execution processing: {e}")
-
-        return tool_results
-
-    def _format_tool_results_simple(self, tool_results):
-        """Simplified tool results formatting."""
-        try:
-            if tool_results:
-                yield json.dumps(
-                    {
-                        "type": "tool_results",
-                        "content": (
-                            f"Used {len(tool_results)} tools to help answer "
-                            f"your question."
-                        ),
-                        "tools": tool_results,
-                    }
-                )
-        except Exception as e:
-            logger.error(f"Error in tool results formatting: {e}")

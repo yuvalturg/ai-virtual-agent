@@ -1,5 +1,5 @@
 import { Agent, NewAgent } from '@/types/agent';
-import { ToolGroup, ToolAssociationInfo, SamplingStrategy } from '@/types';
+import { ToolGroup, ToolAssociationInfo, SamplingStrategy, KnowledgeBaseWithStatus } from '@/types';
 import {
   ActionGroup,
   Button,
@@ -8,7 +8,6 @@ import {
   FormHelperText,
   FormSelect,
   FormSelectOption,
-  Switch,
   TextArea,
   TextInput,
   Accordion,
@@ -36,7 +35,6 @@ interface AgentFormProps {
 // Form interface for internal form state (user-friendly)
 interface AgentFormData {
   name: string;
-  agent_type: string;
   model_name: string;
   prompt: string;
   knowledge_base_ids: string[];
@@ -57,7 +55,6 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
   if (!agent) {
     return {
       name: '',
-      agent_type: 'ReAct', // Default to ReAct
       model_name: '',
       prompt: 'You are a helpful assistant. Provide clear, concise responses without repetition.',
       knowledge_base_ids: [],
@@ -79,7 +76,6 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
 
   return {
     name: agent.name,
-    agent_type: agent.agent_type || 'ReAct', // Default to ReAct if not specified
     model_name: agent.model_name,
     prompt: agent.prompt,
     knowledge_base_ids: agent.knowledge_base_ids,
@@ -114,7 +110,6 @@ const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): Ne
 
   return {
     name: formData.name,
-    agent_type: formData.agent_type,
     model_name: formData.model_name,
     prompt: formData.prompt,
     knowledge_base_ids,
@@ -134,9 +129,9 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
   // Use custom hooks to get data
   const { models, isLoadingModels, modelsError } = useModels();
   const {
-    llamaStackKnowledgeBases: knowledgeBases,
-    isLoadingLlamaStack: isLoadingKnowledgeBases,
-    llamaStackError: knowledgeBasesError,
+    knowledgeBases,
+    isLoading: isLoadingKnowledgeBases,
+    error: knowledgeBasesError,
   } = useKnowledgeBases();
   const { tools, isLoading: isLoadingTools, error: toolsError } = useTools();
   const { shields, isLoading: isLoadingShields, error: shieldsError } = useShields();
@@ -215,10 +210,10 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
         },
       ];
     }
-    return knowledgeBases.map((kb) => ({
-      value: kb.kb_name, // Use vector_db_name as the primary key
-      children: kb.kb_name, // The name will be displayed
-      id: `kb-option-${kb.kb_name}`, // Unique ID for React key and ARIA
+    return knowledgeBases.map((kb: KnowledgeBaseWithStatus) => ({
+      value: kb.vector_store_name, // Use vector_store_name as the primary key
+      children: kb.name, // The name will be displayed
+      id: `kb-option-${kb.vector_store_name}`, // Unique ID for React key and ARIA
     }));
   }, [knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError]);
 
@@ -319,19 +314,6 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
                 {field.state.meta.errors.join(', ')}
               </FormHelperText>
             )}
-          </FormGroup>
-        )}
-      </form.Field>
-      <form.Field name="agent_type">
-        {(field) => (
-          <FormGroup label="Agent Type" fieldId="agent-type">
-            <Switch
-              id="agent-type"
-              label="ReAct Agent (ON) / Regular Agent (OFF)"
-              isChecked={field.state.value === 'ReAct'}
-              onChange={(_event, checked) => field.handleChange(checked ? 'ReAct' : 'Regular')}
-              ouiaId="BasicSwitch"
-            />
           </FormGroup>
         )}
       </form.Field>

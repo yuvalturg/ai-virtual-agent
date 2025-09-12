@@ -30,10 +30,10 @@ export function KnowledgeBaseList() {
     }
   }, [dataUpdatedAt]);
 
-  const handleDeleteKb = (vectorDbName: string) => {
+  const handleDeleteKb = (vectorStoreName: string) => {
     void (async () => {
       try {
-        await deleteKnowledgeBase(vectorDbName);
+        await deleteKnowledgeBase(vectorStoreName);
         console.log('Knowledge base deleted successfully');
       } catch (error) {
         console.error('Error deleting knowledge base:', error);
@@ -99,7 +99,7 @@ export function KnowledgeBaseList() {
             .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
             .map((knowledgeBase) => (
               <KnowledgeBaseCard
-                key={knowledgeBase.vector_db_name}
+                key={knowledgeBase.vector_store_name}
                 knowledgeBase={knowledgeBase}
                 onDelete={handleDeleteKb}
                 isDeleting={isDeleting}
