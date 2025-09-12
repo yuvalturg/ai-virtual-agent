@@ -21,7 +21,7 @@ templates:
     #   version: "1.0"
     #   embedding_model: "all-MiniLM-L6-v2"
     #   provider_id: "pgvector"
-    #   vector_db_name: "travel_agent_kb"
+    #   vector_store_name: "travel_agent_kb"
     #   is_external: false
     #   source: "URL"
     #   source_configuration:
@@ -46,7 +46,7 @@ templates:
     #   version: "1.0"
     #   embedding_model: "all-MiniLM-L6-v2"
     #   provider_id: "pgvector"
-    #   vector_db_name: "hotel_concierge_kb"
+    #   vector_store_name: "hotel_concierge_kb"
     #   is_external: false
     #   source: "URL"
     #   source_configuration:
@@ -71,7 +71,7 @@ templates:
     #   version: "1.0"
     #   embedding_model: "all-MiniLM-L6-v2"
     #   provider_id: "pgvector"
-    #   vector_db_name: "tour_guide_kb"
+    #   vector_store_name: "tour_guide_kb"
     #   is_external: false
     #   source: "URL"
     #   source_configuration:

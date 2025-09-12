@@ -1,0 +1,331 @@
+---
+# Response Chaining Integration Tests
+# Tests the LlamaStack Responses API response chaining functionality
+
+test_name: Response Chaining API Tests
+
+stages:
+  # Global Setup: Get available models
+  - name: get_available_models
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/llms"
+      method: GET
+      headers:
+        Accept: application/json
+    response:
+      status_code: 200
+      headers:
+        content-type: application/json
+      save:
+        json:
+          model_name: "[0].model_name"
+
+  # Global Setup: Create shared virtual agent for all tests
+  - name: create_shared_virtual_agent
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/"
+      method: POST
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+      json:
+        name: "Shared Test Assistant"
+        prompt: "You are a helpful assistant for testing response chaining and pagination functionality."
+        model_name: "{model_name}"
+        temperature: 0.0
+        top_p: 0.9
+        max_tokens: 300
+        repetition_penalty: 1.0
+        max_infer_iters: 1
+        tools: []
+        knowledge_base_ids: []
+        input_shields: []
+        output_shields: []
+    response:
+      status_code: 201
+      headers:
+        content-type: application/json
+      save:
+        json:
+          agent_id: "id"
+  # Test 1: First message in chain (no previousResponseId) - should succeed
+  - name: test_first_message_no_previous_response_id
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        virtualAgentId: "{agent_id}"
+        message:
+          role: user
+          content:
+            - type: input_text
+              text: "Hello, what is 2+2?"
+        stream: false
+        sessionId: "test-session-chain-{tavern.env_vars.TAVERN_UNIQUE}"
+        # No previousResponseId for first message
+    response:
+      status_code: 200
+      headers:
+        content-type: text/event-stream; charset=utf-8
+      verify_response_with:
+        function: tests.integration.validators:validate_sse_response_id
+      save:
+        $ext:
+          function: tests.integration.validators:extract_response_id
+
+  # Test 2: Chat with response chaining (previous response ID looked up from backend) - should succeed
+  - name: test_valid_previous_response_id
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        virtualAgentId: "{agent_id}"
+        message:
+          role: user
+          content:
+            - type: input_text
+              text: "What about 3+3?"
+        stream: false
+        sessionId: "test-session-chain-{tavern.env_vars.TAVERN_UNIQUE}"
+        # previousResponseId is now automatically looked up by backend
+    response:
+      status_code: 200
+      headers:
+        content-type: text/event-stream; charset=utf-8
+      verify_response_with:
+        function: tests.integration.validators:validate_sse_response_id
+
+  # Test 3: New session should work without any previous response (backend handles empty previous response ID)
+  - name: test_new_session_no_previous_response
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        virtualAgentId: "{agent_id}"
+        message:
+          role: user
+          content:
+            - type: input_text
+              text: "Hello from new session"
+        stream: false
+        sessionId: "test-session-new-{tavern.env_vars.TAVERN_UNIQUE}"
+        # No previous response ID in database for this new session
+    response:
+      status_code: 200
+      headers:
+        content-type: text/event-stream; charset=utf-8
+      verify_response_with:
+        function: tests.integration.validators:validate_sse_response_id
+
+  # Message Pagination Tests
+  # Setup: Create a session with multiple messages for pagination testing
+  - name: create_session_for_pagination
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        agent_id: "{agent_id}"
+        session_name: "Pagination Test Session"
+    response:
+      status_code: 200
+      save:
+        json:
+          session_id: id
+
+  # Test 1: Send multiple messages to create pagination data
+  - name: send_first_message
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        virtualAgentId: "{agent_id}"
+        message:
+          role: user
+          content:
+            - type: input_text
+              text: "Message 1: What is 1+1?"
+        stream: false
+        sessionId: "{session_id}"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tests.integration.validators:extract_response_id
+
+  - name: send_second_message
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        virtualAgentId: "{agent_id}"
+        message:
+          role: user
+          content:
+            - type: input_text
+              text: "Message 2: What is 2+2?"
+        stream: false
+        sessionId: "{session_id}"
+        # previousResponseId automatically looked up by backend
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tests.integration.validators:extract_response_id
+
+  - name: send_third_message
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      method: POST
+      headers:
+        Content-Type: application/json
+      json:
+        virtualAgentId: "{agent_id}"
+        message:
+          role: user
+          content:
+            - type: input_text
+              text: "Message 3: What is 3+3?"
+        stream: false
+        sessionId: "{session_id}"
+        # previousResponseId automatically looked up by backend
+    response:
+      status_code: 200
+
+  # Test 2: Fetch session with pagination (default page 1, page_size 50)
+  - name: test_fetch_session_with_pagination_default
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      method: GET
+      params:
+        agent_id: "{agent_id}"
+    response:
+      status_code: 200
+      json:
+        id: "{session_id}"
+        title: !anything
+        agent_name: !anything
+        agent_id: !anything
+        messages: !anything
+        created_at: !anything
+        updated_at: !anything
+        last_response_id: !anything
+        pagination:
+          page: 1
+          page_size: 50
+          total_messages: !anyint
+          has_more: false
+          messages_loaded: !anyint
+
+  # Test 3: Fetch session with custom pagination parameters
+  - name: test_fetch_session_with_custom_pagination
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      method: GET
+      params:
+        agent_id: "{agent_id}"
+        page: 1
+        page_size: 2
+        load_messages: true
+    response:
+      status_code: 200
+      json:
+        id: "{session_id}"
+        title: !anything
+        agent_name: !anything
+        agent_id: !anything
+        messages: !anything
+        created_at: !anything
+        updated_at: !anything
+        last_response_id: !anything
+        pagination:
+          page: 1
+          page_size: 2
+          total_messages: !anyint
+          has_more: !anybool
+          messages_loaded: !anyint
+
+  # Test 4: Fetch session metadata only (no messages)
+  - name: test_fetch_session_metadata_only
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      method: GET
+      params:
+        agent_id: "{agent_id}"
+        load_messages: false
+    response:
+      status_code: 200
+      json:
+        id: "{session_id}"
+        title: !anything
+        agent_name: !anything
+        agent_id: !anything
+        created_at: !anything
+        updated_at: !anything
+        last_response_id: !anything
+        pagination:
+          page: 1
+          page_size: 50
+          total_messages: 0
+          has_more: false
+          messages_loaded: 0
+        messages: []
+
+  # Test 5: Test pagination with page 2 (if there are enough messages)
+  - name: test_fetch_session_page_2
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      method: GET
+      params:
+        agent_id: "{agent_id}"
+        page: 2
+        page_size: 2
+        load_messages: true
+    response:
+      status_code: 200
+      json:
+        id: "{session_id}"
+        title: !anything
+        agent_name: !anything
+        agent_id: !anything
+        messages: !anything
+        created_at: !anything
+        updated_at: !anything
+        last_response_id: !anything
+        pagination:
+          page: 2
+          page_size: 2
+          total_messages: !anyint
+          has_more: !anybool
+          messages_loaded: !anyint
+
+  # Cleanup: Delete the test session
+  - name: cleanup_test_session
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      method: DELETE
+      params:
+        agent_id: "{agent_id}"
+    response:
+      status_code: 200
+
+  # Global Cleanup: Delete the shared test agent
+  - name: cleanup_shared_agent
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}"
+      method: DELETE
+      headers:
+        Accept: application/json
+    response:
+      status_code: 204

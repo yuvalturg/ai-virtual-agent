@@ -21,7 +21,7 @@ templates:
       version: "1.0"
       embedding_model: "all-MiniLM-L6-v2"
       provider_id: "pgvector"
-      vector_db_name: "commercial_banking_kb"
+      vector_store_name: "commercial_banking_kb"
       is_external: false
       source: "URL"
       source_configuration:
@@ -46,7 +46,7 @@ templates:
       version: "1.0"
       embedding_model: "all-MiniLM-L6-v2"
       provider_id: "pgvector"
-      vector_db_name: "business_advisory_kb"
+      vector_store_name: "business_advisory_kb"
       is_external: false
       source: "URL"
       source_configuration:

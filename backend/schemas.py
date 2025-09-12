@@ -20,7 +20,7 @@ from typing import (  # Added Dict for Guardrail rules
     Union,
 )
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, ConfigDict
 
 
 # This should match the Enum in your models.py
@@ -54,8 +54,7 @@ class UserRead(UserBase):
     created_at: Any
     updated_at: Any
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserAgentAssignment(BaseModel):
@@ -81,7 +80,8 @@ class MCPServerRead(MCPServerBase):
 
 # KnowledgeBase Schemas
 class KnowledgeBaseBase(BaseModel):
-    vector_db_name: str  # LlamaStack identifier (now PK)
+    vector_store_name: str  # LlamaStack identifier (now PK)
+    vector_store_id: Optional[str] = None  # LlamaStack vector store ID (vs_xxxx format)
     name: str
     version: str
     embedding_model: str
@@ -100,7 +100,7 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
             "version": self.version,
             "source": self.source,
             "embedding_model": self.embedding_model,
-            "vector_db_name": self.vector_db_name,
+            "vector_store_name": self.vector_store_name,
         }
         if self.source == "URL":
             return base | {"urls": self.source_configuration}
@@ -117,19 +117,17 @@ class KnowledgeBaseRead(KnowledgeBaseBase):
     updated_at: Any
     status: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-# Tool Association Info for VirtualAssistant
+# Tool Association Info for VirtualAgent
 class ToolAssociationInfo(BaseModel):
     toolgroup_id: str  # MCPServer.toolgroup_id or BuiltInTool.toolgroup_id
 
 
-# VirtualAssistant Schemas
-class VirtualAssistantBase(BaseModel):
+# VirtualAgent Schemas
+class VirtualAgentBase(BaseModel):
     name: str
-    agent_type: Optional[str] = "ReAct"
     prompt: Optional[str] = None
     model_name: Optional[str] = None
     input_shields: Optional[List[str]] = []
@@ -148,22 +146,22 @@ class VirtualAssistantBase(BaseModel):
     sampling_strategy: Optional[str] = "greedy"
     knowledge_base_ids: Optional[List[str]] = (
         []
-    )  # Now expecting list of vector_db_names
+    )  # Now expecting list of vector_store_names
     tools: Optional[List[ToolAssociationInfo]] = []  # Changed from tool_ids: List[str]
     max_infer_iters: Optional[int] = 10
     enable_session_persistence: Optional[bool] = False
 
 
-class VirtualAssistantCreate(VirtualAssistantBase):
+class VirtualAgentCreate(VirtualAgentBase):
     pass
 
 
-class VirtualAssistantUpdate(VirtualAssistantBase):
+class VirtualAgentUpdate(VirtualAgentBase):
     name: Optional[str] = None
     prompt: Optional[str] = None
     model_name: Optional[str] = None
     knowledge_base_ids: Optional[List[str]] = (
-        None  # Now expecting list of vector_db_names
+        None  # Now expecting list of vector_store_names
     )
     tools: Optional[List[ToolAssociationInfo]] = None
 
@@ -181,8 +179,7 @@ class TemplateSuiteRead(TemplateSuiteBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Agent Template Schemas
@@ -199,8 +196,7 @@ class AgentTemplateRead(AgentTemplateBase):
     updated_at: datetime
     suite: Optional[TemplateSuiteRead] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Agent Metadata Schemas
@@ -212,11 +208,10 @@ class AgentMetadataRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-class VirtualAssistantRead(VirtualAssistantBase):
+class VirtualAgentRead(VirtualAgentBase):
     id: str
     # Normalized metadata via relationship
     metadata: Optional[AgentMetadataRead] = None
@@ -228,8 +223,7 @@ class VirtualAssistantRead(VirtualAssistantBase):
     suite_name: Optional[str] = None
     category: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GuardrailBase(BaseModel):
@@ -247,33 +241,4 @@ class GuardrailRead(GuardrailBase):
     created_at: Any
     updated_at: Any
 
-    class Config:
-        orm_mode = True
-
-
-# ModelServer Schemas (These seemed largely okay with your models.py)
-class ModelServerBase(BaseModel):
-    name: str
-    provider_name: str
-    model_name: str
-    endpoint_url: str
-    token: Optional[str] = None
-
-
-class ModelServerCreate(ModelServerBase):
-    pass
-
-
-class ModelServerUpdate(ModelServerBase):
-    name: Optional[str] = None
-    provider_name: Optional[str] = None
-    model_name: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    token: Optional[str] = None
-
-
-class ModelServerRead(ModelServerBase):
-    id: UUID4
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

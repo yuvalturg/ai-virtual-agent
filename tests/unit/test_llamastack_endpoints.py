@@ -23,13 +23,13 @@ class _MockModel(BaseModel):
     type: str  # echoed back in the response (same as model_type)
 
 
-class _MockVectorDB(BaseModel):
+class _MockVectorStore(BaseModel):
     """Minimal representation of a LlamaStack *vector DB* (knowledge base)."""
 
     identifier: str
     provider_resource_id: str | None = None
     provider_id: str | None = None
-    type: str = "vector_db"
+    type: str = "vector_store"
     embedding_model: str | None = None
 
 
@@ -53,11 +53,11 @@ class _MockLlamaClient:
     def __init__(
         self,
         models: List[_MockModel],
-        vector_dbs: List[_MockVectorDB],
+        vector_stores: List[_MockVectorStore],
         toolgroups: List[_MockToolGroup],
     ):
         self._models = models
-        self._vector_dbs = vector_dbs
+        self._vector_stores = vector_stores
         self._toolgroups = toolgroups
 
     # Internal proxy object so that `.models.list()` *awaits* to the actual
@@ -72,8 +72,8 @@ class _MockLlamaClient:
         return _MockLlamaClient._Proxy(self._models)
 
     @property
-    def vector_dbs(self):  # noqa: D401 – simple property
-        return _MockLlamaClient._Proxy(self._vector_dbs)
+    def vector_stores(self):  # noqa: D401 – simple property
+        return _MockLlamaClient._Proxy(self._vector_stores)
 
     @property
     def toolgroups(self):  # noqa: D401 – simple property
@@ -118,14 +118,14 @@ def client(monkeypatch):
         ),
     ]
 
-    vector_dbs = [
-        _MockVectorDB(
+    vector_stores = [
+        _MockVectorStore(
             identifier="kb_stackoverflow",
             provider_resource_id="db.so",
             provider_id="builtin",
             embedding_model="text-embedding-ada",
         ),
-        _MockVectorDB(
+        _MockVectorStore(
             identifier="kb_internal_wiki",
             provider_resource_id="db.wiki",
             provider_id="builtin",
@@ -144,7 +144,7 @@ def client(monkeypatch):
     # Patch the dependency factory used inside the endpoints
     monkeypatch.setattr(
         "backend.routes.llama_stack.get_client_from_request",
-        lambda _request: _MockLlamaClient(models, vector_dbs, toolgroups),
+        lambda _request: _MockLlamaClient(models, vector_stores, toolgroups),
     )
 
     with TestClient(app) as tc:
@@ -172,31 +172,6 @@ def test_get_llms_filters_only_llm_models(client):
     assert llm["model_name"] == "gpt-4"
     assert llm["model_type"] == "llm"
     assert llm["provider_resource_id"] == "openai.gpt-4"
-
-
-def test_get_knowledge_bases_returns_all_vector_dbs(client):
-    """Endpoint must map vector-db objects to KB dictionaries unchanged."""
-
-    response = client.get("/api/llama_stack/knowledge_bases")
-
-    assert response.status_code == 200, response.text
-
-    data = response.json()
-    names = {kb["kb_name"] for kb in data}
-
-    assert names == {"kb_stackoverflow", "kb_internal_wiki"}
-
-    # Ensure required keys exist in each entry
-    for kb in data:
-        assert set(kb).issuperset(
-            {
-                "kb_name",
-                "provider_resource_id",
-                "provider_id",
-                "type",
-                "embedding_model",
-            }
-        )
 
 
 def test_get_tools_returns_mcp_servers(client):

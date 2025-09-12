@@ -11,6 +11,7 @@ capabilities.
 """
 
 import asyncio
+import logging
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -24,7 +25,6 @@ from fastapi.staticfiles import StaticFiles
 from kubernetes import client, config
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .database import AsyncSessionLocal
 from .routes import (
     agent_templates,
     chat_sessions,
@@ -33,21 +33,20 @@ from .routes import (
     knowledge_bases,
     llama_stack,
     mcp_servers,
-    model_servers,
     tools,
     users,
     validate,
-    virtual_assistants,
+    virtual_agents,
 )
 from .utils.auth_utils import is_local_dev_mode
 from .utils.feature_flags import is_attachments_feature_enabled
-from .utils.logging_config import get_logger, setup_logging
+from .utils.logging_config import setup_logging
 
 load_dotenv()
 
 # Configure centralized logging
 setup_logging(level="INFO")
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_incluster_namespace() -> str:
@@ -112,22 +111,6 @@ async def ensure_templates_available():
         logger.error(f"Failed to populate templates: {str(e)}")
 
 
-async def sync_external_services():
-    """Sync external services (model servers, knowledge bases) - requires service readiness."""
-    sync_operations = [
-        ("Model servers", model_servers.sync_model_servers),
-        ("Knowledge bases", knowledge_bases.sync_knowledge_bases),
-    ]
-
-    for service_name, sync_func in sync_operations:
-        try:
-            async with AsyncSessionLocal() as session:
-                await sync_func(session)
-            logger.info(f"Successfully synced {service_name}")
-        except Exception as e:
-            logger.error(f"Failed to sync {service_name}: {str(e)}")
-
-
 async def startup_tasks():
     """Run all startup tasks after the server is ready."""
     logger.info("Starting post-startup tasks...")
@@ -135,19 +118,7 @@ async def startup_tasks():
     # Always ensure templates are available (no external dependencies)
     await ensure_templates_available()
 
-    # Sync external services (requires service readiness in production)
-    service_name = "ai-virtual-agent"
-    namespace = get_incluster_namespace()
-
-    if wait_for_service_ready(service_name, namespace):
-        logger.info("Service is ready, proceeding with external service sync.")
-        await sync_external_services()
-        logger.info("All startup tasks completed successfully!")
-    else:
-        logger.warning(
-            "Service readiness check failed, skipping external service sync."
-        )
-        logger.info("Templates are still available, core functionality will work.")
+    logger.info("All startup tasks completed successfully!")
 
 
 @asynccontextmanager
@@ -201,9 +172,8 @@ app.include_router(users.router, prefix="/api")
 app.include_router(mcp_servers.router, prefix="/api")
 app.include_router(tools.router, prefix="/api")
 app.include_router(knowledge_bases.router, prefix="/api")
-app.include_router(virtual_assistants.router, prefix="/api")
+app.include_router(virtual_agents.router, prefix="/api")
 app.include_router(guardrails.router, prefix="/api")
-app.include_router(model_servers.router, prefix="/api")
 app.include_router(llama_stack.router, prefix="/api")
 app.include_router(chat_sessions.router, prefix="/api")
 app.include_router(agent_templates.router, prefix="/api")

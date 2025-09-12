@@ -1,5 +1,5 @@
 export interface KnowledgeBase {
-  vector_db_name: string; // Primary key - LlamaStack identifier
+  vector_store_name: string; // Primary key - LlamaStack identifier
   name: string;
   version: string;
   embedding_model: string;
@@ -12,16 +12,36 @@ export interface KnowledgeBase {
   updated_at?: string;
 }
 
-export type KnowledgeBaseStatus = 'succeeded' | 'running' | 'failed' | 'unknown' | 'orphaned';
+export type KnowledgeBaseStatus = 'succeeded' | 'running' | 'failed' | 'unknown';
 
 export interface KnowledgeBaseWithStatus extends KnowledgeBase {
   status: KnowledgeBaseStatus;
 }
 
-export interface LSKnowledgeBase {
-  kb_name: string;
-  provider_resource_id: string;
-  provider_id: string;
-  type: string;
-  embedding_model: string;
+// Status utility functions
+export function getStatusColor(status: KnowledgeBaseStatus): 'green' | 'orange' | 'red' {
+  switch (status) {
+    case 'succeeded':
+      return 'green';
+    case 'running':
+      return 'orange';
+    case 'failed':
+    case 'unknown':
+      return 'red';
+    default:
+      return 'orange';
+  }
+}
+
+export function getStatusLabel(status: KnowledgeBaseStatus): string {
+  switch (status) {
+    case 'succeeded':
+      return 'Succeeded';
+    case 'running':
+      return 'Running';
+    case 'failed':
+      return 'Failed';
+    default:
+      return 'Unknown';
+  }
 }

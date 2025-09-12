@@ -5,13 +5,12 @@ This module provides functionality to load agent template configurations
 from YAML files in the agent_templates directory.
 """
 
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel
-
-from ..utils.logging_config import get_logger
 
 
 class AgentTemplate(BaseModel):
@@ -27,7 +26,7 @@ class AgentTemplate(BaseModel):
     demo_questions: Optional[List[str]] = None
 
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def load_template_from_yaml(file_path: str) -> Dict:

@@ -15,6 +15,7 @@ Key Features:
 - Read-only operations after creation (knowledge bases cannot be modified)
 """
 
+import logging
 import os
 from typing import List
 
@@ -24,11 +25,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
-from ..api.llamastack import get_client_from_request, sync_client
+from ..api.llamastack import get_client_from_request
 from ..database import get_db
-from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/knowledge_bases", tags=["knowledge_bases"])
 
@@ -65,40 +65,44 @@ async def create_knowledge_base(
     await db.commit()
     await db.refresh(db_kb)
 
-    # Auto-sync with LlamaStack after creation
-    try:
-        logger.info(f"Auto-syncing knowledge bases after creation of: {db_kb.name}")
-        await sync_knowledge_bases(db)
-    except Exception as e:
-        logger.warning(f"Failed to auto-sync after knowledge base creation: {str(e)}")
-
-    db_kb.status = await get_pipeline_status(db_kb.vector_db_name)
+    db_kb.status = await get_pipeline_status(db_kb.vector_store_name)
     return db_kb
 
 
 @router.get("/", response_model=List[schemas.KnowledgeBaseRead])
-async def read_knowledge_bases(db: AsyncSession = Depends(get_db)):
+async def read_knowledge_bases(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Retrieve all knowledge bases from the database.
 
     This endpoint returns a list of all knowledge bases stored in the database,
-    including their metadata and configuration details.
+    including their metadata and configuration details. It also fetches vector
+    stores from LlamaStack to update vector_store_id fields.
 
     Args:
+        request: FastAPI request object for LlamaStack client access
         db: Database session dependency
 
     Returns:
         List[schemas.KnowledgeBaseRead]: List of all knowledge bases
     """
+    # Update vector_store_ids by matching with LlamaStack vector stores
+    await update_vector_store_ids(request, db)
+
+    # Select knowledge bases after updates
     result = await db.execute(select(models.KnowledgeBase))
     kbs = result.scalars().all()
+
+    # Get pipeline status for each knowledge base
     for kb in kbs:
-        kb.status = await get_pipeline_status(kb.vector_db_name)
+        kb.status = await get_pipeline_status(kb.vector_store_name)
+
     return kbs
 
 
-@router.get("/{vector_db_name}", response_model=schemas.KnowledgeBaseRead)
-async def read_knowledge_base(vector_db_name: str, db: AsyncSession = Depends(get_db)):
+@router.get("/{vector_store_name}", response_model=schemas.KnowledgeBaseRead)
+async def read_knowledge_base(
+    vector_store_name: str, db: AsyncSession = Depends(get_db)
+):
     """
     Retrieve a specific knowledge base by its vector database name.
 
@@ -107,7 +111,7 @@ async def read_knowledge_base(vector_db_name: str, db: AsyncSession = Depends(ge
     database.
 
     Args:
-        vector_db_name: The unique vector database name/identifier
+        vector_store_name: The unique vector database name/identifier
         db: Database session dependency
 
     Returns:
@@ -118,20 +122,20 @@ async def read_knowledge_base(vector_db_name: str, db: AsyncSession = Depends(ge
     """
     result = await db.execute(
         select(models.KnowledgeBase).where(
-            models.KnowledgeBase.vector_db_name == vector_db_name
+            models.KnowledgeBase.vector_store_name == vector_store_name
         )
     )
     kb = result.scalar_one_or_none()
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
 
-    kb.status = await get_pipeline_status(kb.vector_db_name)
+    kb.status = await get_pipeline_status(kb.vector_store_name)
     return kb
 
 
-@router.delete("/{vector_db_name}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{vector_store_name}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_knowledge_base(
-    vector_db_name: str, request: Request, db: AsyncSession = Depends(get_db)
+    vector_store_name: str, request: Request, db: AsyncSession = Depends(get_db)
 ):
     """
     Delete a knowledge base from both the database and LlamaStack.
@@ -142,7 +146,7 @@ async def delete_knowledge_base(
     where the knowledge base is in PENDING status.
 
     Args:
-        vector_db_name: The vector database name/identifier of the
+        vector_store_name: The vector database name/identifier of the
                        knowledge base to delete
         db: Database session dependency
 
@@ -154,7 +158,7 @@ async def delete_knowledge_base(
     """
     result = await db.execute(
         select(models.KnowledgeBase).where(
-            models.KnowledgeBase.vector_db_name == vector_db_name
+            models.KnowledgeBase.vector_store_name == vector_store_name
         )
     )
     db_kb = result.scalar_one_or_none()
@@ -163,20 +167,26 @@ async def delete_knowledge_base(
 
     kb_name = db_kb.name  # Store name before deletion
 
-    # First, try to delete from LlamaStack
-    client = get_client_from_request(request)
-    try:
-        logger.info(f"Deleting knowledge base from LlamaStack: {vector_db_name}")
-        await client.vector_dbs.unregister(vector_db_name)
-        logger.info(f"Successfully deleted from LlamaStack: {vector_db_name}")
-    except Exception as e:
-        logger.warning(f"Failed to delete from LlamaStack (may not exist): {str(e)}")
-        # Continue with DB deletion even if LlamaStack deletion fails
-        # This handles cases where the KB exists
-        # in DB but not in LlamaStack (PENDING status)
+    # First, try to delete from LlamaStack using vector_store_id if available
+    if db_kb.vector_store_id:
+        client = get_client_from_request(request)
+        try:
+            logger.info(
+                f"Deleting knowledge base from LlamaStack using ID: {db_kb.vector_store_id}"
+            )
+            await client.vector_stores.delete(db_kb.vector_store_id)
+            logger.info(
+                f"Successfully deleted from LlamaStack: {db_kb.vector_store_id}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to delete from LlamaStack: {str(e)}")
+    else:
+        logger.info(
+            f"No vector_store_id found for {vector_store_name}, skipping LlamaStack deletion"
+        )
 
     try:
-        await delete_ingestion_pipeline(vector_db_name)
+        await delete_ingestion_pipeline(vector_store_name)
     except Exception as e:
         logger.warning(f"failed to delete ingestion pipeline: {str(e)}")
 
@@ -186,33 +196,6 @@ async def delete_knowledge_base(
 
     logger.info(f"Successfully deleted knowledge base from database: {kb_name}")
     return None
-
-
-@router.post("/sync", response_model=List[schemas.KnowledgeBaseRead])
-async def sync_knowledge_bases_endpoint(db: AsyncSession = Depends(get_db)):
-    """
-    Synchronize knowledge bases between the database and LlamaStack.
-
-    This endpoint performs a unidirectional sync that fetches vector databases
-    from LlamaStack and adds any missing ones to the local database. It
-    preserves knowledge bases with PENDING status (exist in DB but not yet in
-    LlamaStack).
-
-    Args:
-        db: Database session dependency
-
-    Returns:
-        List[schemas.KnowledgeBaseRead]: List of synchronized knowledge bases
-
-    Raises:
-        HTTPException: If synchronization fails due to LlamaStack errors
-    """
-    try:
-        return await sync_knowledge_bases(db)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
 
 
 async def create_ingestion_pipeline(kb: schemas.KnowledgeBaseCreate):
@@ -241,16 +224,16 @@ async def create_ingestion_pipeline(kb: schemas.KnowledgeBaseCreate):
         response.raise_for_status()
 
 
-async def delete_ingestion_pipeline(vector_db_name: str):
+async def delete_ingestion_pipeline(vector_store_name: str):
     """
     Internal method that deletes an existing pipeline
 
-    This method takes a vector_db_name and calls the ingestion-pipeline
+    This method takes a vector_store_name and calls the ingestion-pipeline
     API service to delete the pipeline including all runs and
     versions.
 
     Args:
-        vector_db_name: The actual pipeline_name
+        vector_store_name: The actual pipeline_name
 
     Returns:
         None
@@ -259,11 +242,63 @@ async def delete_ingestion_pipeline(vector_db_name: str):
         Exception: If the ingestion-pipeline API call fails
     """
     del_pipeline = os.environ["INGESTION_PIPELINE_URL"] + "/delete"
-    data = {"pipeline_name": vector_db_name}
+    data = {"pipeline_name": vector_store_name}
     logger.info(f"Deleting pipeline with {del_pipeline} {data=}")
     async with httpx.AsyncClient() as client:
         response = await client.delete(del_pipeline, params=data)
         response.raise_for_status()
+
+
+async def update_vector_store_ids(request: Request, db: AsyncSession):
+    """
+    Update vector_store_id fields by matching knowledge bases with LlamaStack vector stores.
+
+    This function fetches all vector stores from LlamaStack and matches them with
+    knowledge bases by vector_store_name. When a match is found, it updates the
+    vector_store_id field in the database.
+
+    Args:
+        kbs: List of knowledge base objects from database
+        request: FastAPI request object for LlamaStack client access
+        db: Database session for updating records
+
+    Returns:
+        None
+    """
+    try:
+        client = get_client_from_request(request)
+        vector_stores = await client.vector_stores.list()
+
+        # Create a mapping of vector store names to IDs
+        vs_name_to_id = {}
+        for vs in vector_stores.data:
+            vs_name_to_id[vs.name] = vs.id
+
+        # Get only knowledge bases that exist in LlamaStack vector stores
+        result = await db.execute(
+            select(models.KnowledgeBase).where(
+                models.KnowledgeBase.vector_store_name.in_(vs_name_to_id.keys())
+            )
+        )
+        kbs = result.scalars().all()
+
+        # Update knowledge bases that need vector_store_id updates
+        updates_made = False
+        for kb in kbs:
+            vs_id = vs_name_to_id[kb.vector_store_name]  # We know it exists now
+            if kb.vector_store_id != vs_id:
+                kb.vector_store_id = vs_id
+                updates_made = True
+                logger.info(
+                    f"Updated vector_store_id for {kb.vector_store_name}: {vs_id}"
+                )
+
+        # Commit all updates if any were made
+        if updates_made:
+            await db.commit()
+
+    except Exception as e:
+        logger.warning(f"Failed to update vector_store_ids from LlamaStack: {str(e)}")
 
 
 async def get_pipeline_status(pipeline_name: str) -> str:
@@ -274,7 +309,7 @@ async def get_pipeline_status(pipeline_name: str) -> str:
     ingestion-pipeline service API.
 
     Args:
-        pipeline_name: Pipeline name (vector_db_name)
+        pipeline_name: Pipeline name (vector_store_name)
 
     Returns:
         str: The requested ingestion pipeline state
@@ -295,131 +330,3 @@ async def get_pipeline_status(pipeline_name: str) -> str:
                 f"could not fetch pipeline status for {pipeline_name}: {str(e)}"
             )
             return "unknown"
-
-
-async def sync_knowledge_bases(db: AsyncSession):
-    """
-    Internal synchronization function for knowledge bases with LlamaStack.
-
-    This function performs the actual sync logic by fetching vector databases
-    from LlamaStack and updating the local database. It's called automatically
-    after knowledge base operations and by the manual sync endpoint.
-
-    The sync is unidirectional - it only adds missing items from LlamaStack
-    to the database without removing existing database entries. This preserves
-    knowledge bases in PENDING status during ingestion processes.
-
-    Args:
-        db: Database session for executing queries
-
-    Returns:
-        List[models.KnowledgeBase]: List of synchronized knowledge bases
-
-    Raises:
-        Exception: If LlamaStack communication fails or database operations
-                   fail
-    """
-    try:
-        logger.info("Starting knowledge base sync")
-        logger.debug("Fetching vector databases from LlamaStack")
-        try:
-            response = await sync_client.vector_dbs.list()
-
-            if isinstance(response, list):
-                vector_dbs = [item.__dict__ for item in response]
-            elif isinstance(response, dict):
-                vector_dbs = response.get("data", [])
-            elif hasattr(response, "data"):
-                vector_dbs = response.data
-            else:
-                logger.warning(f"Unexpected response type: {type(response)}")
-                vector_dbs = []
-
-        except Exception as e:
-            raise Exception(
-                f"Failed to fetch vector databases from LlamaStack: {str(e)}"
-            )
-
-        logger.debug("Fetching existing knowledge bases from database...")
-        result = await db.execute(select(models.KnowledgeBase))
-        existing_kbs = {kb.vector_db_name: kb for kb in result.scalars().all()}
-        logger.debug(
-            f"Found {len(existing_kbs)} existing knowledge bases: "
-            f"{list(existing_kbs.keys())}"
-        )
-
-        synced_kbs = []
-
-        logger.debug("Processing vector databases...")
-        for vector_db in vector_dbs:
-            try:
-                if not vector_db.get("identifier"):
-                    logger.debug(
-                        f"Skipping vector database without identifier: {vector_db}"
-                    )
-                    continue
-
-                kb_data = {
-                    "name": vector_db["identifier"],
-                    "version": "1.0",
-                    "embedding_model": vector_db.get(
-                        "embedding_model", "all-MiniLM-L6-v2"
-                    ),
-                    "provider_id": vector_db.get("provider_id"),
-                    "vector_db_name": vector_db["identifier"],
-                    "is_external": False,
-                    "source": None,
-                    "source_configuration": {
-                        "embedding_dimension": vector_db.get("embedding_dimension"),
-                        "type": vector_db.get("type"),
-                        "provider_resource_id": vector_db.get("provider_resource_id"),
-                    },
-                }
-                logger.debug(
-                    f"Processing vector database {vector_db['identifier']} "
-                    f"with data: {kb_data}"
-                )
-
-                if vector_db["identifier"] in existing_kbs:
-                    logger.debug(
-                        "Updating existing knowledge base: "
-                        f"{vector_db['identifier']}"
-                    )
-                    kb = existing_kbs[vector_db["identifier"]]
-                    for field, value in kb_data.items():
-                        setattr(kb, field, value)
-                else:
-                    logger.debug(
-                        f"Creating new knowledge base: {vector_db['identifier']}"
-                    )
-                    kb = models.KnowledgeBase(**kb_data)
-                    db.add(kb)
-
-                synced_kbs.append(kb)
-            except Exception as e:
-                logger.error(
-                    "Error processing vector database "
-                    f"{vector_db.get('identifier', 'unknown')}: {str(e)}"
-                )
-                continue
-
-        # Note: We no longer remove knowledge bases from DB that don't
-        # exist in LlamaStack. This allows for PENDING status (exists in DB
-        # but not yet in LlamaStack during ingestion). Deletion from DB should
-        # only happen through explicit delete API calls
-        logger.info("Sync complete - only added missing items from LlamaStack to DB")
-
-        logger.debug("Committing changes to database...")
-        await db.commit()
-
-        logger.debug("Refreshing synced knowledge bases...")
-        for kb in synced_kbs:
-            await db.refresh(kb)
-            kb.status = await get_pipeline_status(kb.vector_db_name)
-
-        logger.info(f"Sync complete. Synced {len(synced_kbs)} knowledge bases.")
-        return synced_kbs
-
-    except Exception as e:
-        logger.error(f"Error during sync: {str(e)}")
-        raise Exception(f"Failed to sync knowledge bases: {str(e)}")

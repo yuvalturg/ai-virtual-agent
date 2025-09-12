@@ -5,14 +5,14 @@ This module provides endpoints to retrieve and manage tool groups, including
 both MCP (Model Context Protocol) servers and LlamaStack builtin tools.
 """
 
+import logging
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Request
 
 from ..api.llamastack import get_client_from_request
-from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 

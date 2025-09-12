@@ -18,9 +18,19 @@ export async function fetchChatSessions(agentId?: string): Promise<ChatSessionSu
 
 export async function fetchChatSession(
   sessionId: string,
-  agentId: string
+  agentId: string,
+  page: number = 1,
+  pageSize: number = 50,
+  loadMessages: boolean = true
 ): Promise<ChatSessionDetail> {
-  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?agent_id=${agentId}`);
+  const params = new URLSearchParams({
+    agent_id: agentId,
+    page: page.toString(),
+    page_size: pageSize.toString(),
+    load_messages: loadMessages.toString(),
+  });
+
+  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?${params}`);
   if (!response.ok) {
     throw new Error('Failed to fetch chat session');
   }

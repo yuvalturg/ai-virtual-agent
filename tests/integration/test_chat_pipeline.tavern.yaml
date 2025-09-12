@@ -15,9 +15,9 @@ stages:
         json:
           model_name: "[0].model_name"
 
-  - name: Create virtual assistant with 2-word limit
+  - name: Create virtual agent with 2-word limit
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/virtual_assistants/"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/virtual_agents/"
       method: POST
       headers:
         Content-Type: application/json
@@ -81,20 +81,20 @@ stages:
         Content-Type: application/json
         Accept: application/json
       json:
-        virtualAssistantId: "{agent_id}"
+        virtualAgentId: "{agent_id}"
         sessionId: "{session_id}"
-        messages:
-          - role: "system"
-            content: "Answer with exactly 2 words only."
-          - role: "user"
-            content: "Who is the first president of the united states?"
+        message:
+          role: "user"
+          content:
+            - type: "input_text"
+              text: "Who is the first president of the united states?"
         stream: false
     response:
       status_code: 200
       verify_response_with:
         - function: tests.integration.validators:validate_exact_text
           extra_kwargs:
-            expected_text: "George Washington"
+            expected_text: "George Washington."
 
   - name: Ask about second USA president (Test 2 - Same Agent)
     request:
@@ -104,11 +104,13 @@ stages:
         Content-Type: application/json
         Accept: application/json
       json:
-        virtualAssistantId: "{agent_id}"
+        virtualAgentId: "{agent_id}"
         sessionId: "{session_id}"
-        messages:
-          - role: "user"
-            content: "Who is the second president of the united states?"
+        message:
+          role: "user"
+          content:
+            - type: "input_text"
+              text: "Who is the second president of the united states?"
         stream: false
     response:
       status_code: 200
@@ -116,3 +118,13 @@ stages:
         - function: tests.integration.validators:validate_exact_text
           extra_kwargs:
             expected_text: "John Adams"
+
+  # Cleanup: Delete the test agent
+  - name: cleanup_test_agent
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}"
+      method: DELETE
+      headers:
+        Accept: application/json
+    response:
+      status_code: 204

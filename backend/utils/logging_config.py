@@ -33,12 +33,24 @@ def setup_logging(
         level=getattr(logging, level.upper()),
         format=format_string,
         handlers=_get_handlers(log_file, format_string),
+        force=True,  # Force reconfiguration even if already configured
     )
+
+    # Set the root logger level explicitly
+    logging.getLogger().setLevel(getattr(logging, level.upper()))
 
     # Set specific loggers to appropriate levels
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+    # Ensure our backend loggers use INFO level
+    logging.getLogger("backend").setLevel(logging.INFO)
+    logging.getLogger("backend.routes").setLevel(logging.INFO)
+    logging.getLogger("backend.routes.chat").setLevel(logging.INFO)
+    logging.getLogger("backend.routes.chat_sessions").setLevel(logging.INFO)
+    logging.getLogger("backend.routes.llama_stack").setLevel(logging.INFO)
+    logging.getLogger("backend.routes.knowledge_bases").setLevel(logging.INFO)
 
 
 def _get_handlers(log_file: Optional[str], format_string: str) -> list:
@@ -60,16 +72,3 @@ def _get_handlers(log_file: Optional[str], format_string: str) -> list:
         handlers.append(file_handler)
 
     return handlers
-
-
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger instance for a specific module.
-
-    Args:
-        name: Logger name (typically __name__ from calling module)
-
-    Returns:
-        Configured logger instance
-    """
-    return logging.getLogger(name)

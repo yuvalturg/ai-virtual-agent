@@ -2,7 +2,7 @@
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from llama_stack.distribution.server.auth_providers import (
+from llama_stack.core.server.auth_providers import (
     AuthRequest,
     AuthRequestContext,
     AuthResponse,
