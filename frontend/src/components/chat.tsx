@@ -156,7 +156,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
           id: msg.id,
           role: msg.role === 'user' ? 'user' : 'bot',
           content: multipleContentToText(msg.content),
-          name: msg.role === 'user' ? 'You' : 'Assistant',
+          name: msg.role === 'user' ? 'You' : 'Agent',
           timestamp: msg.timestamp.toLocaleString(),
           avatar: msg.role === 'user' ? userAvatar : botAvatar,
           avatarProps: { isBordered: true },
