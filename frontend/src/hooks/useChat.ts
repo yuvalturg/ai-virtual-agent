@@ -93,6 +93,21 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
       setInput('');
       setIsLoading(true);
 
+      // Create assistant message immediately to show loading state
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: [
+          {
+            text: '',
+            type: 'text',
+          },
+        ],
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
       try {
         // Prepare request
         const requestBody = {
@@ -119,21 +134,6 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
           throw new Error('No response body');
         }
 
-        // Create assistant message
-        const assistantMessage: ChatMessage = {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: [
-            {
-              text: '',
-              type: 'text',
-            },
-          ],
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-
         // Process stream
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -153,6 +153,7 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
 
               if (data === '[DONE]') {
                 // Stream finished
+                setIsLoading(false);
                 setMessages((prev) => {
                   const updated = [...prev];
                   const lastMsg = updated[updated.length - 1];
@@ -180,8 +181,8 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
                   if (lastMsg && lastMsg.role === 'assistant') {
                     const c: SimpleContentItem[] = [...lastMsg.content];
                     if (c[0].type === 'text') {
-                      // Accumulate content
-                      c[0].text += parsed;
+                      // Replace content (backend sends complete response, not chunks)
+                      c[0].text = parsed;
                       lastMsg.content = c;
                     }
                   }
@@ -195,15 +196,15 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
         console.error('Chat error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         options?.onError?.(new Error(errorMessage));
+        setIsLoading(false);
 
         // Remove the loading assistant message on error
         setMessages((prev) =>
           prev.filter((msg) => {
-            return msg.role !== 'assistant' || msg.content.length > 0;
+            // Keep non-assistant messages and assistant messages with actual content
+            return msg.role !== 'assistant' || (msg.content.length > 0 && msg.content[0].text.trim() !== '');
           })
         );
-      } finally {
-        setIsLoading(false);
       }
     },
     [agentId, messages, sessionId, isLoading, options]
