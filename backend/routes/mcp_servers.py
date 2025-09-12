@@ -12,15 +12,15 @@ Key Features:
 - Integration with virtual agents for enhanced capabilities
 """
 
+import logging
 from typing import List
 
 from fastapi import APIRouter, HTTPException, status
 
 from .. import schemas
 from ..api.llamastack import sync_client
-from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mcp_servers", tags=["mcp_servers"])
 

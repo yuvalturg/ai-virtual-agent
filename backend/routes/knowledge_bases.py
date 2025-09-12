@@ -15,6 +15,7 @@ Key Features:
 - Read-only operations after creation (knowledge bases cannot be modified)
 """
 
+import logging
 import os
 from typing import List
 
@@ -26,9 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models, schemas
 from ..api.llamastack import get_client_from_request, sync_client
 from ..database import get_db
-from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/knowledge_bases", tags=["knowledge_bases"])
 

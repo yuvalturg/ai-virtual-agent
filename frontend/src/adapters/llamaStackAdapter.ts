@@ -1,5 +1,4 @@
 import type { LlamaStackParser as LlamaStackParserType, LlamaStackResponse } from '@/types/api';
-import { processStreamingReActResponse } from '../hooks/useChat';
 
 /**
  * LlamaStackParser - Transforms the Llama Stack API response format into
@@ -9,7 +8,7 @@ import { processStreamingReActResponse } from '../hooks/useChat';
  * processes the session ID from the stream.
  */
 export const LlamaStackParser: LlamaStackParserType = {
-  parse(line: string, agentType: 'Regular' | 'ReAct' = 'Regular'): string | null {
+  parse(line: string): string | null {
     // Skip [DONE] events (empty lines)
     if (!line || line === '[DONE]') {
       return null;
@@ -25,13 +24,13 @@ export const LlamaStackParser: LlamaStackParserType = {
         return null;
       }
 
+      // Handle done events from the backend
+      if (json.type === 'done') {
+        return null;
+      }
+
       // Handle text content which should be shown to the user
-      if (json.type === 'text' && json.content) {
-        if (agentType === 'ReAct') {
-          const result = processStreamingReActResponse(json.content);
-          return result;
-        }
-        // For regular agents, use the same logic as refresh page (no special processing)
+      if ((json.type === 'text' || json.type === 'content') && json.content) {
         return json.content;
       }
 
@@ -43,20 +42,6 @@ export const LlamaStackParser: LlamaStackParserType = {
       // Handle reasoning (thought process)
       if (json.type === 'reasoning' && json.content) {
         return `[Thinking: ${json.content}]\n`;
-      }
-
-      // Handle react_unified type from our backend
-      if (json.type === 'react_unified' && agentType === 'ReAct') {
-        // The react_unified type contains thought and answer directly
-        if (json.thought) {
-          const thought = String(json.thought);
-          const answer = json.answer ? String(json.answer) : '';
-          if (answer) {
-            return `🤔 **Thinking:** ${thought}\n\n${answer}`;
-          } else {
-            return `🤔 **Thinking:** ${thought}`;
-          }
-        }
       }
 
       // Handle errors
@@ -80,9 +65,13 @@ export const LlamaStackParser: LlamaStackParserType = {
  */
 export const extractSessionId = (line: string): string | null => {
   try {
-    const json = JSON.parse(line) as LlamaStackResponse;
+    const json = JSON.parse(line) as LlamaStackResponse & { session_id?: string };
     if (json.type === 'session' && json.sessionId) {
       return json.sessionId;
+    }
+    // Also check for session_id in done events
+    if (json.type === 'done' && json.session_id) {
+      return json.session_id;
     }
   } catch {
     // Ignore parse errors for non-session messages

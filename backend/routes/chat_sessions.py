@@ -22,20 +22,23 @@ from datetime import datetime
 from typing import List, Optional
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from llama_stack_client.types.agents.session import Session
 from llama_stack_client.types.shared.interleaved_content_item import (
     ImageContentItem,
     TextContentItem,
 )
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import models
 from ..api.llamastack import get_client_from_request
+from ..database import get_db
 from ..routes import attachments
 from ..virtual_agents.agent_resource import EnhancedAgentResource
 from ..virtual_agents.session_resource import EnhancedSessionResource
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat_sessions", tags=["chat_sessions"])
 
 
@@ -55,7 +58,7 @@ class CreateSessionRequest(BaseModel):
 
 @router.get("/")
 async def get_chat_sessions(
-    agent_id: str, request: Request, limit: int = 50
+    agent_id: str, request: Request, limit: int = 50, db: AsyncSession = Depends(get_db)
 ) -> List[dict]:
     """
     Get a list of chat sessions for a specific agent from LlamaStack.
@@ -80,45 +83,54 @@ async def get_chat_sessions(
         HTTPException: If session retrieval fails or agent is not found
     """
     try:
-        log.info(f"Attempting to list sessions for agent {agent_id}")
+        logger.info(f"Attempting to list sessions for agent {agent_id}")
 
-        # Get the enhanced session resource
-        client = get_client_from_request(request)
-        session_resource: EnhancedSessionResource = client.agents.session
+        # Use our local ChatSession table instead of LlamaStack agents API
+        import json
 
-        # Call the enhanced list method - this now returns List[dict]
-        # instead of List[Session]
-        sessions_data: List[dict] = await session_resource.list(agent_id=agent_id)
+        from sqlalchemy import select, text
 
-        log.info(f"Successfully retrieved {len(sessions_data)} sessions")
+        # Use JSON path extraction to check for agent_id
+        result = await db.execute(
+            select(models.ChatSession)
+            .where(text("session_state->>'agent_id' = :agent_id"))
+            .order_by(models.ChatSession.updated_at.desc()),
+            {"agent_id": agent_id},
+        )
+        local_sessions = result.scalars().all()
 
-        # Get agent info
+        logger.info(
+            f"Successfully retrieved {len(local_sessions)} sessions from local database"
+        )
+
+        # Get agent name from our VirtualAgentConfig instead of LlamaStack
         agent_name = "Unknown Agent"
         try:
-            agentResource: EnhancedAgentResource = client.agents
-            agent = await agentResource.retrieve(agent_id=agent_id)
-            agent_name = get_agent_display_name(agent)
+            result = await db.execute(
+                select(models.VirtualAgentConfig).where(
+                    models.VirtualAgentConfig.id == agent_id
+                )
+            )
+            agent_config = result.scalar_one_or_none()
+            if agent_config:
+                agent_name = agent_config.name
         except Exception as e:
-            log.warning(f"Could not get agent info: {e}")
+            logger.warning(f"Could not get agent info: {e}")
 
-        # Convert to response format - now working with dicts instead of
-        # Session objects
+        # Convert local ChatSession objects to response format
         sessions_response = [
             {
-                "id": session.get("session_id"),  # Use .get() instead of .session_id
-                "title": session.get("session_name")
-                or f"Chat {session.get('session_id', '')[:8]}...",
-                "agent_name": agent_name,
-                "created_at": session.get(
-                    "started_at"
-                ),  # Use .get() instead of .started_at
-                "updated_at": session.get(
-                    "started_at"
-                ),  # Use .get() instead of .started_at
+                "id": session.id,
+                "title": session.title or f"Chat {session.id[:8]}...",
+                "agent_name": session.agent_name or agent_name,
+                "created_at": (
+                    session.created_at.isoformat() if session.created_at else None
+                ),
+                "updated_at": (
+                    session.updated_at.isoformat() if session.updated_at else None
+                ),
             }
-            for session in sessions_data[
-                :limit
-            ]  # Change variable name from sessions to sessions_data
+            for session in local_sessions[:limit]
         ]
 
         # Sort by created_at descending (newest first) to ensure
@@ -128,7 +140,7 @@ async def get_chat_sessions(
         return sessions_response
 
     except Exception as e:
-        log.error(f"Error fetching chat sessions: {str(e)}")
+        logger.error(f"Error fetching chat sessions: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch chat sessions: {str(e)}"
         )
@@ -159,7 +171,9 @@ def get_agent_display_name(agent) -> str:
 
 
 @router.get("/{session_id}")
-async def get_chat_session(session_id: str, agent_id: str, request: Request) -> dict:
+async def get_chat_session(
+    session_id: str, agent_id: str, request: Request, db: AsyncSession = Depends(get_db)
+) -> dict:
     """
     Get detailed information for a specific chat session including message
     history.
@@ -187,144 +201,50 @@ async def get_chat_session(session_id: str, agent_id: str, request: Request) -> 
         HTTPException: If agent is not found (404) or retrieval fails (500)
     """
     try:
-        log.info(f"Fetching session {session_id} for agent {agent_id}")
+        logger.info(f"Fetching session {session_id} for agent {agent_id}")
 
-        # Verify agent exists
-        client = get_client_from_request(request)
-        try:
-            agentResource: EnhancedAgentResource = client.agents
-            agent = await agentResource.retrieve(agent_id=agent_id)
-        except Exception as e:
-            log.error(f"Agent {agent_id} not found: {str(e)}")
+        # Verify agent exists in our VirtualAgentConfig table instead of LlamaStack
+        from .virtual_agents import get_virtual_agent_config
+
+        agent_config = await get_virtual_agent_config(db, agent_id)
+        if not agent_config:
+            logger.error(f"Agent {agent_id} not found in VirtualAgentConfig")
             raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
 
-        # Get session history from LlamaStack
-        try:
-            session_resource: EnhancedSessionResource = client.agents.session
-            session: Session = await session_resource.retrieve(
-                agent_id=agent_id, session_id=session_id
-            )
-            log.info(f"Successfully retrieved session: {session_id}")
+        # With Responses API, we don't have persistent sessions in LlamaStack
+        # Session history would need to be managed differently or stored locally
+        # For now, return empty session structure
 
-            # Get turns for the session
-            turns = session.turns
+        # Get agent name from our VirtualAgentConfig
+        agent_name = agent_config.name if agent_config.name else "Unknown Agent"
 
-            # Convert turns to messages format
-            messages = []
-            for turn in turns:
-                # Add user message
-                if hasattr(turn, "input_messages"):
-                    for msg in turn.input_messages:
-                        if hasattr(msg, "content"):
-                            # The content of each message is a list,
-                            # containing one or more InterleavedContent
-                            # objects.
-                            new_msg = []
-                            for m in msg.content:
-                                if isinstance(m, TextContentItem):
-                                    new_msg.append({"type": "text", "text": m.text})
-                                elif isinstance(m, ImageContentItem):
-                                    img = m.image
-                                    if img.url is not None:
-                                        # The image URL stored is an internal
-                                        # URL.
-                                        # Return just the path portion of it
-                                        # for the frontend to use, to avoid
-                                        # exposing the internal URL.
-                                        internal_url = urlparse(img.url.uri)
-                                        relative_path = internal_url.path
-                                        new_msg.append(
-                                            {
-                                                "type": "image",
-                                                "image": {
-                                                    "url": {"uri": relative_path}
-                                                },
-                                            }
-                                        )
-                                    else:
-                                        new_msg.append(
-                                            {
-                                                "type": "image",
-                                                "image": {"data": img.data},
-                                            }
-                                        )
-                                else:
-                                    new_msg.append(m)
-                            messages.append({"role": "user", "content": new_msg})
+        logger.info(
+            f"Returning session structure for {session_id} (Responses API doesn't store session history)"
+        )
 
-                # Add assistant response
-                if hasattr(turn, "output_message") and hasattr(
-                    turn.output_message, "content"
-                ):
-                    messages.append(
-                        # For now, the output message content is always a
-                        # string -
-                        # wrap it explicitly in a TextContentItem object to
-                        # simplify processing on the frontend.
-                        {
-                            "role": "assistant",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": turn.output_message.content,
-                                }
-                            ],
-                        }
-                    )
-
-            # Get agent name
-            agent_name = "Unknown Agent"
-            try:
-                if hasattr(agent, "agent_config") and isinstance(
-                    agent.agent_config, dict
-                ):
-                    agent_name = agent.agent_config.get("name", agent_name)
-                elif hasattr(agent, "instructions"):
-                    # Use first few words of instructions as name
-                    instructions = (
-                        str(agent.instructions)[:50] + "..."
-                        if len(str(agent.instructions)) > 50
-                        else str(agent.instructions)
-                    )
-                    agent_name = instructions or agent_name
-            except Exception as e:
-                log.warning(f"Could not get agent name: {e}")
-
-            return {
-                "id": session_id,
-                "title": f"Chat {session_id[:8]}...",  # Generate title
-                "agent_name": agent_name,
-                "agent_id": agent_id,
-                "messages": messages,
-                # LlamaStack doesn't provide timestamps
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-            }
-
-        except Exception as e:
-            log.error(f"Error getting session history: {str(e)}")
-            # Return empty session if history fetch fails
-            return {
-                "id": session_id,
-                "title": f"Chat {session_id[:8]}...",
-                "agent_name": "Unknown Agent",
-                "agent_id": agent_id,
-                "messages": [],
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-            }
+        return {
+            "id": session_id,
+            "title": f"Chat {session_id[:8]}...",  # Generate title
+            "agent_name": agent_name,
+            "agent_id": agent_id,
+            "messages": [],  # Responses API doesn't persist session history
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        log.error(f"Error fetching chat session: {str(e)}")
+        logger.error(f"Error fetching chat session: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch chat session: {str(e)}"
         )
 
 
 @router.delete("/{session_id}")
-async def delete_chat_session(session_id: str, agent_id: str, request: Request) -> dict:
+async def delete_chat_session(
+    session_id: str, agent_id: str, request: Request, db: AsyncSession = Depends(get_db)
+) -> dict:
     """
     Delete a chat session from LlamaStack.
 
@@ -343,38 +263,45 @@ async def delete_chat_session(session_id: str, agent_id: str, request: Request) 
         HTTPException: If agent is not found (404) or deletion fails (500)
     """
     try:
-        # Verify agent exists
-        client = get_client_from_request(request)
-        try:
-            agent = await client.agents.retrieve(agent_id=agent_id)
-            log.info(f"Found agent: {agent.agent_id}")
-        except Exception as e:
-            log.error(f"Agent {agent_id} not found: {str(e)}")
+        # Verify agent exists in our VirtualAgentConfig table
+        from .virtual_agents import get_virtual_agent_config
+
+        agent_config = await get_virtual_agent_config(db, agent_id)
+        if not agent_config:
+            logger.error(f"Agent {agent_id} not found in VirtualAgentConfig")
             raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
 
-        # Delete session from LlamaStack using enhanced session resource
+        # With Responses API, we don't have persistent sessions in LlamaStack
+        # Just clean up local session metadata and attachments
         try:
-            session_resource: EnhancedSessionResource = client.agents.session
-            result = await session_resource.delete(
-                session_id=session_id, agent_id=agent_id
+            # Delete from our local ChatSession table if it exists
+            from sqlalchemy import delete as sql_delete
+
+            await db.execute(
+                sql_delete(models.ChatSession).where(
+                    models.ChatSession.id == session_id
+                )
             )
+            await db.commit()
+
+            # Clean up attachments
             attachments.delete_attachments_for_session(session_id)
-            log.info(f"Successfully deleted session {session_id} for agent {agent_id}")
-            return result
-        except HTTPException:
-            # Re-raise HTTPExceptions from the enhanced resource
-            raise
+
+            logger.info(f"Successfully deleted session {session_id} and attachments")
+            return {"message": f"Session {session_id} deleted successfully"}
+
         except Exception as e:
-            log.error(f"Error deleting session from LlamaStack: {str(e)}")
+            await db.rollback()
+            logger.error(f"Error deleting session: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to delete session from LlamaStack: {str(e)}",
+                detail=f"Failed to delete session: {str(e)}",
             )
 
     except HTTPException:
         raise
     except Exception as e:
-        log.error(f"Error deleting chat session: {str(e)}")
+        logger.error(f"Error deleting chat session: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to delete chat session: {str(e)}"
         )
@@ -382,7 +309,9 @@ async def delete_chat_session(session_id: str, agent_id: str, request: Request) 
 
 @router.post("/")
 async def create_chat_session(
-    sessionRequest: CreateSessionRequest, request: Request
+    sessionRequest: CreateSessionRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
     Create a new chat session for an agent using LlamaStack.
@@ -411,19 +340,24 @@ async def create_chat_session(
                        fails (500)
     """
     try:
-        # Verify agent exists in LlamaStack
-        client = get_client_from_request(request)
-        try:
-            agent = await client.agents.retrieve(agent_id=sessionRequest.agent_id)
-            log.info(f"Found agent: {agent.agent_id}")
-        except Exception as e:
-            log.error(
-                f"Agent {sessionRequest.agent_id} not found in LlamaStack: {str(e)}"
+        # Verify agent exists in our VirtualAgentConfig table instead of LlamaStack
+        from sqlalchemy import select
+
+        result = await db.execute(
+            select(models.VirtualAgentConfig).where(
+                models.VirtualAgentConfig.id == sessionRequest.agent_id
+            )
+        )
+        agent_config = result.scalar_one_or_none()
+        if not agent_config:
+            logger.error(
+                f"Agent {sessionRequest.agent_id} not found in VirtualAgentConfig"
             )
             raise HTTPException(
                 status_code=404,
                 detail=f"Agent {sessionRequest.agent_id} not found",
             )
+        logger.info(f"Found agent config: {agent_config.id}")
 
         # Generate unique session name
         if sessionRequest.session_name:
@@ -438,36 +372,14 @@ async def create_chat_session(
                 random.choices(string.ascii_lowercase + string.digits, k=4)
             )
             session_name = f"Chat-{timestamp}-{random_suffix}"
-        try:
-            session = await client.agents.session.create(
-                agent_id=sessionRequest.agent_id, session_name=session_name
-            )
-            session_id = session.session_id
-            log.info(f"Created LlamaStack session: {session_id}")
-        except Exception as e:
-            log.error(f"Failed to create session in LlamaStack: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to create session in LlamaStack: {str(e)}",
-            )
+        # Create session locally without LlamaStack
+        import uuid
 
-        # Get agent name for display
-        agent_name = "Unknown Agent"
-        try:
-            if hasattr(agent, "agent_config") and isinstance(agent.agent_config, dict):
-                agent_name = agent.agent_config.get("name", agent_name)
-            elif hasattr(agent, "name"):
-                agent_name = agent.name
-            elif hasattr(agent, "instructions"):
-                # Use first few words of instructions as name
-                instructions = (
-                    str(agent.instructions)[:50] + "..."
-                    if len(str(agent.instructions)) > 50
-                    else str(agent.instructions)
-                )
-                agent_name = instructions or agent_name
-        except Exception as e:
-            log.warning(f"Could not get agent name: {e}")
+        session_id = str(uuid.uuid4())
+        logger.info(f"Generated local session ID: {session_id}")
+
+        # Get agent name for display from our VirtualAgentConfig
+        agent_name = agent_config.name if agent_config else "Unknown Agent"
 
         return {
             "id": session_id,
@@ -482,7 +394,7 @@ async def create_chat_session(
     except HTTPException:
         raise
     except Exception as e:
-        log.error(f"Error creating chat session: {str(e)}")
+        logger.error(f"Error creating chat session: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to create chat session: {str(e)}"
         )
@@ -515,21 +427,21 @@ async def debug_session_listing(agent_id: str, request: Request):
         purposes.
     """
     try:
-        log.info(f"=== DEBUG SESSION LISTING FOR AGENT {agent_id} ===")
+        logger.info(f"=== DEBUG SESSION LISTING FOR AGENT {agent_id} ===")
 
         # Test 1: Check if agent exists
         client = get_client_from_request(request)
         try:
             agent = await client.agents.retrieve(agent_id=agent_id)
-            log.info(f"✅ Agent exists: {agent.agent_id}")
+            logger.info(f"✅ Agent exists: {agent.agent_id}")
         except Exception as e:
-            log.error(f"❌ Agent not found: {e}")
+            logger.error(f"❌ Agent not found: {e}")
             return {"error": f"Agent not found: {e}"}
 
         # Test 2: Check session resource type
         session_resource = client.agents.session
-        log.info(f"Session resource type: {type(session_resource)}")
-        log.info(
+        logger.info(f"Session resource type: {type(session_resource)}")
+        logger.info(
             "Session resource methods: "
             f"{[m for m in dir(session_resource) if not m.startswith('_')]}"
         )
@@ -537,21 +449,21 @@ async def debug_session_listing(agent_id: str, request: Request):
         # Test 3: Try to call list method
         try:
             sessions_response = await client.agents.session.list(agent_id=agent_id)
-            log.info("✅ List method called successfully")
-            log.info(f"Response type: {type(sessions_response)}")
-            log.info(f"Response value: {sessions_response}")
-            log.info(f"Response dir: {dir(sessions_response)}")
+            logger.info("✅ List method called successfully")
+            logger.info(f"Response type: {type(sessions_response)}")
+            logger.info(f"Response value: {sessions_response}")
+            logger.info(f"Response dir: {dir(sessions_response)}")
 
             # Try to extract sessions
             if hasattr(sessions_response, "sessions"):
                 sessions = sessions_response.sessions
-                log.info(f"Found sessions attr: {sessions}")
+                logger.info(f"Found sessions attr: {sessions}")
             elif isinstance(sessions_response, list):
                 sessions = sessions_response
-                log.info(f"Response is direct list: {sessions}")
+                logger.info(f"Response is direct list: {sessions}")
             else:
                 sessions = []
-                log.info("No sessions found in response")
+                logger.info("No sessions found in response")
 
             return {
                 "agent_id": agent_id,
@@ -562,10 +474,10 @@ async def debug_session_listing(agent_id: str, request: Request):
             }
 
         except Exception as e:
-            log.error(f"❌ List method failed: {e}")
-            log.error(f"Exception type: {type(e)}")
+            logger.error(f"❌ List method failed: {e}")
+            logger.error(f"Exception type: {type(e)}")
             return {"error": f"List method failed: {e}"}
 
     except Exception as e:
-        log.error(f"❌ Debug failed: {e}")
+        logger.error(f"❌ Debug failed: {e}")
         return {"error": f"Debug failed: {e}"}

@@ -8,7 +8,7 @@ and proper error handling for the protected users API.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import status
@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.main import app
-from backend.models import RoleEnum, User
+from backend.models import RoleEnum, User, VirtualAgentConfig
 
 
 @pytest.fixture
@@ -446,8 +446,10 @@ class TestUserAgents:
         response = test_client.get(f"/api/users/{admin_user.id}/agents")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    @patch("backend.services.user_service.get_virtual_agent_config")
     def test_admin_can_assign_agents(
         self,
+        mock_get_virtual_agent_config,
         test_client,
         admin_user,
         regular_user,
@@ -462,14 +464,25 @@ class TestUserAgents:
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
 
+        # Mock virtual agent config
+        mock_agent_config = VirtualAgentConfig(
+            id="agent1",
+            name="Test Agent",
+            model_name="test-model",
+            prompt="Test prompt",
+        )
+        mock_get_virtual_agent_config.return_value = mock_agent_config
+
         agent_data = {"agent_ids": ["agent1", "agent2"]}
         response = test_client.post(
             f"/api/users/{regular_user.id}/agents", json=agent_data
         )
         assert response.status_code == status.HTTP_200_OK
 
+    @patch("backend.services.user_service.get_virtual_agent_config")
     def test_regular_user_can_assign_agents(
         self,
+        mock_get_virtual_agent_config,
         test_client,
         regular_user,
         mock_db_session,
@@ -482,6 +495,15 @@ class TestUserAgents:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
+
+        # Mock virtual agent config
+        mock_agent_config = VirtualAgentConfig(
+            id="agent1",
+            name="Test Agent",
+            model_name="test-model",
+            prompt="Test prompt",
+        )
+        mock_get_virtual_agent_config.return_value = mock_agent_config
 
         agent_data = {"agent_ids": ["agent1", "agent2"]}
         response = test_client.post(

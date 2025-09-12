@@ -45,7 +45,7 @@ from backend.database import get_db
 
 from ..api.llamastack import get_client_from_request
 from .chat import Chat
-from .virtual_assistants import read_virtual_assistant
+from .virtual_agents import get_virtual_agent_config
 
 ATTACHMENTS_INTERNAL_API_ENDPOINT = os.getenv(
     "ATTACHMENTS_INTERNAL_API_ENDPOINT", "http://ai-virtual-agent:8000"
@@ -85,7 +85,7 @@ class VAChatMessage(BaseModel):
     parts: List[str] = []  # Add parts field to match useChat format
 
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/llama_stack", tags=["llama_stack"])
 
@@ -112,19 +112,19 @@ async def get_llms(request: Request):
     """
     client = get_client_from_request(request)
     try:
-        log.info(f"Attempting to fetch models from LlamaStack at {client.base_url}")
+        logger.info(f"Attempting to fetch models from LlamaStack at {client.base_url}")
         try:
             models = await client.models.list()
-            log.info(f"Received response from LlamaStack: {models}")
+            logger.info(f"Received response from LlamaStack: {models}")
         except Exception as client_error:
-            log.error(f"Error calling LlamaStack API: {str(client_error)}")
+            logger.error(f"Error calling LlamaStack API: {str(client_error)}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Failed to connect to LlamaStack API: {str(client_error)}",
             )
 
         if not models:
-            log.warning("No models returned from LlamaStack")
+            logger.warning("No models returned from LlamaStack")
             return []
 
         llms = []
@@ -138,16 +138,16 @@ async def get_llms(request: Request):
                     }
                     llms.append(llm_config)
             except AttributeError as ae:
-                log.error(
+                logger.error(
                     f"Error processing model data: {str(ae)}. Model data: {model}"
                 )
                 continue
 
-        log.info(f"Successfully processed {len(llms)} LLM models")
+        logger.info(f"Successfully processed {len(llms)} LLM models")
         return llms
 
     except Exception as e:
-        log.error(f"Unexpected error in get_llms: {str(e)}")
+        logger.error(f"Unexpected error in get_llms: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}",
@@ -371,35 +371,16 @@ class ChatRequest(BaseModel):
     streaming preferences, and session management.
 
     Attributes:
-        virtualAssistantId: The ID of the virtual agent to use for chat
+        virtualAgentId: The ID of the virtual agent to use for chat
         messages: List of conversation messages (user, assistant, system)
         stream: Whether to stream the response (default: False)
         sessionId: Optional session ID for conversation continuity
     """
 
-    virtualAssistantId: str
+    virtualAgentId: str
     messages: list[Message]
     stream: bool = False
     sessionId: Optional[str] = None
-
-
-# Add helper function to get agent type from database
-async def get_agent_type_from_db(db: AsyncSession, agent_id: str) -> str:
-    """Get agent type from database."""
-    from sqlalchemy.future import select
-
-    try:
-        result = await db.execute(
-            select(models.AgentType).where(models.AgentType.agent_id == agent_id)
-        )
-        agent_type_record = result.scalar_one_or_none()
-        if agent_type_record:
-            agent_type = agent_type_record.agent_type.value
-            return agent_type
-        else:
-            return "Regular"
-    except Exception:
-        return "Regular"
 
 
 @router.post("/chat")
@@ -422,7 +403,7 @@ async def chat(
     saved asynchronously to avoid blocking the chat response.
 
     Args:
-        chatRequest: ChatRequest containing assistant ID, messages, and
+        chatRequest: ChatRequest containing agent ID, messages, and
                      session info
         background_task: FastAPI background tasks for async metadata saving
         db: Database session for metadata operations
@@ -438,47 +419,50 @@ async def chat(
     """
     client = get_client_from_request(request)
     try:
-        log.info(f"Received chatRequest: {chatRequest.model_dump()}")
+        logger.info(f"Received chatRequest: {chatRequest.model_dump()}")
 
-        # Get the agent directly from LlamaStack
+        # Get the agent config from our local database instead of LlamaStack
+        from sqlalchemy import select
+
         try:
-            agent = await client.agents.retrieve(
-                agent_id=chatRequest.virtualAssistantId
+            result = await db.execute(
+                select(models.VirtualAgentConfig).where(
+                    models.VirtualAgentConfig.id == chatRequest.virtualAgentId
+                )
             )
-            log.info(f"Found agent: {agent.agent_id}")
+            agent_config = result.scalar_one_or_none()
+            if not agent_config:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Virtual agent {chatRequest.virtualAgentId} not found",
+                )
+            logger.info(f"Found agent config: {agent_config.id}")
+        except HTTPException:
+            raise
         except Exception as e:
-            log.error(
-                f"Agent {chatRequest.virtualAssistantId} not found \
-                    in LlamaStack: {str(e)}"
-            )
+            logger.error(f"Error retrieving agent config: {str(e)}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Virtual agent {chatRequest.virtualAssistantId} not found",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error retrieving agent configuration: {str(e)}",
             )
 
-        # Use the agent_id directly from LlamaStack
-        agent_id = chatRequest.virtualAssistantId
+        # Use the agent_id from our database
+        agent_id = chatRequest.virtualAgentId
 
-        # Session ID is required - no session creation in chat endpoint
+        # Session ID for UI purposes - generate one if not provided
         session_id = chatRequest.sessionId
         if not session_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Session ID is required. Please select or create a "
-                    "session first."
-                ),
-            )
+            import uuid
 
-        log.info(f"Using agent: {agent_id} with session: {session_id}")
+            session_id = str(uuid.uuid4())
+            logger.info(f"Generated new session ID: {session_id}")
 
-        # Get agent type from database
-        agent_type_str = await get_agent_type_from_db(db, agent_id)
-        log.info(f"Retrieved agent_type: {agent_type_str} for agent: {agent_id}")
+        logger.info(f"Using agent: {agent_id} with session: {session_id}")
 
-        # Create stateless Chat instance (no longer needs assistant or
-        # session_state)
-        chat = Chat(log, request)
+        # Create responses-based Chat instance with database access
+        logger.info(f"Creating Chat instance for agent: {agent_id}")
+        chat = Chat(request, db)
+        logger.info(f"Chat instance created successfully")
 
         # The URLs provided by the request are only the path portion, e.g.
         # /api/attachments/...
@@ -511,23 +495,28 @@ async def chat(
                             content[key] = value
             return content
 
-        def generate_response():
+        async def generate_response():
             try:
                 if len(chatRequest.messages) > 0:
                     # Get the last user message
                     last_message = chatRequest.messages[-1]
 
-                    def chat_stream():
-                        for chunk in chat.stream(
+                    async def chat_stream():
+                        logger.info(
+                            f"About to call chat.stream with agent_id: {agent_id}, session_id: {session_id}"
+                        )
+                        logger.info(f"Last message content: {last_message.content}")
+                        async for chunk in chat.stream(
                             agent_id,
                             session_id,
                             _expand_image_urls(last_message.content),
-                            agent_type_str,
                         ):
+                            logger.info(f"Received chunk from chat.stream: {chunk}")
                             yield f"data: {chunk}\n\n"
                         yield "data: [DONE]\n\n"
 
-                yield from chat_stream()
+                async for item in chat_stream():
+                    yield item
 
                 # Save session metadata to database
                 background_task.add_task(
@@ -540,13 +529,13 @@ async def chat(
                 )
 
             except Exception as e:
-                log.error(f"Error in stream: {str(e)}")
+                logger.error(f"Error in stream: {str(e)}")
                 yield (f'data: {{"type":"error","content":"Error: {str(e)}"}}\n\n')
 
         return StreamingResponse(generate_response(), media_type="text/event-stream")
 
     except Exception as e:
-        log.error(f"Error in chat endpoint: {str(e)}")
+        logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -602,13 +591,15 @@ async def save_session_metadata(
         # Get agent name
         agent_name = "Unknown Agent"
         try:
-            # Fetch agent details from LlamaStack
-            agent_details = await read_virtual_assistant(agent_id, request)
+            # Fetch agent details from VirtualAgentConfig
+            agent_config = await get_virtual_agent_config(db, agent_id)
             agent_name = (
-                agent_details.name if agent_details.name else f"Agent {agent_id[:8]}..."
+                agent_config.name
+                if agent_config and agent_config.name
+                else f"Agent {agent_id[:8]}..."
             )
         except Exception as e:
-            log.error(f"Error fetching agent details: {e}")
+            logger.error(f"Error fetching agent details: {e}")
             agent_name = f"Agent {agent_id[:8]}..."
 
         # Insert or update session metadata
@@ -629,8 +620,8 @@ async def save_session_metadata(
 
         await db.execute(stmt)
         await db.commit()
-        log.info(f"Saved session metadata for {session_id}")
+        logger.info(f"Saved session metadata for {session_id}")
 
     except Exception as e:
-        log.error(f"Error saving session metadata: {e}")
+        logger.error(f"Error saving session metadata: {e}")
         await db.rollback()

@@ -1,4 +1,5 @@
 import io
+import logging
 import mimetypes
 import os
 import uuid
@@ -9,9 +10,8 @@ from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..utils.feature_flags import is_attachments_feature_enabled
-from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 ATTACHMENTS_BUCKET_ENDPOINT = os.getenv("ATTACHMENTS_BUCKET_ENDPOINT", "minio:9000")
 ATTACHMENTS_BUCKET_ACCESS_KEY = os.getenv(

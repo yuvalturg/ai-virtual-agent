@@ -14,6 +14,7 @@ Key Features:
 """
 
 import asyncio
+import logging
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -24,8 +25,7 @@ from .. import models, schemas
 from ..api.llamastack import get_client_from_request
 from ..database import AsyncSessionLocal
 from ..routes.knowledge_bases import create_knowledge_base
-from ..routes.virtual_assistants import create_virtual_assistant
-from ..utils.logging_config import get_logger
+from ..routes.virtual_agents import create_virtual_agent
 from ..utils.template_loader import (
     get_suites_by_category as get_suites_by_category_util,
 )
@@ -33,7 +33,7 @@ from ..utils.template_loader import (
     load_all_templates_from_directory,
 )
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent_templates", tags=["agent_templates"])
 
@@ -336,7 +336,7 @@ async def initialize_agent_from_template(
         if knowledge_base_created and template.knowledge_base_ids:
             tools.append(schemas.ToolAssociationInfo(toolgroup_id="builtin::rag"))
 
-        agent_config = schemas.VirtualAssistantCreate(
+        agent_config = schemas.VirtualAgentCreate(
             name=agent_name,
             prompt=agent_prompt,
             model_name=template.model_name,
@@ -355,9 +355,7 @@ async def initialize_agent_from_template(
         )
 
         async with AsyncSessionLocal() as db:
-            created_agent = await create_virtual_assistant(
-                agent_config, http_request, db
-            )
+            created_agent = await create_virtual_agent(agent_config, http_request, db)
 
             # Persist agent metadata for suite/template grouping
             try:

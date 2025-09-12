@@ -11,6 +11,7 @@ capabilities.
 """
 
 import asyncio
+import logging
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -37,17 +38,17 @@ from .routes import (
     tools,
     users,
     validate,
-    virtual_assistants,
+    virtual_agents,
 )
 from .utils.auth_utils import is_local_dev_mode
 from .utils.feature_flags import is_attachments_feature_enabled
-from .utils.logging_config import get_logger, setup_logging
+from .utils.logging_config import setup_logging
 
 load_dotenv()
 
 # Configure centralized logging
 setup_logging(level="INFO")
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_incluster_namespace() -> str:
@@ -201,7 +202,7 @@ app.include_router(users.router, prefix="/api")
 app.include_router(mcp_servers.router, prefix="/api")
 app.include_router(tools.router, prefix="/api")
 app.include_router(knowledge_bases.router, prefix="/api")
-app.include_router(virtual_assistants.router, prefix="/api")
+app.include_router(virtual_agents.router, prefix="/api")
 app.include_router(guardrails.router, prefix="/api")
 app.include_router(model_servers.router, prefix="/api")
 app.include_router(llama_stack.router, prefix="/api")

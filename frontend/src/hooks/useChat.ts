@@ -7,67 +7,10 @@ import { ChatMessage, UseLlamaChatOptions, SimpleContentItem } from '@/types/cha
 // Re-export types for backward compatibility
 export type { ChatMessage, UseLlamaChatOptions } from '@/types/chat';
 
-// Interface for ReAct response structure
-interface ReActResponse {
-  thought?: string;
-  answer?: string;
-}
-
-// Type guard to check if an object has ReAct properties
-function isReActResponse(obj: unknown): obj is ReActResponse {
-  return typeof obj === 'object' && obj !== null && 'thought' in obj;
-}
-
-// Function for processing streaming ReAct responses (when user types question)
-export const processStreamingReActResponse = (content: string): string => {
-  if (content.trim().startsWith('{')) {
-    try {
-      const jsonData: unknown = JSON.parse(content.trim());
-      if (isReActResponse(jsonData) && jsonData.thought) {
-        const thought = String(jsonData.thought);
-        const answer = jsonData.answer ? String(jsonData.answer) : '';
-        if (answer) {
-          return `🤔 **Thinking:** ${thought}\n\n${answer}`;
-        } else {
-          return `🤔 **Thinking:** ${thought}`;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse streaming ReAct JSON:', content, e);
-    }
-  }
-  return content;
-};
-
-// Function for processing stored ReAct responses (page refresh) - IDENTICAL to streaming
-const processStoredReActResponse = (content: string): string => {
-  if (content.trim().startsWith('{')) {
-    try {
-      const jsonData: unknown = JSON.parse(content.trim());
-      if (isReActResponse(jsonData) && jsonData.thought) {
-        const thought = String(jsonData.thought);
-        const answer = jsonData.answer ? String(jsonData.answer) : '';
-        if (answer) {
-          return `🤔 **Thinking:** ${thought}\n\n${answer}`;
-        } else {
-          return `🤔 **Thinking:** ${thought}`;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse stored ReAct JSON:', content, e);
-    }
-  }
-  return content;
-};
-
 /**
  * Simple chat hook that directly handles LlamaStack without the AI SDK overhead
  */
-export function useChat(
-  agentId: string,
-  agentType: 'Regular' | 'ReAct' = 'Regular',
-  options?: UseLlamaChatOptions
-) {
+export function useChat(agentId: string, options?: UseLlamaChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -101,19 +44,8 @@ export function useChat(
         // Convert messages to our format
         const convertedMessages: ChatMessage[] = sessionDetail.messages.map(
           (msg: SessionMessage, index: number) => {
-            let processedContent = msg.content;
-            let textContent = '';
-
-            for (const item of msg.content) {
-              if (item.type === 'text') {
-                textContent += item.text || '';
-              }
-            }
-
-            // Process assistant messages that might contain raw JSON
-            if (msg.role === 'assistant') {
-              processedContent = [{ type: 'text', text: processStoredReActResponse(textContent) }];
-            }
+            // Keep content as-is for all messages
+            const processedContent = msg.content;
 
             return {
               id: `${msg.role}-${sessionId}-${index}`,
@@ -164,7 +96,7 @@ export function useChat(
       try {
         // Prepare request
         const requestBody = {
-          virtualAssistantId: agentId,
+          virtualAgentId: agentId,
           messages: [...messages, userMessage].map((msg) => ({
             role: msg.role,
             content: msg.content,
@@ -240,7 +172,7 @@ export function useChat(
               }
 
               // Parse content
-              const parsed = LlamaStackParser.parse(data, agentType);
+              const parsed = LlamaStackParser.parse(data);
               if (parsed) {
                 setMessages((prev) => {
                   const updated = [...prev];
@@ -248,19 +180,9 @@ export function useChat(
                   if (lastMsg && lastMsg.role === 'assistant') {
                     const c: SimpleContentItem[] = [...lastMsg.content];
                     if (c[0].type === 'text') {
-                      // For regular agents, accumulate content (same as ReAct but without special handling)
-                      if (agentType === 'Regular') {
-                        c[0].text += parsed;
-                        lastMsg.content = c;
-                      } else if (parsed.includes('🤔 **Thinking:**')) {
-                        // For ReAct agents, replace content for complete responses
-                        c[0].text = parsed;
-                        lastMsg.content = c;
-                      } else {
-                        // For ReAct agents, append for streaming responses
-                        c[0].text += parsed;
-                        lastMsg.content = c;
-                      }
+                      // Accumulate content
+                      c[0].text += parsed;
+                      lastMsg.content = c;
                     }
                   }
                   return updated;
@@ -284,7 +206,7 @@ export function useChat(
         setIsLoading(false);
       }
     },
-    [agentId, messages, sessionId, isLoading, options, agentType]
+    [agentId, messages, sessionId, isLoading, options]
   );
 
   const handleAttach = useCallback((data: File[]) => {

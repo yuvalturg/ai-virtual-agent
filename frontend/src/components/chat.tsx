@@ -103,9 +103,8 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     refetch: refetchUser,
   } = useCurrentUser();
 
-  // Get the agent type for the selected agent
+  // Get the selected agent object
   const selectedAgentObj = availableAgents.find((agent) => agent.id === selectedAgent);
-  const agentType = selectedAgentObj?.agent_type === 'ReAct' ? 'ReAct' : 'Regular';
 
   // Use our custom hook for chat functionality - only when we have a valid agent
   const {
@@ -120,7 +119,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     handleAttach,
     clearAttachedFiles,
     setAttachedFiles,
-  } = useChat(selectedAgent || 'default', agentType, {
+  } = useChat(selectedAgent || 'default', {
     onError: (error: Error) => {
       console.error('Chat error:', error);
       setAnnouncement(`Error: ${error.message}`);

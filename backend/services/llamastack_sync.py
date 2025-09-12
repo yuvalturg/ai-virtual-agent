@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models
 from ..api.llamastack import sync_client
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class LlamaStackSyncService:
@@ -26,7 +26,7 @@ class LlamaStackSyncService:
         Returns True if successful, False otherwise.
         """
         try:
-            log.info(f"Syncing knowledge base creation to LlamaStack: {kb.name}")
+            logger.info(f"Syncing knowledge base creation to LlamaStack: {kb.name}")
 
             # Register the vector database in LlamaStack
             await sync_client.vector_dbs.register(
@@ -36,11 +36,13 @@ class LlamaStackSyncService:
                 provider_id=kb.provider_id or "pgvector",
             )
 
-            log.info(f"Successfully synced knowledge base creation: {kb.name}")
+            logger.info(f"Successfully synced knowledge base creation: {kb.name}")
             return True
 
         except Exception as e:
-            log.error(f"Failed to sync knowledge base creation to LlamaStack: {str(e)}")
+            logger.error(
+                f"Failed to sync knowledge base creation to LlamaStack: {str(e)}"
+            )
             return False
 
     @staticmethod
@@ -50,7 +52,7 @@ class LlamaStackSyncService:
         Note: LlamaStack doesn't have update operations, so we re-register.
         """
         try:
-            log.info(f"Syncing knowledge base update to LlamaStack: {kb.name}")
+            logger.info(f"Syncing knowledge base update to LlamaStack: {kb.name}")
 
             # Since LlamaStack doesn't have update, we re-register
             # This might overwrite existing data, but ensures consistency
@@ -61,11 +63,13 @@ class LlamaStackSyncService:
                 provider_id=kb.provider_id or "pgvector",
             )
 
-            log.info(f"Successfully synced knowledge base update: {kb.name}")
+            logger.info(f"Successfully synced knowledge base update: {kb.name}")
             return True
 
         except Exception as e:
-            log.error(f"Failed to sync knowledge base update to LlamaStack: {str(e)}")
+            logger.error(
+                f"Failed to sync knowledge base update to LlamaStack: {str(e)}"
+            )
             return False
 
     @staticmethod
@@ -75,7 +79,7 @@ class LlamaStackSyncService:
         Note: LlamaStack doesn't have delete operations, so we log this action.
         """
         try:
-            log.warning(
+            logger.warning(
                 "Knowledge base deleted from local DB but cannot be removed "
                 f"from LlamaStack (no delete API): {kb_name}"
             )
@@ -83,7 +87,7 @@ class LlamaStackSyncService:
             return True
 
         except Exception as e:
-            log.error(f"Failed to handle knowledge base deletion sync: {str(e)}")
+            logger.error(f"Failed to handle knowledge base deletion sync: {str(e)}")
             return False
 
     @staticmethod
@@ -93,7 +97,7 @@ class LlamaStackSyncService:
         Returns a report of sync status.
         """
         try:
-            log.info("Validating sync status with LlamaStack")
+            logger.info("Validating sync status with LlamaStack")
 
             # Get LlamaStack vector databases
             llamastack_vdbs = await sync_client.vector_dbs.list()
@@ -126,5 +130,5 @@ class LlamaStackSyncService:
             }
 
         except Exception as e:
-            log.error(f"Failed to validate sync status: {str(e)}")
+            logger.error(f"Failed to validate sync status: {str(e)}")
             return {"sync_status": "error", "error": str(e), "timestamp": None}

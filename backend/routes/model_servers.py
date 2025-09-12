@@ -13,6 +13,7 @@ Key Features:
 - Configuration management for model endpoints and authentication
 """
 
+import logging
 from typing import List
 from uuid import UUID
 
@@ -23,9 +24,8 @@ from sqlalchemy.future import select
 from .. import models, schemas
 from ..api.llamastack import sync_client
 from ..database import get_db
-from ..utils.logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/model_servers", tags=["Model Servers"])
 

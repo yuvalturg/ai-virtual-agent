@@ -25,8 +25,9 @@ from .. import models, schemas
 from ..database import get_db
 from ..services.user_service import UserService
 from ..utils.auth_utils import get_or_create_dev_user, is_local_dev_mode
+from .virtual_agents import sync_all_users_with_all_agents
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -50,7 +51,7 @@ async def get_user_from_headers(headers: dict[str, str], db: AsyncSession):
     """
     # Check if local development mode is enabled
     if is_local_dev_mode():
-        log.info("LOCAL_DEV_ENV_MODE is enabled, using development user")
+        logger.info("LOCAL_DEV_ENV_MODE is enabled, using development user")
         return await get_or_create_dev_user(db)
 
     username = headers.get("X-Forwarded-User") or headers.get("x-forwarded-user")
@@ -70,7 +71,7 @@ async def get_user_from_headers(headers: dict[str, str], db: AsyncSession):
 
     # If user doesn't exist, create them (trusting OAuth proxy validation)
     if not user:
-        log.info(
+        logger.info(
             f"Adding user from OAuth proxy headers: username={username}, "
             f"email={email}"
         )
@@ -83,7 +84,9 @@ async def get_user_from_headers(headers: dict[str, str], db: AsyncSession):
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        log.info(f"Successfully created user {user.id} with username '{user.username}'")
+        logger.info(
+            f"Successfully created user {user.id} with username '{user.username}'"
+        )
 
     return user
 
@@ -106,10 +109,10 @@ async def get_current_user(
         HTTPException: 401 if authentication fails
     """
     # Log authentication attempt for debugging only
-    if log.isEnabledFor(logging.DEBUG):
+    if logger.isEnabledFor(logging.DEBUG):
         forwarded_user = request.headers.get("x-forwarded-user")
         forwarded_email = request.headers.get("x-forwarded-email")
-        log.debug(
+        logger.debug(
             f"Authentication attempt - User: {forwarded_user}, Email: "
             f"{forwarded_email}"
         )
@@ -117,12 +120,12 @@ async def get_current_user(
     user = await get_user_from_headers(request.headers, db)
 
     if user:
-        log.info(
+        logger.info(
             f"User authenticated - ID: {user.id}, Username: {user.username}, "
             f"Role: {user.role}"
         )
     else:
-        log.warning("Authentication failed - User not found")
+        logger.warning("Authentication failed - User not found")
 
     return user
 
@@ -146,7 +149,7 @@ async def require_admin_role(
         HTTPException: 403 if the user doesn't have admin role
     """
     if current_user.role != models.RoleEnum.admin:
-        log.warning(
+        logger.warning(
             f"Access denied - User {current_user.username} "
             f"(ID: {current_user.id}) "
             f"with role '{current_user.role}' attempted admin operation"
@@ -156,7 +159,7 @@ async def require_admin_role(
             detail="Admin privileges required to access this resource.",
         )
 
-    log.info(
+    logger.info(
         f"Admin access granted - User {current_user.username} "
         f"(ID: {current_user.id})"
     )
@@ -185,7 +188,7 @@ async def check_user_access(
     """
     # Admin users can access any user's data
     if current_user.role == models.RoleEnum.admin:
-        log.debug(
+        logger.debug(
             f"Admin access granted - User {current_user.username} "
             f"(ID: {current_user.id}) accessing user {user_id}"
         )
@@ -193,13 +196,13 @@ async def check_user_access(
 
     # Regular users can only access their own data
     if current_user.id == user_id:
-        log.debug(
+        logger.debug(
             f"Self access granted - User {current_user.username} "
             f"(ID: {current_user.id}) accessing own data"
         )
         return current_user
 
-    log.warning(
+    logger.warning(
         f"Access denied - User {current_user.username} "
         f"(ID: {current_user.id}) "
         f"attempted to access user {user_id}"
@@ -292,7 +295,7 @@ async def create_user(
         )
     )
     if existing_user.scalar_one_or_none():
-        log.warning(
+        logger.warning(
             f"User creation failed - Admin {current_user.username} "
             f"attempted to create user with existing username/email: "
             f"{user.username}/{user.email}"
@@ -313,11 +316,23 @@ async def create_user(
         await db.commit()
         await db.refresh(db_user)
 
-        log.info(f"Admin {current_user.username} created new user: {db_user.username}")
+        # Sync all users with all agents (includes the new user)
+        try:
+            sync_result = await sync_all_users_with_all_agents(db)
+            logger.info(f"User-agent sync completed for new user: {sync_result}")
+            # Refresh user after sync to ensure session attachment
+            await db.refresh(db_user)
+        except Exception as sync_error:
+            logger.error(f"Error syncing new user with agents: {str(sync_error)}")
+            # Don't fail user creation if sync fails
+
+        logger.info(
+            f"Admin {current_user.username} created new user: {db_user.username}"
+        )
         return db_user
     except Exception as e:
         await db.rollback()
-        log.error(f"Failed to create user: {e}")
+        logger.error(f"Failed to create user: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user account.",
@@ -457,7 +472,7 @@ async def delete_user(
     result = await db.execute(select(models.User).where(models.User.id == user_id))
     db_user = result.scalar_one_or_none()
     if not db_user:
-        log.warning(
+        logger.warning(
             f"User deletion failed - Admin {current_user.username} "
             f"attempted to delete non-existent user {user_id}"
         )
@@ -467,7 +482,7 @@ async def delete_user(
 
     # Prevent admin from deleting their own account
     if current_user.id == user_id:
-        log.warning(
+        logger.warning(
             f"Self-deletion blocked - Admin {current_user.username} "
             f"attempted to delete own account"
         )
@@ -477,13 +492,13 @@ async def delete_user(
         )
 
     try:
-        log.info(f"Admin {current_user.username} deleting user: {db_user.username}")
+        logger.info(f"Admin {current_user.username} deleting user: {db_user.username}")
         await db.delete(db_user)
         await db.commit()
         return None
     except Exception as e:
         await db.rollback()
-        log.error(f"Failed to delete user {user_id}: {e}")
+        logger.error(f"Failed to delete user {user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user account.",
@@ -517,7 +532,7 @@ async def update_user_agents(
         HTTPException: 403 if the authenticated user cannot modify this user's agents
         HTTPException: 404 if the user is not found
         HTTPException: 404 if any of the specified agents don't exist in
-                       LlamaStack
+                       VirtualAgentConfig
     """
     # Get the user from database
     result = await db.execute(select(models.User).where(models.User.id == user_id))
@@ -530,6 +545,7 @@ async def update_user_agents(
 
     # Use the service to assign agents
     updated_agent_ids = await UserService.assign_agents_to_user(
+        db=db,
         user_agent_ids=current_agent_ids,
         requested_agent_ids=agent_assignment.agent_ids,
     )
@@ -540,7 +556,7 @@ async def update_user_agents(
     await db.commit()
     await db.refresh(db_user)
 
-    log.info(f"Updated agents for user {str(db_user.username)}: {updated_agent_ids}")
+    logger.info(f"Updated agents for user {str(db_user.username)}: {updated_agent_ids}")
     return db_user
 
 
@@ -630,8 +646,8 @@ async def remove_user_agents(
     await db.commit()
     await db.refresh(db_user)
 
-    log.info(
+    logger.info(
         f"Removed agents from {str(db_user.username)}: {agent_assignment.agent_ids}"
     )
-    log.info(f"Remaining agents: {remaining_agent_ids}")
+    logger.info(f"Remaining agents: {remaining_agent_ids}")
     return db_user

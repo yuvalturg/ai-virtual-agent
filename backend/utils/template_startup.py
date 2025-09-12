@@ -5,14 +5,15 @@ This module ensures that templates are automatically loaded from YAML files
 into the database when the backend starts, if they're not already there.
 """
 
+import logging
+
 from sqlalchemy import select
 
 from ..database import AsyncSessionLocal
 from ..models import AgentTemplate, TemplateSuite
-from .logging_config import get_logger
 from .template_loader import load_all_templates_from_directory
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 async def ensure_templates_populated():

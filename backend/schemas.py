@@ -55,7 +55,7 @@ class UserRead(UserBase):
     updated_at: Any
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserAgentAssignment(BaseModel):
@@ -118,18 +118,17 @@ class KnowledgeBaseRead(KnowledgeBaseBase):
     status: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
-# Tool Association Info for VirtualAssistant
+# Tool Association Info for VirtualAgent
 class ToolAssociationInfo(BaseModel):
     toolgroup_id: str  # MCPServer.toolgroup_id or BuiltInTool.toolgroup_id
 
 
-# VirtualAssistant Schemas
-class VirtualAssistantBase(BaseModel):
+# VirtualAgent Schemas
+class VirtualAgentBase(BaseModel):
     name: str
-    agent_type: Optional[str] = "ReAct"
     prompt: Optional[str] = None
     model_name: Optional[str] = None
     input_shields: Optional[List[str]] = []
@@ -154,11 +153,11 @@ class VirtualAssistantBase(BaseModel):
     enable_session_persistence: Optional[bool] = False
 
 
-class VirtualAssistantCreate(VirtualAssistantBase):
+class VirtualAgentCreate(VirtualAgentBase):
     pass
 
 
-class VirtualAssistantUpdate(VirtualAssistantBase):
+class VirtualAgentUpdate(VirtualAgentBase):
     name: Optional[str] = None
     prompt: Optional[str] = None
     model_name: Optional[str] = None
@@ -182,7 +181,7 @@ class TemplateSuiteRead(TemplateSuiteBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Agent Template Schemas
@@ -200,7 +199,7 @@ class AgentTemplateRead(AgentTemplateBase):
     suite: Optional[TemplateSuiteRead] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Agent Metadata Schemas
@@ -213,10 +212,10 @@ class AgentMetadataRead(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
-class VirtualAssistantRead(VirtualAssistantBase):
+class VirtualAgentRead(VirtualAgentBase):
     id: str
     # Normalized metadata via relationship
     metadata: Optional[AgentMetadataRead] = None
@@ -229,7 +228,7 @@ class VirtualAssistantRead(VirtualAssistantBase):
     category: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class GuardrailBase(BaseModel):
@@ -248,7 +247,7 @@ class GuardrailRead(GuardrailBase):
     updated_at: Any
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # ModelServer Schemas (These seemed largely okay with your models.py)
@@ -276,4 +275,4 @@ class ModelServerRead(ModelServerBase):
     id: UUID4
 
     class Config:
-        orm_mode = True
+        from_attributes = True

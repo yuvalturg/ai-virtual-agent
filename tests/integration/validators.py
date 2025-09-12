@@ -32,7 +32,10 @@ def validate_exact_text(response, expected_text):
                 json_data = json.loads(line[6:])  # Remove 'data: ' (6 chars)
                 if answer := json_data.get("answer"):
                     combined_text += str(answer)
-                elif json_data.get("type") == "text" and "content" in json_data:
+                elif (
+                    json_data.get("type") in ["text", "content"]
+                    and "content" in json_data
+                ):
                     combined_text += json_data["content"]
             except (json.JSONDecodeError, KeyError):
                 # Skip lines that aren't valid JSON or don't have expected

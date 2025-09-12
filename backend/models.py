@@ -118,20 +118,32 @@ class ModelServer(Base):
     token = Column(String(255), nullable=True)
 
 
-class AgentTypeEnum(enum.Enum):
-    REGULAR = "Regular"
-    REACT = "ReAct"
+class VirtualAgentConfig(Base):
+    """
+    Store virtual agent configurations for use with Responses API.
 
+    Since the Responses API doesn't persist agents like the old Agents API,
+    we store the virtual agent configurations locally and use them when
+    creating responses.
+    """
 
-class AgentType(Base):
-    __tablename__ = "agent_types"
+    __tablename__ = "virtual_agent_configs"
 
-    agent_id = Column(String(255), primary_key=True)
-    agent_type = Column(
-        Enum(AgentTypeEnum, name="agent_type_enum"),
-        nullable=False,
-        default=AgentTypeEnum.REACT,
-    )
+    id = Column(String(255), primary_key=True)  # UUID as string
+    name = Column(String(255), nullable=False)
+    model_name = Column(String(255), nullable=False)
+    prompt = Column(String, nullable=True)
+    tools = Column(JSON, nullable=True, default=list)
+    knowledge_base_ids = Column(JSON, nullable=True, default=list)
+    input_shields = Column(JSON, nullable=True, default=list)
+    output_shields = Column(JSON, nullable=True, default=list)
+    sampling_strategy = Column(String(50), nullable=True)
+    temperature = Column(JSON, nullable=True)  # Using JSON to handle float/None
+    top_p = Column(JSON, nullable=True)
+    top_k = Column(JSON, nullable=True)
+    max_tokens = Column(JSON, nullable=True)
+    repetition_penalty = Column(JSON, nullable=True)
+    max_infer_iters = Column(JSON, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
         TIMESTAMP(timezone=True),
