@@ -130,6 +130,7 @@ class VirtualAgentBase(BaseModel):
     name: str
     prompt: Optional[str] = None
     model_name: Optional[str] = None
+    template_id: Optional[str] = None
     input_shields: Optional[List[str]] = []
     output_shields: Optional[List[str]] = []
     temperature: Optional[float] = 0.0
@@ -199,25 +200,10 @@ class AgentTemplateRead(AgentTemplateBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Agent Metadata Schemas
-class AgentMetadataRead(BaseModel):
-    agent_id: str
-    template_id: Optional[str] = None
-    custom_metadata: Optional[Dict[str, Any]] = None
-    template: Optional[AgentTemplateRead] = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class VirtualAgentRead(VirtualAgentBase):
     id: str
-    # Normalized metadata via relationship
-    metadata: Optional[AgentMetadataRead] = None
 
-    # Computed fields for backward compatibility
-    template_id: Optional[str] = None
+    # Computed fields for template relationship
     template_name: Optional[str] = None
     suite_id: Optional[str] = None
     suite_name: Optional[str] = None

@@ -57,7 +57,6 @@ stages:
         content-type: application/json
       json:
         category: null
-        metadata: null
         template_id: null
         template_name: null
         suite_id: null
