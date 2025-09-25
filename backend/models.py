@@ -125,6 +125,11 @@ class VirtualAgentConfig(Base):
     id = Column(String(255), primary_key=True)  # UUID as string
     name = Column(String(255), nullable=False)
     model_name = Column(String(255), nullable=False)
+    template_id = Column(
+        String(255),
+        ForeignKey("agent_templates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     prompt = Column(String, nullable=True)
     tools = Column(JSON, nullable=True, default=list)
     knowledge_base_ids = Column(JSON, nullable=True, default=list)  # vector_store_names
@@ -146,6 +151,9 @@ class VirtualAgentConfig(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+    # Relationship to template
+    template = relationship("AgentTemplate")
 
 
 class TemplateSuite(Base):
@@ -190,31 +198,3 @@ class AgentTemplate(Base):
 
     # Relationships
     suite = relationship("TemplateSuite", back_populates="templates")
-    agent_metadata = relationship("AgentMetadata", back_populates="template")
-
-
-class AgentMetadata(Base):
-    __tablename__ = "agent_metadata"
-
-    # Agent identifier from LlamaStack
-    agent_id = Column(String(255), primary_key=True)
-
-    # Reference to template (normalized)
-    template_id = Column(
-        String(255),
-        ForeignKey("agent_templates.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-
-    # Custom metadata for agents not using templates
-    custom_metadata = Column(JSON, nullable=True)
-
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
-    updated_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-
-    # Relationship to template (which connects to suite)
-    template = relationship("AgentTemplate", back_populates="agent_metadata")

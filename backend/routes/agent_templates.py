@@ -22,7 +22,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from .. import models, schemas
-from ..api.llamastack import get_client_from_request
 from ..database import AsyncSessionLocal
 from ..routes.knowledge_bases import create_knowledge_base
 from ..routes.virtual_agents import create_virtual_agent
@@ -252,48 +251,28 @@ async def initialize_agent_from_template(
         # Duplicate check: simple, early return by template_id
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(models.AgentMetadata)
-                .where(models.AgentMetadata.template_id == request.template_name)
+                select(models.VirtualAgentConfig)
+                .where(models.VirtualAgentConfig.template_id == request.template_name)
                 .limit(1)
             )
-            existing_metadata = result.scalars().first()
-            if existing_metadata:
-                # Verify the agent still exists in LlamaStack; if gone, clean stale
-                # metadata
-                try:
-                    client = get_client_from_request(http_request)
-                    await client.agents.retrieve(agent_id=existing_metadata.agent_id)
-                    logger.info(
-                        f"Agent already deployed for template "
-                        f"{request.template_name}: {existing_metadata.agent_id}"
-                    )
-                    return TemplateInitializationResponse(
-                        agent_id="",
-                        agent_name=agent_name,
-                        persona=template.persona,
-                        knowledge_base_created=False,
-                        knowledge_base_name=None,
-                        status="skipped",
-                        message=(
-                            f"Agent '{agent_name}' is already deployed. "
-                            f"Check your 'My Agents' page."
-                        ),
-                    )
-                except Exception:
-                    logger.warning(
-                        "Stale metadata for template %s and agent %s. "
-                        "Deleting and proceeding.",
-                        request.template_name,
-                        existing_metadata.agent_id,
-                    )
-                    try:
-                        await db.delete(existing_metadata)
-                        await db.commit()
-                    except Exception as cleanup_error:
-                        logger.warning(
-                            f"Failed to delete stale metadata for template "
-                            f"{request.template_name}: {cleanup_error}"
-                        )
+            existing_agent = result.scalars().first()
+            if existing_agent:
+                logger.info(
+                    f"Agent already deployed for template "
+                    f"{request.template_name}: {existing_agent.id}"
+                )
+                return TemplateInitializationResponse(
+                    agent_id="",
+                    agent_name=agent_name,
+                    persona=template.persona,
+                    knowledge_base_created=False,
+                    knowledge_base_name=None,
+                    status="skipped",
+                    message=(
+                        f"Agent '{agent_name}' is already deployed. "
+                        f"Check your 'My Agents' page."
+                    ),
+                )
 
         # Step 1: Create knowledge base if requested
         knowledge_base_created = False
@@ -371,35 +350,11 @@ async def initialize_agent_from_template(
             enable_session_persistence=False,
         )
 
+        # Include template_id in the agent config
+        agent_config.template_id = request.template_name
+
         async with AsyncSessionLocal() as db:
             created_agent = await create_virtual_agent(agent_config, http_request, db)
-
-            # Persist agent metadata for suite/template grouping
-            try:
-                # Persist normalized metadata link between agent and template
-                existing = await db.execute(
-                    select(models.AgentMetadata).where(
-                        models.AgentMetadata.agent_id == created_agent.id
-                    )
-                )
-                existing_meta = existing.scalar_one_or_none()
-
-                if existing_meta:
-                    existing_meta.template_id = request.template_name
-                else:
-                    db.add(
-                        models.AgentMetadata(
-                            agent_id=created_agent.id,
-                            template_id=request.template_name,
-                        )
-                    )
-                await db.commit()
-
-            except Exception as meta_error:
-                logger.warning(
-                    f"Failed to persist agent metadata for {created_agent.id}: "
-                    f"{meta_error}"
-                )
 
         logger.info(
             f"Successfully created agent '{agent_name}' from template "

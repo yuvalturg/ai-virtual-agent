@@ -475,3 +475,417 @@ def extract_response_id(response) -> dict:
         print(f"✗ Failed to extract response ID: {str(e)}")
         print(f"Response text: {response.text[:500]}...")
         raise
+
+
+def validate_list_not_empty(response):
+    """
+    Validate that the response contains a non-empty list.
+
+    Args:
+        response: Tavern response object
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            data = response.json()
+        else:
+            import json
+
+            data = json.loads(response.text)
+
+        assert isinstance(data, list), f"Expected list, got {type(data)}"
+        assert len(data) > 0, "Expected non-empty list"
+
+        print(f"✓ List validation passed: {len(data)} items")
+        return True
+
+    except Exception as e:
+        print(f"✗ List validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_agent_has_template_metadata(
+    response, agent_id: str, expected_template_id: str
+):
+    """
+    Validate that an agent in the list has correct template metadata.
+
+    Args:
+        response: Tavern response object
+        agent_id: ID of the agent to check
+        expected_template_id: Expected template ID
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            agents = response.json()
+        else:
+            import json
+
+            agents = json.loads(response.text)
+
+        # Find the agent
+        target_agent = None
+        for agent in agents:
+            if agent.get("id") == agent_id:
+                target_agent = agent
+                break
+
+        assert target_agent is not None, f"Agent {agent_id} not found in response"
+
+        # Check template metadata
+        assert (
+            target_agent.get("template_id") == expected_template_id
+        ), f"Expected template_id {expected_template_id}, got {target_agent.get('template_id')}"
+
+        assert (
+            target_agent.get("template_name") is not None
+        ), "template_name should not be null"
+        assert target_agent.get("suite_id") is not None, "suite_id should not be null"
+        assert (
+            target_agent.get("suite_name") is not None
+        ), "suite_name should not be null"
+        assert target_agent.get("category") is not None, "category should not be null"
+
+        print(f"✓ Agent template metadata validation passed for {agent_id}")
+        return True
+
+    except Exception as e:
+        print(f"✗ Agent template metadata validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_suite_deployment_results(response, expected_count: int):
+    """
+    Validate that suite deployment results contain expected number of agents.
+
+    Args:
+        response: Tavern response object
+        expected_count: Expected number of deployment results
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            results = response.json()
+        else:
+            import json
+
+            results = json.loads(response.text)
+
+        assert isinstance(results, list), f"Expected list, got {type(results)}"
+        assert len(results) == int(
+            expected_count
+        ), f"Expected {expected_count} deployment results, got {len(results)}"
+
+        # Check that each result has required fields
+        for i, result in enumerate(results):
+            assert "status" in result, f"Result {i} missing status"
+            assert "agent_name" in result, f"Result {i} missing agent_name"
+            assert result["status"] in [
+                "success",
+                "skipped",
+                "error",
+            ], f"Result {i} has invalid status: {result['status']}"
+
+        success_count = sum(1 for r in results if r["status"] == "success")
+        print(
+            f"✓ Suite deployment validation passed: {success_count}/{len(results)} successful"
+        )
+        return True
+
+    except Exception as e:
+        print(f"✗ Suite deployment validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_agents_grouped_by_suite(response, expected_suite_id: str):
+    """
+    Validate that agents are properly grouped by suite.
+
+    Args:
+        response: Tavern response object
+        expected_suite_id: Expected suite ID to find agents for
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            agents = response.json()
+        else:
+            import json
+
+            agents = json.loads(response.text)
+
+        # Find agents with the expected suite_id
+        suite_agents = [
+            agent for agent in agents if agent.get("suite_id") == expected_suite_id
+        ]
+
+        assert (
+            len(suite_agents) > 0
+        ), f"No agents found with suite_id {expected_suite_id}"
+
+        # Check that all agents in this suite have consistent metadata
+        for agent in suite_agents:
+            assert (
+                agent.get("suite_id") == expected_suite_id
+            ), f"Agent {agent.get('id')} has incorrect suite_id"
+            assert (
+                agent.get("suite_name") is not None
+            ), f"Agent {agent.get('id')} missing suite_name"
+            assert (
+                agent.get("category") is not None
+            ), f"Agent {agent.get('id')} missing category"
+
+        print(
+            f"✓ Suite grouping validation passed: {len(suite_agents)} agents in suite {expected_suite_id}"
+        )
+        return True
+
+    except Exception as e:
+        print(f"✗ Suite grouping validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_categories_structure(response):
+    """
+    Validate that suites by category response has correct structure.
+
+    Args:
+        response: Tavern response object
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            categories = response.json()
+        else:
+            import json
+
+            categories = json.loads(response.text)
+
+        assert isinstance(categories, dict), f"Expected dict, got {type(categories)}"
+
+        # Each category should have a list of suite IDs
+        for category, suite_ids in categories.items():
+            assert isinstance(
+                suite_ids, list
+            ), f"Category {category} should have list of suite IDs, got {type(suite_ids)}"
+            assert len(suite_ids) > 0, f"Category {category} has no suites"
+
+        print(f"✓ Categories structure validation passed: {len(categories)} categories")
+        return True
+
+    except Exception as e:
+        print(f"✗ Categories structure validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_categories_info_structure(response):
+    """
+    Validate that categories info response has correct structure.
+
+    Args:
+        response: Tavern response object
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            categories_info = response.json()
+        else:
+            import json
+
+            categories_info = json.loads(response.text)
+
+        assert isinstance(
+            categories_info, dict
+        ), f"Expected dict, got {type(categories_info)}"
+
+        # Each category should have name, description, icon, suite_count
+        for category, info in categories_info.items():
+            assert isinstance(
+                info, dict
+            ), f"Category {category} info should be dict, got {type(info)}"
+
+            required_fields = ["name", "description", "icon", "suite_count"]
+            for field in required_fields:
+                assert field in info, f"Category {category} missing field {field}"
+
+            assert isinstance(
+                info["suite_count"], int
+            ), f"Category {category} suite_count should be int, got {type(info['suite_count'])}"
+            assert (
+                info["suite_count"] > 0
+            ), f"Category {category} should have positive suite_count"
+
+        print(
+            f"✓ Categories info structure validation passed: {len(categories_info)} categories"
+        )
+        return True
+
+    except Exception as e:
+        print(f"✗ Categories info structure validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_template_demo_questions(response):
+    """
+    Validate that template demo questions are properly structured and meaningful.
+
+    Args:
+        response: Tavern response object
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            template = response.json()
+        else:
+            import json
+
+            template = json.loads(response.text)
+
+        # Check that demo_questions exists
+        assert "demo_questions" in template, "Template missing demo_questions field"
+
+        demo_questions = template["demo_questions"]
+
+        # Demo questions can be None or a list
+        if demo_questions is not None:
+            assert isinstance(
+                demo_questions, list
+            ), f"demo_questions should be list or None, got {type(demo_questions)}"
+
+            if len(demo_questions) > 0:
+                # Each demo question should be a non-empty string
+                for i, question in enumerate(demo_questions):
+                    assert isinstance(
+                        question, str
+                    ), f"Demo question {i} should be string, got {type(question)}"
+                    assert (
+                        len(question.strip()) > 0
+                    ), f"Demo question {i} should not be empty"
+                    assert question.endswith(
+                        "?"
+                    ), f"Demo question {i} should end with question mark: '{question}'"
+                    assert (
+                        len(question) > 10
+                    ), f"Demo question {i} should be meaningful (>10 chars): '{question}'"
+
+                print(
+                    f"✓ Demo questions validation passed: {len(demo_questions)} questions"
+                )
+            else:
+                print("✓ Demo questions validation passed: empty list (acceptable)")
+        else:
+            print("✓ Demo questions validation passed: None (acceptable)")
+
+        return True
+
+    except Exception as e:
+        print(f"✗ Demo questions validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_template_agent_exists(response, template_id: str, agent_name: str):
+    """
+    Validate that an agent with the given template_id and name exists in the list.
+
+    This is used when deployment may return "skipped" status but we still want to
+    verify the agent exists with proper template metadata.
+
+    Args:
+        response: Tavern response object
+        template_id: Expected template ID
+        agent_name: Expected agent name
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            agents = response.json()
+        else:
+            import json
+
+            agents = json.loads(response.text)
+
+        # Find the agent with matching template_id and name
+        target_agent = None
+        for agent in agents:
+            if (
+                agent.get("template_id") == template_id
+                and agent.get("name") == agent_name
+            ):
+                target_agent = agent
+                break
+
+        assert (
+            target_agent is not None
+        ), f"Agent with template_id '{template_id}' and name '{agent_name}' not found"
+
+        # Validate template metadata
+        assert (
+            target_agent.get("template_id") == template_id
+        ), f"Expected template_id {template_id}, got {target_agent.get('template_id')}"
+
+        assert (
+            target_agent.get("template_name") is not None
+        ), "template_name should not be null"
+        assert target_agent.get("suite_id") is not None, "suite_id should not be null"
+        assert (
+            target_agent.get("suite_name") is not None
+        ), "suite_name should not be null"
+        assert target_agent.get("category") is not None, "category should not be null"
+
+        print(
+            f"✓ Template agent validation passed for '{agent_name}' with template '{template_id}'"
+        )
+        return True
+
+    except Exception as e:
+        print(f"✗ Template agent validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise

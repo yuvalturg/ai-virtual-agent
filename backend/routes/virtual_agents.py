@@ -17,6 +17,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from .. import models, schemas
 from ..api.llamastack import get_client_from_request
@@ -154,9 +155,13 @@ async def get_virtual_agent_config(
     """
     try:
         result = await db.execute(
-            select(models.VirtualAgentConfig).where(
-                models.VirtualAgentConfig.id == agent_id
+            select(models.VirtualAgentConfig)
+            .options(
+                selectinload(models.VirtualAgentConfig.template).selectinload(
+                    models.AgentTemplate.suite
+                )
             )
+            .where(models.VirtualAgentConfig.id == agent_id)
         )
         return result.scalar_one_or_none()
     except Exception as e:
@@ -208,6 +213,20 @@ def config_to_response(config: models.VirtualAgentConfig) -> schemas.VirtualAgen
             else:
                 tools.append(schemas.ToolAssociationInfo(toolgroup_id=str(tool)))
 
+    # Extract template and suite information
+    template_id = config.template_id
+    template_name = None
+    suite_id = None
+    suite_name = None
+    category = None
+
+    if config.template and hasattr(config.template, "suite"):
+        template_name = config.template.name
+        suite_id = config.template.suite_id
+        if config.template.suite:
+            suite_name = config.template.suite.name
+            category = config.template.suite.category
+
     return schemas.VirtualAgentRead(
         id=config.id,
         name=config.name,
@@ -217,6 +236,11 @@ def config_to_response(config: models.VirtualAgentConfig) -> schemas.VirtualAgen
         model_name=config.model_name,
         knowledge_base_ids=config.knowledge_base_ids or [],
         tools=tools,
+        template_id=template_id,
+        template_name=template_name,
+        suite_id=suite_id,
+        suite_name=suite_name,
+        category=category,
     )
 
 
@@ -263,6 +287,7 @@ async def create_virtual_agent(
                 id=agent_id,
                 name=va.name,
                 model_name=va.model_name,
+                template_id=va.template_id,
                 prompt=va.prompt,
                 tools=[
                     (
@@ -336,7 +361,13 @@ async def get_virtual_agents(db: AsyncSession = Depends(get_db)):
         List of all virtual agent configurations stored in the system
     """
     try:
-        result = await db.execute(select(models.VirtualAgentConfig))
+        result = await db.execute(
+            select(models.VirtualAgentConfig).options(
+                selectinload(models.VirtualAgentConfig.template).selectinload(
+                    models.AgentTemplate.suite
+                )
+            )
+        )
         configs = result.scalars().all()
 
         response_list = []
