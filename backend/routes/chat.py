@@ -222,8 +222,13 @@ class Chat:
             response_params["tools"] = tools
 
         # Add previous response for conversation chaining
+        # FIXME: Remove this workaround once LlamaStack handles previous_response_id with tools better
         if previous_response_id:
-            response_params["previous_response_id"] = previous_response_id
+            skip_chain_with_tools = (
+                os.getenv("SKIP_CHAIN_WITH_TOOLS", "true").lower() == "true"
+            )
+            if not tools or not skip_chain_with_tools:
+                response_params["previous_response_id"] = previous_response_id
 
         # Always store messages for conversation history
         response_params["store"] = True
