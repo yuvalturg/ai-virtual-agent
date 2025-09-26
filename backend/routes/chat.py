@@ -5,17 +5,19 @@ This module provides chat functionality using LlamaStack's modern Responses API
 instead of the deprecated Agents API. Key features:
 - Uses virtual agent configs as templates for model/tools/prompt
 - Dynamically passes model and tools from config to each Responses API call
-- Response chaining for conversation continuity
+- Full conversation history for proper context
 - OpenAI-compatible tool patterns
-- No need for persistent agent creation
+- Persistent message storage in database
 """
 
 import json
 import logging
 import os
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
@@ -111,6 +113,41 @@ async def build_responses_tools(
     return responses_tools
 
 
+async def get_conversation_history(
+    db: AsyncSession, session_id: str
+) -> List[Dict[str, Any]]:
+    """
+    Retrieve conversation history for a session in OpenAI message format.
+
+    Args:
+        db: Database session
+        session_id: Chat session ID
+
+    Returns:
+        List of messages in OpenAI format for LlamaStack
+    """
+    result = await db.execute(
+        select(models.ChatMessage)
+        .where(models.ChatMessage.session_id == session_id)
+        .order_by(models.ChatMessage.created_at)
+    )
+    messages = result.scalars().all()
+
+    conversation = []
+    for message in messages:
+        # Expand image URLs in message content for LlamaStack
+        content = message.content
+        if isinstance(content, list):
+            # Process each content item and expand image URLs
+            for item in content:
+                if isinstance(item, dict):
+                    expand_image_url(item)
+
+        conversation.append({"role": message.role, "content": content})
+
+    return conversation
+
+
 class Chat:
     """
     A chat class using LlamaStack's Responses API with virtual agent configurations.
@@ -118,7 +155,7 @@ class Chat:
     This approach:
     - Uses virtual agent configs as templates for model/tools/prompt
     - Dynamically passes model and tools from config to each Responses API call
-    - Chains conversations using previous_response_id
+    - Sends full conversation history for proper context
     - No need to pre-create persistent agents
 
     Args:
@@ -148,8 +185,114 @@ class Chat:
             logger.warning(f"No agent config found for ID: {agent_id}")
         return config
 
+    async def _prepare_conversation_input(self, session_id, user_input):
+        """Prepare input with full conversation history."""
+        if not session_id:
+            raise Exception("session_id is required")
+
+        # Get existing conversation history (don't store user message yet)
+        conversation_history = await get_conversation_history(self.db, session_id)
+
+        # Add current user input to conversation
+        if isinstance(user_input, list):
+            # Multimodal content - serialize and expand URLs
+            content_items = []
+            for item in user_input:
+                content_item = item.model_dump()
+                expand_image_url(content_item)
+                content_items.append(content_item)
+            conversation_history.append({"role": "user", "content": content_items})
+        else:
+            # Text content
+            conversation_history.append(
+                {"role": "user", "content": [{"type": "text", "text": str(user_input)}]}
+            )
+
+        return conversation_history
+
+    async def _store_conversation_turn(
+        self,
+        agent_id: str,
+        session_id: str,
+        user_input: Any,
+        assistant_content_items: List[Any],
+        response_id: str,
+    ) -> None:
+        """
+        Store both user input and assistant response in a single transaction.
+        Also ensures the chat session exists before storing messages.
+
+        Args:
+            agent_id: Virtual agent configuration ID
+            session_id: Chat session ID
+            user_input: User message content
+            assistant_content_items: Assistant response content items from LlamaStack
+            response_id: LlamaStack response ID
+        """
+        # Convert user input to JSON format - always model_dump for consistency
+        if isinstance(user_input, list):
+            user_json_content = [item.model_dump() for item in user_input]
+        else:
+            user_json_content = user_input.model_dump()
+
+        # Convert assistant content items to JSON format
+        assistant_json_content = [item.model_dump() for item in assistant_content_items]
+
+        # Check if session exists, create if not
+        result = await self.db.execute(
+            select(models.ChatSession).where(models.ChatSession.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+
+        if not session:
+            # Generate title from user message
+            title = "New Chat"
+            if isinstance(user_input, list) and user_input:
+                # For multimodal content, look for text content
+                for item in user_input:
+                    if hasattr(item, "text") and item.text:
+                        txt = item.text
+                        title = txt[:50] + "..." if len(txt) > 50 else txt[:50]
+                        break
+            elif hasattr(user_input, "text"):
+                txt = user_input.text
+                title = txt[:50] + "..." if len(txt) > 50 else txt[:50]
+
+            # Create new session
+            session = models.ChatSession(
+                id=session_id,
+                title=title,
+                agent_id=agent_id,
+                session_state={"last_response_id": response_id},
+            )
+            self.db.add(session)
+        else:
+            # Update existing session with latest response_id
+            session.session_state = {"last_response_id": response_id}
+
+        # Create user message with explicit timestamp
+        now = datetime.now()
+        user_message = models.ChatMessage(
+            session_id=session_id,
+            role="user",
+            content=user_json_content,
+            created_at=now,
+        )
+        self.db.add(user_message)
+
+        # Create assistant message with smallest possible later timestamp (1 microsecond)
+        assistant_message = models.ChatMessage(
+            session_id=session_id,
+            role="assistant",
+            content=assistant_json_content,
+            response_id=response_id,
+            created_at=now + timedelta(microseconds=1),
+        )
+        self.db.add(assistant_message)
+        await self.db.commit()
+
     async def create_response(
-        self, agent_id: str, user_input, previous_response_id: Optional[str] = None
+        self, agent_id: str, user_input, session_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create a new response using the Responses API with virtual agent config.
@@ -157,7 +300,7 @@ class Chat:
         Args:
             agent_id: Virtual agent configuration ID
             user_input: User's message/input
-            previous_response_id: ID of previous response for conversation chaining
+            session_id: Chat session ID for message storage
 
         Returns:
             Response data including response ID and content
@@ -175,22 +318,8 @@ class Chat:
             agent_config.tools, agent_config.vector_store_ids, self.request
         )
 
-        # Use OpenAI message format for LlamaStack Responses API
-        if isinstance(user_input, list):
-            # For multimodal content, serialize Pydantic objects to dicts and
-            # expand image URLs for LlamaStack
-            content_items_for_llamastack = []
-            for item in user_input:
-                content_item = item.model_dump()
-                expand_image_url(
-                    content_item
-                )  # Expand relative URLs to full URLs for LlamaStack
-                content_items_for_llamastack.append(content_item)
-
-            openai_input = [{"role": "user", "content": content_items_for_llamastack}]
-        else:
-            # For text-only content
-            openai_input = str(user_input)
+        # Prepare input with full conversation history
+        openai_input = await self._prepare_conversation_input(session_id, user_input)
 
         # Prepare response creation parameters using agent config
         response_params = {
@@ -221,18 +350,6 @@ class Chat:
         if tools:
             response_params["tools"] = tools
 
-        # Add previous response for conversation chaining
-        # FIXME: Remove this workaround once LlamaStack handles previous_response_id with tools better
-        if previous_response_id:
-            chain_responses_with_tools = (
-                os.getenv("CHAIN_RESPONSES_WITH_TOOLS", "false").lower() == "true"
-            )
-            if not tools or chain_responses_with_tools:
-                response_params["previous_response_id"] = previous_response_id
-
-        # Always store messages for conversation history
-        response_params["store"] = True
-
         # Note: Input/output shields not yet supported in Responses API
         if agent_config.input_shields:
             logger.warning("Input shields not yet supported in Responses API")
@@ -250,19 +367,32 @@ class Chat:
 
             # Extract content from response.output array
             content = ""
+            assistant_content_items = []
             if hasattr(response, "output") and response.output:
                 for output_item in response.output:
                     if hasattr(output_item, "content") and output_item.content:
+                        # Store the full content array from this output item
+                        assistant_content_items.extend(output_item.content)
+                        # Build concatenated string for return value
                         for content_item in output_item.content:
                             if hasattr(content_item, "text"):
                                 content += content_item.text
+
+            # Store conversation turn in database
+            if session_id:
+                await self._store_conversation_turn(
+                    agent_id,
+                    session_id,
+                    user_input,
+                    assistant_content_items,
+                    response.id,
+                )
 
             return {
                 "response_id": response.id,
                 "model": response.model,
                 "usage": getattr(response, "usage", None),
                 "content": content,
-                "previous_response_id": previous_response_id,
                 "agent_id": agent_id,
             }
 
@@ -275,7 +405,6 @@ class Chat:
         agent_id: str,
         session_id: str,  # Session ID for updating session state
         prompt,  # Can be str or InterleavedContent
-        previous_response_id: Optional[str] = None,
     ):
         """
         Stream a response using the Responses API with virtual agent configuration.
@@ -285,18 +414,15 @@ class Chat:
 
         Args:
             agent_id: Virtual agent configuration ID
-            session_id: Legacy session ID (not used in Responses API)
+            session_id: Session ID for message storage
             prompt: User's message/input
-            previous_response_id: ID of previous response for conversation chaining
 
         Yields:
             JSON strings containing response chunks
         """
         try:
             # Pass InterleavedContent directly to create_response to preserve images
-            response_data = await self.create_response(
-                agent_id, prompt, previous_response_id
-            )
+            response_data = await self.create_response(agent_id, prompt, session_id)
 
             # Session state will be updated by the background task in llama_stack.py
 
@@ -308,6 +434,7 @@ class Chat:
                     "content": response_data["content"],
                     "response_id": response_data["response_id"],
                     "model": response_data["model"],
+                    "session_id": session_id,
                 }
             )
 

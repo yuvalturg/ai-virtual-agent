@@ -26,7 +26,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
@@ -101,12 +101,11 @@ async def get_chat_sessions(
 
         # Use our local ChatSession table instead of LlamaStack agents API
 
-        # Use JSON path extraction to check for agent_id
+        # Query by agent_id column directly
         result = await db.execute(
             select(models.ChatSession)
-            .where(text("session_state->>'agent_id' = :agent_id"))
-            .order_by(models.ChatSession.updated_at.desc()),
-            {"agent_id": agent_id},
+            .where(models.ChatSession.agent_id == agent_id)
+            .order_by(models.ChatSession.updated_at.desc())
         )
         local_sessions = result.scalars().all()
 
@@ -133,7 +132,7 @@ async def get_chat_sessions(
             {
                 "id": session.id,
                 "title": session.title or f"Chat {session.id[:8]}...",
-                "agent_name": session.agent_name or agent_name,
+                "agent_name": agent_name,
                 "created_at": (
                     session.created_at.isoformat() if session.created_at else None
                 ),
@@ -259,128 +258,18 @@ async def get_chat_session(
         total_messages = 0
         has_more = False
 
-        if session and load_messages and last_response_id:
-            # Use LlamaStack responses.list() API to find the conversation history
-            logger.info(
-                f"Fetching messages for session {session_id}, agent {agent_id}, "
-                f"last_response_id: {last_response_id}, page: {page}, "
-                f"page_size: {page_size}"
-            )
-            try:
-                client = get_client_from_request(request)
-
-                # List responses with some optimization - limit results and filter
-                # by model if possible
-                agent_config = await get_virtual_agent_config(db, agent_id)
-                list_params = {
-                    "limit": 100,  # Reasonable limit to avoid huge responses
-                    "order": "desc",  # Newest first
-                }
-                if agent_config and agent_config.model_name:
-                    list_params["model"] = agent_config.model_name
-
-                responses_list = await client.responses.list(**list_params)
-
-                # Find the response with our target ID
-                target_response = None
-                logger.info(f"Looking for response ID: {last_response_id}")
-                logger.info(f"Found {len(responses_list.data)} responses in list")
-
-                for i, resp in enumerate(responses_list.data):
-                    logger.info(f"Response {i}: {resp.id}")
-                    if resp.id == last_response_id:
-                        target_response = resp
-                        logger.info(f"Found target response at index {i}")
-                        break
-
-                if not target_response:
-                    logger.warning(
-                        f"Target response {last_response_id} not found in list"
-                    )
-
-                def should_include_message(
-                    msg_data: dict, message_source: str = ""
-                ) -> bool:
-                    """
-                    Filter out tool call messages and other non-conversation messages.
-                    Returns True if message should be included, False if it should be skipped.
-                    """
-                    if not msg_data.get("role") or not msg_data.get("content"):
-                        msg_type = msg_data.get("type", "unknown")
-                        msg_info = str(msg_data)
-                        if msg_type == "mcp_list_tools":
-                            tools_list = [x["name"] for x in msg_data["tools"]]
-                            msg_info = f"server_label={msg_data['server_label']}, tools={tools_list}"
-                        elif msg_type == "mcp_call":
-                            msg_info = (
-                                f"server_label={msg_data['server_label']}, "
-                                f"name={msg_data['name']}, arguments={msg_data['arguments']}"
-                            )
-                        source_info = f" {message_source}" if message_source else ""
-                        logger.info(
-                            f"Skipping{source_info} message without role/content: "
-                            f"{msg_type=} {msg_info}"
-                        )
-                        return False
-                    return True
-
-                if (
-                    target_response
-                    and hasattr(target_response, "input")
-                    and target_response.input
-                ):
-                    # Convert LlamaStack message format to our API format
-                    all_messages = []
-
-                    # Process input messages (conversation history) - serialize
-                    # entire message
-                    for i, llamastack_msg in enumerate(target_response.input):
-                        msg_data = llamastack_msg.model_dump()
-
-                        if not should_include_message(msg_data, "input"):
-                            continue
-
-                        convert_internal_urls_to_relative(msg_data)
-                        all_messages.append(msg_data)
-
-                    # Add the final output message - serialize entire message
-                    if hasattr(target_response, "output") and target_response.output:
-                        for i, output_msg in enumerate(target_response.output):
-                            msg_data = output_msg.model_dump()
-
-                            if not should_include_message(msg_data, "output"):
-                                continue
-
-                            convert_internal_urls_to_relative(msg_data)
-                            all_messages.append(msg_data)
-
-                    total_messages = len(all_messages)
-
-                    # Apply pagination
-                    offset = (page - 1) * page_size
-                    has_more = offset + page_size < total_messages
-                    messages = all_messages[offset : offset + page_size]
-
-                    logger.info(
-                        f"Successfully fetched {len(messages)} messages for "
-                        f"session {session_id} (total: {total_messages}, page: {page}, "
-                        f"has_more: {has_more})"
-                    )
-
-            except Exception as e:
-                logger.warning(f"Could not retrieve messages from LlamaStack: {e}")
-                # Fall back to empty messages
-        else:
-            logger.info(
-                f"Not fetching messages for session {session_id}: "
-                f"session={session is not None}, load_messages={load_messages}, "
-                f"last_response_id={last_response_id}"
+        if session and load_messages:
+            # Load from ChatMessage table
+            messages, total_messages, has_more = await _load_messages_from_database(
+                db, session_id, page, page_size
             )
 
         return {
             "id": session_id,
             "title": session.title if session else f"Chat {session_id[:8]}...",
-            "agent_name": agent_name,
+            "agent_name": (
+                session.agent.name if session and session.agent else agent_name
+            ),
             "agent_id": agent_id,
             "messages": messages,
             "created_at": (
@@ -555,9 +444,8 @@ async def create_chat_session(
         new_session = models.ChatSession(
             id=session_id,
             title=session_name,  # Use the provided session name
-            agent_name=agent_name,
+            agent_id=sessionRequest.agent_id,
             session_state={
-                "agent_id": sessionRequest.agent_id,
                 "last_response_id": None,  # No responses yet
             },
         )
@@ -669,3 +557,51 @@ async def debug_session_listing(agent_id: str, request: Request):
     except Exception as e:
         logger.error(f"❌ Debug failed: {e}")
         return {"error": f"Debug failed: {e}"}
+
+
+async def _load_messages_from_database(db, session_id, page, page_size):
+    """Load messages from ChatMessage table."""
+    try:
+        # Get total count
+        count_result = await db.execute(
+            select(models.ChatMessage).where(
+                models.ChatMessage.session_id == session_id
+            )
+        )
+        all_messages = count_result.scalars().all()
+        total_messages = len(all_messages)
+
+        # Calculate pagination
+        offset = (page - 1) * page_size
+        has_more = offset + page_size < total_messages
+
+        # Get paginated messages
+        result = await db.execute(
+            select(models.ChatMessage)
+            .where(models.ChatMessage.session_id == session_id)
+            .order_by(models.ChatMessage.created_at.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        db_messages = result.scalars().all()
+
+        # Convert to API format
+        messages = []
+        for msg in db_messages:
+            messages.append(
+                {
+                    "id": str(msg.id),
+                    "role": msg.role,
+                    "content": msg.content,
+                    "created_at": (
+                        msg.created_at.isoformat() if msg.created_at else None
+                    ),
+                    "response_id": msg.response_id,
+                }
+            )
+
+        return messages, total_messages, has_more
+
+    except Exception as e:
+        logger.error(f"Error loading messages from database: {str(e)}")
+        return [], 0, False

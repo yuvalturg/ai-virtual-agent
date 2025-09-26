@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { LlamaStackParser, extractSessionId } from '../adapters/llamaStackAdapter';
 import { CHAT_API_ENDPOINT } from '../config/api';
 import { fetchChatSession } from '@/services/chat-sessions';
@@ -20,6 +20,14 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [totalMessages, setTotalMessages] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Use a ref to track the current session ID for streaming responses
+  const currentSessionIdRef = useRef<string | null>(sessionId);
+
+  // Update the ref whenever sessionId changes
+  useEffect(() => {
+    currentSessionIdRef.current = sessionId;
+  }, [sessionId]);
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, value?: string | number) => {
       const newValue = value !== undefined ? String(value) : event.target.value;
@@ -34,8 +42,10 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
   const loadSession = useCallback(
     async (sessionId: string) => {
       try {
+        // Set the session ID immediately to prevent race conditions
+        setSessionId(sessionId);
+
         setIsLoading(true);
-        console.log(`Loading session ${sessionId} for agent ${agentId} (paginated)`);
 
         // Reset pagination state
         setCurrentPage(1);
@@ -47,9 +57,6 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
         if (!sessionDetail) {
           throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
         }
-
-        // Set the session ID
-        setSessionId(sessionId);
 
         // Convert messages to our format
         const convertedMessages: ChatMessage[] = sessionDetail.messages.map(
@@ -250,6 +257,19 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
               // Parse content
               const parsed = LlamaStackParser.parse(data);
               if (parsed) {
+                // Check if this message belongs to the current session
+                try {
+                  const messageData = JSON.parse(data) as { session_id?: string };
+                  const messageSessionId = messageData.session_id;
+
+                  // Only process messages that belong to the current session
+                  if (messageSessionId && messageSessionId !== currentSessionIdRef.current) {
+                    continue;
+                  }
+                } catch (_e) {
+                  // If we can't parse the message data, continue processing (fallback behavior)
+                }
+
                 setMessages((prev) => {
                   const updated = [...prev];
                   const lastMsg = updated[updated.length - 1];
@@ -326,6 +346,7 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
     loadSession,
     loadMoreMessages,
     sessionId,
+    setSessionId,
     attachedFiles,
     clearAttachedFiles,
     setAttachedFiles,

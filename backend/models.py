@@ -86,7 +86,11 @@ class ChatSession(Base):
 
     # New fields for sidebar display
     title = Column(String(500), nullable=True)  # Generated summary/title
-    agent_name = Column(String(255), nullable=True)  # Agent display name
+    agent_id = Column(
+        String(255),
+        ForeignKey("virtual_agent_configs.id", ondelete="CASCADE"),
+        nullable=True,
+    )  # Agent ID
 
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -94,6 +98,45 @@ class ChatSession(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+    # Relationship to chat messages
+    messages = relationship(
+        "ChatMessage", back_populates="session", cascade="all, delete-orphan"
+    )
+
+    # Relationship to virtual agent
+    agent = relationship("VirtualAgentConfig")
+
+
+class ChatMessage(Base):
+    """
+    Store individual messages in a chat session.
+
+    This provides persistent message storage, allowing us to send full
+    conversation context following OpenAI's recommended approach.
+    """
+
+    __tablename__ = "chat_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(
+        String(255), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Message metadata
+    role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system'
+    content = Column(JSON, nullable=False)  # List of content items (text, images, etc.)
+
+    # Optional response metadata
+    response_id = Column(
+        String(255), nullable=True
+    )  # LlamaStack response ID for reference
+
+    # Timestamps
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    # Relationships
+    session = relationship("ChatSession", back_populates="messages")
 
 
 class Guardrail(Base):
