@@ -116,6 +116,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     loadSession,
     loadMoreMessages,
     sessionId,
+    setSessionId,
     attachedFiles,
     handleAttach,
     clearAttachedFiles,
@@ -233,6 +234,9 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     selectedItem?: string | number
   ) => {
     if (!selectedItem || typeof selectedItem !== 'string') return;
+
+    // Set session ID immediately on click to prevent race condition
+    setSessionId(selectedItem);
 
     void (async () => {
       try {

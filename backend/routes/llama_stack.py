@@ -42,7 +42,6 @@ from backend.database import get_db
 
 from ..api.llamastack import get_client_from_request
 from .chat import Chat
-from .virtual_agents import get_virtual_agent_config
 
 ATTACHMENTS_INTERNAL_API_ENDPOINT = os.getenv(
     "ATTACHMENTS_INTERNAL_API_ENDPOINT", "http://ai-virtual-agent:8000"
@@ -434,23 +433,6 @@ async def chat(
             session_id = str(uuid.uuid4())
             logger.info(f"Generated new session ID: {session_id}")
 
-        # Look up previous response ID from database session state
-        previous_response_id = None
-        if session_id:
-            try:
-                session_result = await db.execute(
-                    select(models.ChatSession).where(
-                        models.ChatSession.id == session_id
-                    )
-                )
-                session_record = session_result.scalar_one_or_none()
-                if session_record and session_record.session_state:
-                    previous_response_id = session_record.session_state.get(
-                        "last_response_id"
-                    )
-            except Exception as e:
-                logger.warning(f"Error looking up previous response ID: {e}")
-
         # Create responses-based Chat instance with database access
         chat = Chat(request, db)
 
@@ -459,14 +441,12 @@ async def chat(
             try:
                 logger.info(
                     f"About to call chat.stream with agent_id: {agent_id}, "
-                    f"session_id: {session_id}, "
-                    f"previous_response_id: {previous_response_id}"
+                    f"session_id: {session_id}"
                 )
                 async for chunk in chat.stream(
                     agent_id,
                     session_id,
                     chatRequest.message.content,
-                    previous_response_id=previous_response_id,
                 ):
                     logger.info(f"Received chunk from chat.stream: {chunk}")
 
@@ -548,28 +528,12 @@ async def save_session_metadata(
             if txt:
                 title = txt[:50] + "..." if len(txt) > 50 else txt[:50]
 
-        # Get agent name
-        agent_name = "Unknown Agent"
-        try:
-            # Fetch agent details from VirtualAgentConfig
-            agent_config = await get_virtual_agent_config(db, agent_id)
-            agent_name = (
-                agent_config.name
-                if agent_config and agent_config.name
-                else f"Agent {agent_id[:8]}..."
-            )
-        except Exception as e:
-            logger.error(f"Error fetching agent details: {e}")
-            agent_name = f"Agent {agent_id[:8]}..."
-
         # Insert or update session metadata
         stmt = insert(models.ChatSession).values(
             id=session_id,
             title=title,
-            agent_name=agent_name,
+            agent_id=agent_id,
             session_state={
-                "agent_id": agent_id,
-                "session_id": session_id,
                 "last_response_id": response_id,
             },
         )
@@ -585,7 +549,7 @@ async def save_session_metadata(
                     ),
                     else_=models.ChatSession.title,
                 ),
-                agent_name=stmt.excluded.agent_name,
+                agent_id=stmt.excluded.agent_id,
                 updated_at=stmt.excluded.updated_at,
                 session_state=stmt.excluded.session_state,
             ),

@@ -104,7 +104,7 @@ stages:
         - function: tests.integration.validators:validate_template_agent_exists
           extra_kwargs:
             template_id: "{first_template}"
-            agent_name: "Commercial Banking Specialist"
+            agent_name: "Test Agent from Template {tavern.env_vars.TAVERN_UNIQUE}"
 
   - name: Test deploying same template again (should skip)
     request:
