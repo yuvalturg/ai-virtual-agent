@@ -3,7 +3,7 @@ test_name: Test Complete Chat Pipeline - First and Second USA President
 stages:
   - name: Get available models
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/llama_stack/llms"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/llama_stack/llms"
       method: GET
       headers:
         Accept: application/json
@@ -17,7 +17,7 @@ stages:
 
   - name: Create virtual agent with 2-word limit
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/virtual_agents/"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
         Content-Type: application/json
@@ -45,7 +45,7 @@ stages:
 
   - name: List existing sessions for potential reuse
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/chat_sessions/?agent_id={agent_id}&limit=1"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat_sessions/?agent_id={agent_id}&limit=1"
       method: GET
       headers:
         Accept: application/json
@@ -57,7 +57,7 @@ stages:
 
   - name: Ensure test session exists
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/chat_sessions/"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat_sessions/"
       method: POST
       headers:
         Content-Type: application/json
@@ -75,7 +75,7 @@ stages:
 
   - name: Ask about first USA president (Test 1)
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -98,7 +98,7 @@ stages:
 
   - name: Ask about second USA president (Test 2 - Same Agent)
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -122,7 +122,7 @@ stages:
   # Cleanup: Delete the test agent
   - name: cleanup_test_agent
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{agent_id}"
       method: DELETE
       headers:
         Accept: application/json

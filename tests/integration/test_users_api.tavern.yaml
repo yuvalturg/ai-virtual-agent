@@ -3,7 +3,7 @@ test_name: Test Users API - CRUD Workflow Integration
 stages:
   - name: Create user for workflow testing
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
         Accept: application/json
@@ -22,7 +22,7 @@ stages:
 
   - name: Verify user persisted in database (GET)
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/{workflow_user_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{workflow_user_id}"
       method: GET
       headers:
         Accept: application/json
@@ -41,7 +41,7 @@ stages:
 
   - name: Update user and verify changes persist
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/{workflow_user_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{workflow_user_id}"
       method: PUT
       headers:
         Accept: application/json
@@ -65,7 +65,7 @@ stages:
 
   - name: Confirm update persisted by reading again
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/{workflow_user_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{workflow_user_id}"
       method: GET
       headers:
         X-Forwarded-User: admin
@@ -83,7 +83,7 @@ stages:
 
   - name: Delete user and verify removal
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/{workflow_user_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{workflow_user_id}"
       method: DELETE
       headers:
         X-Forwarded-User: admin
@@ -93,7 +93,7 @@ stages:
 
   - name: Confirm deletion by attempting to read deleted user
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/{workflow_user_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{workflow_user_id}"
       method: GET
       headers:
         X-Forwarded-User: admin
@@ -106,7 +106,7 @@ test_name: Test OAuth Headers Integration
 stages:
   - name: Test OAuth proxy authentication with admin headers
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/profile"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/profile"
       method: GET
       headers:
         Accept: application/json
@@ -128,7 +128,7 @@ stages:
 #
 #   - name: Test cross-user access control enforcement
 #     request:
-#       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/"
+#       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
 #       method: GET
 #       headers:
 #         Accept: application/json
@@ -144,7 +144,7 @@ stages:
 # stages:
 #   - name: Test duplicate username conflict with database state
 #     request:
-#       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/"
+#       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
 #       method: POST
 #       headers:
 #         Accept: application/json
@@ -162,7 +162,7 @@ stages:
 
 #   - name: Verify original admin user is unchanged after conflict
 #     request:
-#       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/users/profile"
+#       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/profile"
 #       method: GET
 #       headers:
 #         Accept: application/json

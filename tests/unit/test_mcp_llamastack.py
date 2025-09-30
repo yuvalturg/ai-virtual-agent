@@ -1,6 +1,6 @@
 """Unit tests for MCP-LlamaStack integration endpoints.
 
-These tests patch the LlamaStack client used inside 'backend.routes.tools'
+These tests patch the LlamaStack client used inside 'backend.app.api.v1.tools'
 and exercise the '/tools' endpoint with a FastAPI TestClient. All
 network access is mocked.
 """
@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from backend.main import app
+from backend.app.main import app
 
 
 class _MockToolGroup(BaseModel):
@@ -97,7 +97,7 @@ class TestToolsEndpoint:
         toolgroups, tools = _mock_data
 
         monkeypatch.setattr(
-            "backend.routes.tools.get_client_from_request",
+            "backend.app.api.v1.tools.get_client_from_request",
             lambda _request: _MockLlamaClient(toolgroups, tools),
         )
 
@@ -108,7 +108,7 @@ class TestToolsEndpoint:
         """Endpoint returns MCP tool-groups, builtin groups and promoted
         tools."""
 
-        response = client.get("/api/tools/")
+        response = client.get("/api/v1/tools/")
 
         assert response.status_code == 200, response.text
 

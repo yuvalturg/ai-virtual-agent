@@ -15,8 +15,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.main import app
-from backend.models import RoleEnum, User, VirtualAgentConfig
+from backend.app.main import app
+from backend.app.models import RoleEnum, User, VirtualAgent
 
 
 @pytest.fixture
@@ -83,8 +83,8 @@ def override_get_db(mock_session):
 @pytest.fixture
 def setup_dependencies():
     """Fixture to easily setup and teardown FastAPI dependency overrides."""
-    from backend.database import get_db
-    from backend.routes.users import get_current_user
+    from backend.app.api.v1.users import get_current_user
+    from backend.app.database import get_db
 
     def _setup(user=None, db_session=None):
         if user:
@@ -114,7 +114,7 @@ class TestUserAuthentication:
         mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.get("/api/users/")
+        response = test_client.get("/api/v1/users/")
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json()
@@ -155,7 +155,7 @@ class TestCreateUser:
             "role": "user",
         }
 
-        response = test_client.post("/api/users/", json=new_user_data)
+        response = test_client.post("/api/v1/users/", json=new_user_data)
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_create_user_as_regular_user_forbidden(
@@ -174,7 +174,7 @@ class TestCreateUser:
             "role": "user",
         }
 
-        response = test_client.post("/api/users/", json=new_user_data)
+        response = test_client.post("/api/v1/users/", json=new_user_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_create_user_duplicate_conflict(
@@ -203,7 +203,7 @@ class TestCreateUser:
             "role": "user",
         }
 
-        response = test_client.post("/api/users/", json=new_user_data)
+        response = test_client.post("/api/v1/users/", json=new_user_data)
         assert response.status_code == status.HTTP_409_CONFLICT
 
 
@@ -227,7 +227,7 @@ class TestReadUsers:
         mock_result.scalars.return_value = mock_scalars
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.get("/api/users/")
+        response = test_client.get("/api/v1/users/")
         assert response.status_code == status.HTTP_200_OK
 
     def test_list_users_as_regular_user_forbidden(
@@ -240,7 +240,7 @@ class TestReadUsers:
         """Test regular user cannot list all users."""
         setup_dependencies(user=regular_user, db_session=mock_db_session)
 
-        response = test_client.get("/api/users/")
+        response = test_client.get("/api/v1/users/")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -263,7 +263,7 @@ class TestReadSingleUser:
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.get(f"/api/users/{regular_user.id}")
+        response = test_client.get(f"/api/v1/users/{regular_user.id}")
         assert response.status_code == status.HTTP_200_OK
 
     def test_user_can_read_own_profile(
@@ -281,7 +281,7 @@ class TestReadSingleUser:
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.get(f"/api/users/{regular_user.id}")
+        response = test_client.get(f"/api/v1/users/{regular_user.id}")
         assert response.status_code == status.HTTP_200_OK
 
     def test_user_cannot_read_other_user_profile(
@@ -295,7 +295,7 @@ class TestReadSingleUser:
         """Test user cannot read another user's profile."""
         setup_dependencies(user=regular_user, db_session=mock_db_session)
 
-        response = test_client.get(f"/api/users/{admin_user.id}")
+        response = test_client.get(f"/api/v1/users/{admin_user.id}")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_read_nonexistent_user_returns_404(
@@ -314,7 +314,7 @@ class TestReadSingleUser:
         mock_db_session.execute.return_value = mock_result
 
         fake_uuid = uuid.uuid4()
-        response = test_client.get(f"/api/users/{fake_uuid}")
+        response = test_client.get(f"/api/v1/users/{fake_uuid}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -338,7 +338,7 @@ class TestUpdateUser:
         mock_db_session.execute.return_value = mock_result
 
         update_data = {"username": "updated_user"}
-        response = test_client.put(f"/api/users/{regular_user.id}", json=update_data)
+        response = test_client.put(f"/api/v1/users/{regular_user.id}", json=update_data)
         assert response.status_code == status.HTTP_200_OK
 
     def test_regular_user_cannot_update_user(
@@ -352,7 +352,7 @@ class TestUpdateUser:
         setup_dependencies(user=regular_user, db_session=mock_db_session)
 
         update_data = {"username": "updated_user"}
-        response = test_client.put(f"/api/users/{regular_user.id}", json=update_data)
+        response = test_client.put(f"/api/v1/users/{regular_user.id}", json=update_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -375,7 +375,7 @@ class TestDeleteUser:
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.delete(f"/api/users/{regular_user.id}")
+        response = test_client.delete(f"/api/v1/users/{regular_user.id}")
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
     def test_admin_cannot_delete_own_account(
@@ -393,7 +393,7 @@ class TestDeleteUser:
         mock_result.scalar_one_or_none.return_value = admin_user
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.delete(f"/api/users/{admin_user.id}")
+        response = test_client.delete(f"/api/v1/users/{admin_user.id}")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_regular_user_cannot_delete_user(
@@ -406,7 +406,7 @@ class TestDeleteUser:
         """Test regular user cannot delete users."""
         setup_dependencies(user=regular_user, db_session=mock_db_session)
 
-        response = test_client.delete(f"/api/users/{regular_user.id}")
+        response = test_client.delete(f"/api/v1/users/{regular_user.id}")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -429,7 +429,7 @@ class TestUserAgents:
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
 
-        response = test_client.get(f"/api/users/{regular_user.id}/agents")
+        response = test_client.get(f"/api/v1/users/{regular_user.id}/agents")
         assert response.status_code == status.HTTP_200_OK
 
     def test_user_cannot_view_other_user_agents(
@@ -443,13 +443,13 @@ class TestUserAgents:
         """Test user cannot view another user's agents."""
         setup_dependencies(user=regular_user, db_session=mock_db_session)
 
-        response = test_client.get(f"/api/users/{admin_user.id}/agents")
+        response = test_client.get(f"/api/v1/users/{admin_user.id}/agents")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    @patch("backend.services.user_service.get_virtual_agent_config")
+    @patch("backend.app.crud.virtual_agents.virtual_agents.get")
     def test_admin_can_assign_agents(
         self,
-        mock_get_virtual_agent_config,
+        mock_get_virtual_agent,
         test_client,
         admin_user,
         regular_user,
@@ -465,24 +465,24 @@ class TestUserAgents:
         mock_db_session.execute.return_value = mock_result
 
         # Mock virtual agent config
-        mock_agent_config = VirtualAgentConfig(
+        mock_agent_config = VirtualAgent(
             id="agent1",
             name="Test Agent",
             model_name="test-model",
             prompt="Test prompt",
         )
-        mock_get_virtual_agent_config.return_value = mock_agent_config
+        mock_get_virtual_agent.return_value = mock_agent_config
 
         agent_data = {"agent_ids": ["agent1", "agent2"]}
         response = test_client.post(
-            f"/api/users/{regular_user.id}/agents", json=agent_data
+            f"/api/v1/users/{regular_user.id}/agents", json=agent_data
         )
         assert response.status_code == status.HTTP_200_OK
 
-    @patch("backend.services.user_service.get_virtual_agent_config")
+    @patch("backend.app.crud.virtual_agents.virtual_agents.get")
     def test_regular_user_can_assign_agents(
         self,
-        mock_get_virtual_agent_config,
+        mock_get_virtual_agent,
         test_client,
         regular_user,
         mock_db_session,
@@ -497,16 +497,16 @@ class TestUserAgents:
         mock_db_session.execute.return_value = mock_result
 
         # Mock virtual agent config
-        mock_agent_config = VirtualAgentConfig(
+        mock_agent_config = VirtualAgent(
             id="agent1",
             name="Test Agent",
             model_name="test-model",
             prompt="Test prompt",
         )
-        mock_get_virtual_agent_config.return_value = mock_agent_config
+        mock_get_virtual_agent.return_value = mock_agent_config
 
         agent_data = {"agent_ids": ["agent1", "agent2"]}
         response = test_client.post(
-            f"/api/users/{regular_user.id}/agents", json=agent_data
+            f"/api/v1/users/{regular_user.id}/agents", json=agent_data
         )
         assert response.status_code == status.HTTP_200_OK
