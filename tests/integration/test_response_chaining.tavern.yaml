@@ -8,7 +8,7 @@ stages:
   # Global Setup: Get available models
   - name: get_available_models
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/llms"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/llama_stack/llms"
       method: GET
       headers:
         Accept: application/json
@@ -23,7 +23,7 @@ stages:
   # Global Setup: Create shared virtual agent for all tests
   - name: create_shared_virtual_agent
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
         Content-Type: application/json
@@ -51,7 +51,7 @@ stages:
   # Test 1: First message in session - should succeed
   - name: test_first_message_in_session
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -78,7 +78,7 @@ stages:
   # Test 2: Follow-up message with conversation history - should succeed
   - name: test_followup_message_with_history
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -102,7 +102,7 @@ stages:
   # Test 3: New session should work with empty conversation history
   - name: test_new_session_empty_history
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -127,7 +127,7 @@ stages:
   # Setup: Create a session with multiple messages for pagination testing
   - name: create_session_for_pagination
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
       method: POST
       headers:
         Content-Type: application/json
@@ -143,7 +143,7 @@ stages:
   # Test 1: Send multiple messages to create pagination data
   - name: send_first_message
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -164,7 +164,7 @@ stages:
 
   - name: send_second_message
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -186,7 +186,7 @@ stages:
 
   - name: send_third_message
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
@@ -206,7 +206,7 @@ stages:
   # Test 2: Fetch session with pagination (default page 1, page_size 50)
   - name: test_fetch_session_with_pagination_default
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
       method: GET
       params:
         agent_id: "{agent_id}"
@@ -231,7 +231,7 @@ stages:
   # Test 3: Fetch session with custom pagination parameters
   - name: test_fetch_session_with_custom_pagination
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
       method: GET
       params:
         agent_id: "{agent_id}"
@@ -259,7 +259,7 @@ stages:
   # Test 4: Fetch session metadata only (no messages)
   - name: test_fetch_session_metadata_only
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
       method: GET
       params:
         agent_id: "{agent_id}"
@@ -285,7 +285,7 @@ stages:
   # Test 5: Test pagination with page 2 (if there are enough messages)
   - name: test_fetch_session_page_2
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
       method: GET
       params:
         agent_id: "{agent_id}"
@@ -313,7 +313,7 @@ stages:
   # Cleanup: Delete the test session
   - name: cleanup_test_session
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
       method: DELETE
       params:
         agent_id: "{agent_id}"
@@ -323,7 +323,7 @@ stages:
   # Global Cleanup: Delete the shared test agent
   - name: cleanup_shared_agent
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{agent_id}"
       method: DELETE
       headers:
         Accept: application/json

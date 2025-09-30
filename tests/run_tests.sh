@@ -88,7 +88,7 @@ if [[ "$RUN_UNIT" == true ]]; then
     # Make unit tests not dependent on Minio or attachments.
     export DISABLE_ATTACHMENTS=${DISABLE_ATTACHMENTS:-true}
     if [[ -n "$SPECIFIC_TESTS" ]]; then
-        pytest $SPECIFIC_TESTS -ra --cov=backend --cov-report=term-missing --cov-branch || {
+        pytest $SPECIFIC_TESTS -ra --cov=backend --cov-report=term-missing --cov-branch -W ignore::DeprecationWarning || {
             echo ""
             echo "❌ Unit tests failed!"
             echo "   If you see pytest not found or import errors, try: pip install -r tests/requirements.txt -r backend/requirements.txt"
@@ -96,7 +96,7 @@ if [[ "$RUN_UNIT" == true ]]; then
             exit 1
         }
     else
-        pytest tests/unit -ra --cov=backend --cov-report=term-missing --cov-branch || {
+        pytest tests/unit -ra --cov=backend --cov-report=term-missing --cov-branch -W ignore::DeprecationWarning || {
             echo ""
             echo "❌ Unit tests failed!"
             echo "   If you see pytest not found or import errors, try: pip install -r tests/requirements.txt -r backend/requirements.txt"
@@ -177,7 +177,7 @@ export TEST_LLAMASTACK_URL="$LLAMASTACK_URL"
     echo "------------------------------"
 
     if [[ -n "$SPECIFIC_TESTS" ]]; then
-        pytest $SPECIFIC_TESTS -v || {
+        pytest $SPECIFIC_TESTS -v -W ignore::DeprecationWarning || {
             echo ""
             echo "❌ Integration tests failed!"
             echo "   If you see import errors, try: pip install -r tests/requirements.txt"
@@ -185,7 +185,7 @@ export TEST_LLAMASTACK_URL="$LLAMASTACK_URL"
             exit 1
         }
     else
-        pytest tests/integration/ -v || {
+        pytest tests/integration/ -v -W ignore::DeprecationWarning || {
             echo ""
             echo "❌ Integration tests failed!"
             echo "   If you see import errors, try: pip install -r tests/requirements.txt"
@@ -200,7 +200,7 @@ fi
 # Run specific tests if neither unit nor integration was explicitly chosen
 if [[ "$RUN_UNIT" == false && "$RUN_INTEGRATION" == false && -n "$SPECIFIC_TESTS" ]]; then
     echo "🚀 Running specified tests..."
-    pytest $SPECIFIC_TESTS -v || {
+    pytest $SPECIFIC_TESTS -v -W ignore::DeprecationWarning || {
         echo ""
         echo "❌ Tests failed!"
         echo "   If you see import errors, try: pip install -r tests/requirements.txt"

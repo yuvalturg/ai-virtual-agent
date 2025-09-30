@@ -25,27 +25,15 @@ from fastapi.staticfiles import StaticFiles
 from kubernetes import client, config
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .routes import (
-    agent_templates,
-    chat_sessions,
-    debug,
-    guardrails,
-    knowledge_bases,
-    llama_stack,
-    mcp_servers,
-    tools,
-    users,
-    validate,
-    virtual_agents,
-)
-from .utils.auth_utils import is_local_dev_mode
-from .utils.feature_flags import is_attachments_feature_enabled
-from .utils.logging_config import setup_logging
+from .app.api.v1.router import api_router
+from .app.api.v1.validate import router as validate_router
+from .app.core.auth import is_local_dev_mode
+from .app.core.logging_config import setup_logging
 
 load_dotenv()
 
 # Configure centralized logging
-setup_logging(level="INFO")
+setup_logging(level="DEBUG")
 logger = logging.getLogger(__name__)
 
 
@@ -102,7 +90,7 @@ def wait_for_service_ready(
 
 async def ensure_templates_available():
     """Ensure templates are populated - runs in all environments."""
-    from .utils.template_startup import ensure_templates_populated
+    from .app.core.template_startup import ensure_templates_populated
 
     try:
         await ensure_templates_populated()
@@ -164,25 +152,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include the main API router with all endpoints
+app.include_router(api_router, prefix="/api/v1")
+
+# For backward compatibility, also include some routes at the old paths
+# app.include_router(api_router, prefix="/api")
+
 # Include debug router only in local development mode
 if is_local_dev_mode():
-    app.include_router(debug.router, prefix="/api")
-app.include_router(validate.router)
-app.include_router(users.router, prefix="/api")
-app.include_router(mcp_servers.router, prefix="/api")
-app.include_router(tools.router, prefix="/api")
-app.include_router(knowledge_bases.router, prefix="/api")
-app.include_router(virtual_agents.router, prefix="/api")
-app.include_router(guardrails.router, prefix="/api")
-app.include_router(llama_stack.router, prefix="/api")
-app.include_router(chat_sessions.router, prefix="/api")
-app.include_router(agent_templates.router, prefix="/api")
+    from .app.api.v1.debug import router as debug_router
 
-if is_attachments_feature_enabled():
-    # Import lazily to avoid importing attachments when disabled
-    from .routes import attachments
+    app.include_router(debug_router, prefix="/api")
 
-    app.include_router(attachments.router, prefix="/api")
+# Include validate router at root for compatibility
+app.include_router(validate_router)
+
+# Agent templates route is now included in the main API router
 
 
 class SPAStaticFiles(StaticFiles):

@@ -18,7 +18,7 @@ export type {
   TemplateInitializationResponse,
 } from '@/types/agent';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = '/api/v1';
 
 /**
  * Get list of available agent templates.
@@ -91,7 +91,7 @@ export async function initializeAllTemplates(): Promise<TemplateInitializationRe
  * This function initializes all agents within a specific suite.
  */
 export async function initializeSuite(suiteId: string): Promise<TemplateInitializationResponse[]> {
-  const response = await fetch(`/api/agent_templates/initialize-suite/${suiteId}`, {
+  const response = await fetch(`/api/v1/agent_templates/initialize-suite/${suiteId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ export async function initializeSuite(suiteId: string): Promise<TemplateInitiali
  * Get suites grouped by category.
  */
 export async function getSuitesByCategory(): Promise<Record<string, string[]>> {
-  const response = await fetch(`/api/agent_templates/suites/categories`);
+  const response = await fetch(`/api/v1/agent_templates/suites/categories`);
   if (!response.ok) {
     throw new Error(`Failed to fetch suites by category: ${response.statusText}`);
   }
@@ -129,7 +129,7 @@ export async function getSuiteDetails(suiteId: string): Promise<{
   agent_names: string[];
   template_ids?: string[];
 }> {
-  const response = await fetch(`/api/agent_templates/suites/${suiteId}/details`);
+  const response = await fetch(`/api/v1/agent_templates/suites/${suiteId}/details`);
   if (!response.ok) {
     throw new Error(`Failed to fetch suite details: ${response.statusText}`);
   }
@@ -158,7 +158,7 @@ export async function getCategoriesInfo(): Promise<
     }
   >
 > {
-  const response = await fetch(`/api/agent_templates/categories/info`);
+  const response = await fetch(`/api/v1/agent_templates/categories/info`);
   if (!response.ok) {
     throw new Error(`Failed to fetch categories info: ${response.statusText}`);
   }

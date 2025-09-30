@@ -3,7 +3,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
-from models import Base, RoleEnum, User
+from app.models import Base, RoleEnum, User
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.orm import Session
 

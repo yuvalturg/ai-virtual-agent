@@ -1,9 +1,9 @@
 ---
 test_name: Test Models API Endpoint
 stages:
-  - name: Test GET /api/llama_stack/llms
+  - name: Test GET /api/v1/llama_stack/llms
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/llama_stack/llms"
+      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/llama_stack/llms"
       method: GET
       headers:
         Accept: application/json
@@ -18,9 +18,9 @@ stages:
 ---
 test_name: Test Virtual Agents API Endpoint
 stages:
-  - name: Test POST /api/virtual_agents
+  - name: Test POST /api/v1/virtual_agents
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
         Accept: application/json
@@ -34,7 +34,6 @@ stages:
         output_shields: []
         knowledge_base_ids: []
         tools: []
-        enable_session_persistence: false
     response:
       status_code: 201
       headers:
@@ -42,10 +41,10 @@ stages:
       save:
         json:
           agent_id: "id"
-  - name: Test GET /api/virtual_agents
+  - name: Test GET /api/v1/virtual_agents
     request:
       url: >-
-        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}
+        {tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{agent_id}
       method: GET
       headers:
         Accept: application/json
@@ -61,31 +60,28 @@ stages:
         template_name: null
         suite_id: null
         suite_name: null
-        sampling_strategy: greedy
+        sampling_strategy: null
         name: "Test Assistant"
         prompt: "You are a helpful assistant."
-        stop_sequences:
-          - "\n\n"
-          - "Thank you"
-          - "I hope this helps"
-          - "Let me know if you have any other questions"
         model_name: "ollama/llama3.2:1b-instruct-fp16"
         input_shields: []
         output_shields: []
-        temperature: 0.0
-        repetition_penalty: 1.5
-        max_tokens: 512
-        top_p: 0.95
-        top_k: 40
+        temperature: null
+        repetition_penalty: null
+        max_tokens: null
+        top_p: null
+        top_k: null
         knowledge_base_ids: []
+        vector_store_ids: []
         tools: []
-        max_infer_iters: 10
-        enable_session_persistence: false
+        max_infer_iters: null
         id: "{agent_id}"
-  - name: Test DELETE /api/virtual_agents
+        created_at: !anything
+        updated_at: !anything
+  - name: Test DELETE /api/v1/virtual_agents
     request:
       url: >-
-        {tavern.env_vars.TEST_BACKEND_URL}/api/virtual_agents/{agent_id}
+        {tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{agent_id}
       method: DELETE
       headers:
         Accept: application/json
@@ -96,9 +92,9 @@ stages:
 ---
 test_name: Test LlamaStack Providers API
 stages:
-  - name: Test GET /api/llama_stack/providers
+  - name: Test GET /api/v1/llama_stack/providers
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/llama_stack/providers"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/llama_stack/providers"
       method: GET
       headers:
         Accept: application/json

@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from backend.main import app
+from backend.app.main import app
 
 # ---------------------------------------------------------------------------
 # Helper mocks – minimal shapes that mimic objects returned by LlamaStack
@@ -143,7 +143,7 @@ def client(monkeypatch):
 
     # Patch the dependency factory used inside the endpoints
     monkeypatch.setattr(
-        "backend.routes.llama_stack.get_client_from_request",
+        "backend.app.api.v1.llama_stack.get_client_from_request",
         lambda _request: _MockLlamaClient(models, vector_stores, toolgroups),
     )
 
@@ -159,7 +159,7 @@ def client(monkeypatch):
 def test_get_llms_filters_only_llm_models(client):
     """Endpoint must return only models with `api_model_type == 'llm'`."""
 
-    response = client.get("/api/llama_stack/llms")
+    response = client.get("/api/v1/llama_stack/llms")
 
     assert response.status_code == 200, response.text
 
@@ -177,7 +177,7 @@ def test_get_llms_filters_only_llm_models(client):
 def test_get_tools_returns_mcp_servers(client):
     """Endpoint must map tool-groups to the expected MCP server schema."""
 
-    response = client.get("/api/llama_stack/tools")
+    response = client.get("/api/v1/llama_stack/tools")
 
     assert response.status_code == 200, response.text
 
@@ -195,7 +195,7 @@ def test_get_safety_models_filters_correctly(client):
     """/safety_models should return only models where model_type ==
     'safety'."""
 
-    response = client.get("/api/llama_stack/safety_models")
+    response = client.get("/api/v1/llama_stack/safety_models")
 
     assert response.status_code == 200, response.text
 
@@ -215,7 +215,7 @@ def test_get_embedding_models_filters_correctly(client):
     """/embedding_models should return only models where model_type ==
     'embedding'."""
 
-    response = client.get("/api/llama_stack/embedding_models")
+    response = client.get("/api/v1/llama_stack/embedding_models")
 
     assert response.status_code == 200, response.text
 
