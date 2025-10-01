@@ -1,6 +1,7 @@
 """Schemas for agent templates API."""
 
 from typing import Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -40,7 +41,7 @@ class TemplateInitializationRequest(BaseModel):
 class TemplateInitializationResponse(BaseModel):
     """Schema for template initialization response."""
 
-    agent_id: str
+    agent_id: UUID
     agent_name: str
     persona: str
     knowledge_base_created: bool

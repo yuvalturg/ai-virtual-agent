@@ -16,6 +16,7 @@ Key Features:
 import asyncio
 import logging
 from typing import Dict, List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ from ...core.template_loader import (
 from ...core.template_loader import (
     load_all_templates_from_directory,
 )
+from ...crud.agent_templates import agent_template
 from ...crud.knowledge_bases import knowledge_bases
 from ...crud.virtual_agents import virtual_agents
 from ...database import get_db
@@ -155,13 +157,13 @@ async def get_suite_details(suite_name: str):
     }
 
 
-@router.get("/{template_name}", response_model=AgentTemplate)
-async def get_template_details(template_name: str):
+@router.get("/{template_id}", response_model=AgentTemplate)
+async def get_template_details(template_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Get detailed information about a specific template.
+    Get detailed information about a specific template by name or UUID.
 
     Args:
-        template_name: Name of the template to retrieve
+        template_id: Template name or UUID to retrieve
 
     Returns:
         AgentTemplate: Template configuration details
@@ -169,14 +171,32 @@ async def get_template_details(template_name: str):
     Raises:
         HTTPException: If template not found
     """
-    if template_name not in ALL_AGENT_TEMPLATES:
+    # First try by name (existing behavior)
+    if template_id in ALL_AGENT_TEMPLATES:
+        return ALL_AGENT_TEMPLATES[template_id]
+
+    # If not found by name, try by UUID
+    try:
+        template_uuid = UUID(template_id)
+
+        # Look up template by UUID in database
+        db_template = await agent_template.get(db, id=template_uuid)
+        if db_template:
+            # Find the corresponding template in ALL_AGENT_TEMPLATES by name
+            for template_name, template_obj in ALL_AGENT_TEMPLATES.items():
+                if template_obj.name == db_template.name:
+                    return template_obj
+
+        raise HTTPException(
+            status_code=404, detail=f"Template with ID '{template_id}' not found"
+        )
+    except ValueError:
+        # Not a valid UUID, so it was a name that doesn't exist
         raise HTTPException(
             status_code=404,
-            detail=f"Template '{template_name}' not found. "
+            detail=f"Template '{template_id}' not found. "
             f"Available templates: {list(ALL_AGENT_TEMPLATES.keys())}",
         )
-
-    return ALL_AGENT_TEMPLATES[template_name]
 
 
 @router.post("/initialize", response_model=TemplateInitializationResponse)
@@ -212,12 +232,21 @@ async def initialize_agent_from_template(
     template = ALL_AGENT_TEMPLATES[request.template_name]
 
     try:
+        # Look up the actual template record in the database
+        db_template = await agent_template.get_by_name(db, name=template.name)
+        if not db_template:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Template '{template.name}' not found in database. "
+                f"Templates may need to be loaded first.",
+            )
+
         # Compute target agent name early for messages and duplicate checks
         agent_name = request.custom_name or template.name
 
         # Duplicate check: simple, early return by template_id
         existing_agent = await virtual_agents.get_by_template_id(
-            db, template_id=request.template_name
+            db, template_id=db_template.id
         )
         if existing_agent:
             logger.info(
@@ -225,7 +254,7 @@ async def initialize_agent_from_template(
                 f"{request.template_name}: {existing_agent.id}"
             )
             return TemplateInitializationResponse(
-                agent_id="",
+                agent_id=existing_agent.id,
                 agent_name=agent_name,
                 persona=template.persona,
                 knowledge_base_created=False,
@@ -308,7 +337,7 @@ async def initialize_agent_from_template(
         )
 
         # Include template_id in the agent config
-        agent_config.template_id = request.template_name
+        agent_config.template_id = db_template.id
 
         created_agent = await create_virtual_agent_internal(
             agent_config, http_request, db

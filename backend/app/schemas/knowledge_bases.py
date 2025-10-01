@@ -2,7 +2,7 @@
 Knowledge Base schemas.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -20,7 +20,7 @@ class KnowledgeBaseBase(BaseModel):
     is_external: bool = False
     status: Optional[str] = None
     source: Optional[str] = None
-    source_configuration: Optional[Dict[str, Any]] = None
+    source_configuration: Optional[Union[Dict[str, Any], List[str]]] = None
 
 
 class KnowledgeBaseCreate(KnowledgeBaseBase):

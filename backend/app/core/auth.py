@@ -93,34 +93,6 @@ async def get_or_create_dev_user(db: AsyncSession) -> User:
     return dev_user
 
 
-async def ensure_dev_user_has_all_agents(
-    db: AsyncSession, available_agent_ids: list[str]
-) -> None:
-    """
-    Ensure the dev user has all available agents assigned (for LOCAL_DEV_ENV_MODE).
-
-    Args:
-        db: Database session
-        available_agent_ids: List of agent IDs that should be assigned to dev user
-    """
-    if not is_local_dev_mode() or not available_agent_ids:
-        return
-
-    result = await db.execute(select(User).where(User.username == DEV_USER_USERNAME))
-    dev_user = result.scalar_one_or_none()
-
-    if not dev_user:
-        return
-
-    current_agent_ids = set(dev_user.agent_ids or [])
-    new_agent_ids = set(available_agent_ids)
-
-    if current_agent_ids != new_agent_ids:
-        dev_user.agent_ids = list(new_agent_ids)
-        await db.commit()
-        await db.refresh(dev_user)
-
-
 def get_mock_dev_headers() -> dict[str, str]:
     """
     Get mock headers for development mode.

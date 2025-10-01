@@ -616,13 +616,12 @@ def validate_suite_deployment_results(response, expected_count: int):
         raise
 
 
-def validate_agents_grouped_by_suite(response, expected_suite_id: str):
+def validate_agents_grouped_by_suite(response):
     """
     Validate that agents are properly grouped by suite.
 
     Args:
         response: Tavern response object
-        expected_suite_id: Expected suite ID to find agents for
 
     Returns:
         bool: True if validation passes
@@ -638,20 +637,13 @@ def validate_agents_grouped_by_suite(response, expected_suite_id: str):
 
             agents = json.loads(response.text)
 
-        # Find agents with the expected suite_id
-        suite_agents = [
-            agent for agent in agents if agent.get("suite_id") == expected_suite_id
-        ]
+        assert len(agents) > 0, "No agents found in response"
 
-        assert (
-            len(suite_agents) > 0
-        ), f"No agents found with suite_id {expected_suite_id}"
-
-        # Check that all agents in this suite have consistent metadata
-        for agent in suite_agents:
+        # Check that all agents have proper suite metadata
+        for agent in agents:
             assert (
-                agent.get("suite_id") == expected_suite_id
-            ), f"Agent {agent.get('id')} has incorrect suite_id"
+                agent.get("suite_id") is not None
+            ), f"Agent {agent.get('id')} missing suite_id"
             assert (
                 agent.get("suite_name") is not None
             ), f"Agent {agent.get('id')} missing suite_name"
@@ -659,8 +651,29 @@ def validate_agents_grouped_by_suite(response, expected_suite_id: str):
                 agent.get("category") is not None
             ), f"Agent {agent.get('id')} missing category"
 
+        # Group agents by suite_id and verify consistent metadata within each suite
+        suites_found = {}
+        for agent in agents:
+            suite_id = agent.get("suite_id")
+            if suite_id not in suites_found:
+                suites_found[suite_id] = {
+                    "suite_name": agent.get("suite_name"),
+                    "category": agent.get("category"),
+                    "agents": [],
+                }
+            else:
+                # Verify consistent metadata within suite
+                assert suites_found[suite_id]["suite_name"] == agent.get(
+                    "suite_name"
+                ), f"Inconsistent suite_name for suite_id {suite_id}"
+                assert suites_found[suite_id]["category"] == agent.get(
+                    "category"
+                ), f"Inconsistent category for suite_id {suite_id}"
+
+            suites_found[suite_id]["agents"].append(agent.get("id"))
+
         print(
-            f"✓ Suite grouping validation passed: {len(suite_agents)} agents in suite {expected_suite_id}"
+            f"✓ Suite grouping validation passed: {len(agents)} agents across {len(suites_found)} suites"
         )
         return True
 
@@ -889,3 +902,34 @@ def validate_template_agent_exists(response, template_id: str, agent_name: str):
         print(f"✗ Template agent validation failed: {str(e)}")
         print(f"Response text: {response.text[:500]}...")
         raise
+
+
+def extract_first_agent_id(response):
+    """
+    Extract the first agent ID from the response for cleanup purposes.
+
+    Args:
+        response: Tavern response object
+
+    Returns:
+        dict: Dictionary with first_agent_id key
+    """
+    try:
+        if hasattr(response, "json"):
+            agents = response.json()
+        else:
+            import json
+
+            agents = json.loads(response.text)
+
+        if agents and len(agents) > 0:
+            first_agent_id = agents[0].get("id")
+            return {"first_agent_id": first_agent_id}
+        else:
+            return {
+                "first_agent_id": "nonexistent"
+            }  # Will result in 404, which is acceptable
+
+    except Exception as e:
+        print(f"Failed to extract first agent ID: {e}")
+        return {"first_agent_id": "nonexistent"}

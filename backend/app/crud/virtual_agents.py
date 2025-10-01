@@ -3,6 +3,7 @@ CRUD operations for Virtual Agents.
 """
 
 import logging
+import uuid
 from typing import List, Optional
 
 from sqlalchemy import delete, select, text
@@ -48,7 +49,7 @@ class CRUDVirtualAgent(CRUDBase[VirtualAgent, VirtualAgentCreate, dict]):
             raise
 
     async def get_with_template(
-        self, db: AsyncSession, *, id: str
+        self, db: AsyncSession, *, id: uuid.UUID
     ) -> Optional[VirtualAgent]:
         """Get virtual agent with loaded template and suite relationships."""
         result = await db.execute(
@@ -61,7 +62,7 @@ class CRUDVirtualAgent(CRUDBase[VirtualAgent, VirtualAgentCreate, dict]):
         return result.scalar_one_or_none()
 
     async def get_by_template_id(
-        self, db: AsyncSession, *, template_id: str
+        self, db: AsyncSession, *, template_id: uuid.UUID
     ) -> Optional[VirtualAgent]:
         """Get virtual agent by template_id."""
         result = await db.execute(
@@ -78,7 +79,7 @@ class CRUDVirtualAgent(CRUDBase[VirtualAgent, VirtualAgentCreate, dict]):
         )
         return result.scalars().all()
 
-    async def get_all_agent_ids(self, db: AsyncSession) -> List[str]:
+    async def get_all_agent_ids(self, db: AsyncSession) -> List[uuid.UUID]:
         """Get all virtual agent IDs."""
         result = await db.execute(select(VirtualAgent.id))
         return [row[0] for row in result.all()]

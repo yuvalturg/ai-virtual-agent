@@ -6,6 +6,7 @@ into the database when the backend starts, if they're not already there.
 """
 
 import logging
+import uuid
 
 from sqlalchemy import select
 
@@ -44,9 +45,12 @@ async def ensure_templates_populated():
 
             # Populate template_suites
             suite_count = 0
+            suite_id_mapping = {}  # Map string IDs to UUIDs
             for suite_id, suite_config in suites_data.items():
+                suite_uuid = uuid.uuid4()
+                suite_id_mapping[suite_id] = suite_uuid
                 suite = TemplateSuite(
-                    id=suite_id,
+                    id=suite_uuid,
                     name=suite_config.get("name", suite_id),
                     category=suite_config.get("category", "uncategorized"),
                     description=suite_config.get(
@@ -72,9 +76,11 @@ async def ensure_templates_populated():
                     logger.warning(f"Template '{template_id}' has no suite, skipping")
                     continue
 
+                template_uuid = uuid.uuid4()
+                suite_uuid = suite_id_mapping[suite_id]
                 template = AgentTemplate(
-                    id=template_id,
-                    suite_id=suite_id,
+                    id=template_uuid,
+                    suite_id=suite_uuid,
                     name=getattr(template_config, "name", template_id),
                     description=f"Auto-imported template: {template_id}",
                     config={},

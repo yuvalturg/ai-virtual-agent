@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db
 from ...crud.virtual_agents import virtual_agents
+from ...database import get_db
 from ...schemas import ChatRequest
 from ...services.chat import ChatService
 

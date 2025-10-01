@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -405,30 +406,36 @@ class ChatService:
             # Stream the response content
             # TODO: When LlamaStack Responses API supports streaming, update this
             yield json.dumps(
-                {
-                    "type": "content",
-                    "content": response_data["content"],
-                    "response_id": response_data["response_id"],
-                    "model": response_data["model"],
-                    "session_id": session_id,
-                }
+                jsonable_encoder(
+                    {
+                        "type": "content",
+                        "content": response_data["content"],
+                        "response_id": response_data["response_id"],
+                        "model": response_data["model"],
+                        "session_id": session_id,
+                    }
+                )
             )
 
             # End stream marker
             yield json.dumps(
-                {
-                    "type": "done",
-                    "response_id": response_data["response_id"],
-                    "session_id": session_id,  # Return for compatibility
-                }
+                jsonable_encoder(
+                    {
+                        "type": "done",
+                        "response_id": response_data["response_id"],
+                        "session_id": session_id,  # Return for compatibility
+                    }
+                )
             )
 
         except Exception as e:
             logger.error(f"Error in stream for agent {agent_id}: {e}")
             yield json.dumps(
-                {
-                    "type": "error",
-                    "content": f"Error occurred while processing your request: "
-                    f"{str(e)}",
-                }
+                jsonable_encoder(
+                    {
+                        "type": "error",
+                        "content": f"Error occurred while processing your request: "
+                        f"{str(e)}",
+                    }
+                )
             )

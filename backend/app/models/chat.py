@@ -13,13 +13,13 @@ from .base import Base
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
-    id = Column(String(255), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_state = Column(JSON, default=dict)
 
     # New fields for sidebar display
     title = Column(String(500), nullable=True)  # Generated summary/title
     agent_id = Column(
-        String(255),
+        UUID(as_uuid=True),
         ForeignKey("virtual_agents.id", ondelete="CASCADE"),
         nullable=True,
     )  # Agent ID
@@ -52,7 +52,9 @@ class ChatMessage(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(
-        String(255), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
     # Message metadata

@@ -3,6 +3,7 @@ Agent-related schemas.
 """
 
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -33,7 +34,7 @@ class VirtualAgentBase(BaseModel):
 class VirtualAgentCreate(VirtualAgentBase):
     """Schema for creating a virtual agent config."""
 
-    template_id: Optional[str] = None
+    template_id: Optional[UUID] = None
 
 
 class VirtualAgentUpdate(BaseModel):
@@ -41,7 +42,7 @@ class VirtualAgentUpdate(BaseModel):
 
     name: Optional[str] = None
     model_name: Optional[str] = None
-    template_id: Optional[str] = None
+    template_id: Optional[UUID] = None
     prompt: Optional[str] = None
     tools: Optional[List[ToolAssociationInfo]] = None
     knowledge_base_ids: Optional[List[str]] = None
@@ -60,15 +61,15 @@ class VirtualAgentUpdate(BaseModel):
 class VirtualAgentInDB(VirtualAgentBase, TimestampMixin, BaseSchema):
     """Schema for virtual agent config as stored in database."""
 
-    id: str
-    template_id: Optional[str] = None
+    id: UUID
+    template_id: Optional[UUID] = None
 
 
 class VirtualAgentResponse(VirtualAgentInDB):
     """Schema for virtual agent config in API responses."""
 
     template_name: Optional[str] = None
-    suite_id: Optional[str] = None
+    suite_id: Optional[UUID] = None
     suite_name: Optional[str] = None
     category: Optional[str] = None
 
@@ -84,7 +85,7 @@ class AgentTemplateBase(BaseModel):
 class AgentTemplateCreate(AgentTemplateBase):
     """Schema for creating an agent template."""
 
-    suite_id: str
+    suite_id: UUID
 
 
 class AgentTemplateUpdate(BaseModel):
@@ -93,14 +94,14 @@ class AgentTemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     config: Optional[Dict[str, Any]] = None
-    suite_id: Optional[str] = None
+    suite_id: Optional[UUID] = None
 
 
 class AgentTemplateInDB(AgentTemplateBase, TimestampMixin, BaseSchema):
     """Schema for agent template as stored in database."""
 
-    id: str
-    suite_id: str
+    id: UUID
+    suite_id: UUID
 
 
 class AgentTemplateResponse(AgentTemplateInDB):
@@ -136,7 +137,7 @@ class TemplateSuiteUpdate(BaseModel):
 class TemplateSuiteInDB(TemplateSuiteBase, TimestampMixin, BaseSchema):
     """Schema for template suite as stored in database."""
 
-    id: str
+    id: UUID
 
 
 class TemplateSuiteResponse(TemplateSuiteInDB):

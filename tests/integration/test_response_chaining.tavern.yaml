@@ -63,7 +63,7 @@ stages:
             - type: input_text
               text: "Hello, what is 2+2?"
         stream: false
-        sessionId: "test-session-chain-{tavern.env_vars.TAVERN_UNIQUE}"
+        sessionId: "11111111-2222-3333-4444-555555555555"
         # First message will start conversation history
     response:
       status_code: 200
@@ -90,7 +90,7 @@ stages:
             - type: input_text
               text: "What about 3+3?"
         stream: false
-        sessionId: "test-session-chain-{tavern.env_vars.TAVERN_UNIQUE}"
+        sessionId: "11111111-2222-3333-4444-555555555555"
         # Backend will include previous messages as conversation history
     response:
       status_code: 200
@@ -114,7 +114,7 @@ stages:
             - type: input_text
               text: "Hello from new session"
         stream: false
-        sessionId: "test-session-new-{tavern.env_vars.TAVERN_UNIQUE}"
+        sessionId: "22222222-3333-4444-5555-666666666666"
         # No previous messages in database for this new session
     response:
       status_code: 200
