@@ -34,7 +34,7 @@ async def create_virtual_agent_internal(
     Internal utility function to create a virtual agent.
     Can be used by API endpoints and other services without dependency injection issues.
     """
-    agent_id = str(uuid.uuid4())
+    agent_uuid = uuid.uuid4()
 
     # Validate knowledge bases and get vector store IDs if needed
     vector_store_ids = []
@@ -45,7 +45,7 @@ async def create_virtual_agent_internal(
 
     # Prepare agent data
     agent_data = {
-        "id": agent_id,
+        "id": agent_uuid,
         "name": va.name,
         "model_name": va.model_name,
         "template_id": va.template_id,
@@ -74,7 +74,7 @@ async def create_virtual_agent_internal(
     # Create the agent
     created_agent = await virtual_agents.create(db, obj_in=agent_data)
 
-    logger.info(f"Created virtual agent: {agent_id}")
+    logger.info(f"Created virtual agent: {agent_uuid}")
 
     # Sync all users with all agents if enabled
     if AUTO_ASSIGN_AGENTS_TO_USERS:

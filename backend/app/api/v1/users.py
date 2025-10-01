@@ -22,8 +22,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 async def get_unique_agent_ids(
-    user_agent_ids: List[str], new_agent_ids: List[str]
-) -> List[str]:
+    user_agent_ids: List[UUID], new_agent_ids: List[UUID]
+) -> List[UUID]:
     """Check for duplicate agent IDs and return only new unique ones."""
     unique_agent_ids = []
     for agent_id in new_agent_ids:
@@ -35,8 +35,8 @@ async def get_unique_agent_ids(
 
 
 async def assign_agents_to_user(
-    db: AsyncSession, user_agent_ids: List[str], requested_agent_ids: List[str]
-) -> List[str]:
+    db: AsyncSession, user_agent_ids: List[UUID], requested_agent_ids: List[UUID]
+) -> List[UUID]:
     """Add requested agents to user's agent list, preventing duplicates."""
     # Verify all requested agents exist in our VirtualAgent table
     for agent_id in requested_agent_ids:
@@ -57,8 +57,8 @@ async def assign_agents_to_user(
 
 
 async def remove_agents_from_user(
-    current_agent_ids: List[str], agents_to_remove: List[str]
-) -> List[str]:
+    current_agent_ids: List[UUID], agents_to_remove: List[UUID]
+) -> List[UUID]:
     """Remove specified agents from user's agent list."""
     # Calculate remaining agents
     remaining_agent_ids = [
@@ -247,7 +247,7 @@ async def delete_user(
     return None
 
 
-@router.get("/{user_id}/agents", response_model=List[str])
+@router.get("/{user_id}/agents", response_model=List[UUID])
 async def get_user_agents(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -269,7 +269,7 @@ async def get_user_agents(
         current_user: Authenticated user (injected by dependency)
 
     Returns:
-        List[str]: List of agent IDs assigned to the user
+        List[UUID]: List of agent IDs assigned to the user
 
     Raises:
         HTTPException: 403 if the user cannot access the requested user's

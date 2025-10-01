@@ -41,7 +41,7 @@ class ChatMessageResponse(ChatMessage):
     """Schema for chat message in API responses."""
 
     id: UUID
-    session_id: str
+    session_id: UUID
     created_at: datetime
 
 
@@ -55,7 +55,7 @@ class ChatSessionBase(BaseModel):
 class ChatSessionCreate(ChatSessionBase):
     """Schema for creating a chat session."""
 
-    agent_id: str
+    agent_id: UUID
     session_name: Optional[str] = None
 
 
@@ -64,14 +64,14 @@ class ChatSessionUpdate(BaseModel):
 
     title: Optional[str] = None
     session_state: Optional[Dict[str, Any]] = None
-    agent_id: Optional[str] = None
+    agent_id: Optional[UUID] = None
 
 
 class ChatSessionInDB(ChatSessionBase, TimestampMixin, BaseSchema):
     """Schema for chat session as stored in database."""
 
-    id: str
-    agent_id: Optional[str] = None
+    id: UUID
+    agent_id: Optional[UUID] = None
 
 
 class ChatSessionResponse(ChatSessionInDB):
@@ -90,7 +90,7 @@ class ChatSessionWithMessages(ChatSessionResponse):
 class ChatRequest(BaseModel):
     """Schema for chat requests."""
 
-    virtualAgentId: str
+    virtualAgentId: UUID
     message: ChatMessage
     stream: bool = False
-    sessionId: Optional[str] = None
+    sessionId: Optional[UUID] = None

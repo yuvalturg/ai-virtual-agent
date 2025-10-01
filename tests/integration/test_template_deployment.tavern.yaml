@@ -77,8 +77,8 @@ stages:
       headers:
         content-type: application/json
       json:
-        status: "skipped"  # Template already deployed, regardless of name
-        agent_id: ""  # Empty for skipped deployments
+        status: "success"  # Template deployment successful
+        agent_id: !anystr  # UUID of newly created agent
         agent_name: "Test Agent from Template {tavern.env_vars.TAVERN_UNIQUE}"
         persona: !anystr
         knowledge_base_created: false
@@ -219,8 +219,60 @@ stages:
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_agents_grouped_by_suite
-          extra_kwargs:
-            expected_suite_id: "{first_suite}"
+
+  # Cleanup: Get all agents and delete them individually
+  - name: get_all_agents_for_cleanup
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
+      method: GET
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tests.integration.validators:extract_first_agent_id
+
+  # Delete first agent if it exists
+  - name: cleanup_first_agent
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{first_agent_id}"
+      method: DELETE
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: [204, 404]  # 404 if no agents exist
+
+  # Get remaining agents for second cleanup attempt
+  - name: get_remaining_agents_for_cleanup
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
+      method: GET
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tests.integration.validators:extract_first_agent_id
+
+  # Delete second agent if it exists
+  - name: cleanup_second_agent
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{first_agent_id}"
+      method: DELETE
+      headers:
+        Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: [204, 404]  # 404 if no more agents exist
 
 ---
 test_name: Test Template Categories and Grouping

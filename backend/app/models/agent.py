@@ -2,7 +2,10 @@
 Agent-related models: VirtualAgent, AgentTemplate, TemplateSuite.
 """
 
+import uuid
+
 from sqlalchemy import JSON, TIMESTAMP, Column, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -19,11 +22,11 @@ class VirtualAgent(Base):
 
     __tablename__ = "virtual_agents"
 
-    id = Column(String(255), primary_key=True)  # UUID as string
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, unique=True)
     model_name = Column(String(255), nullable=False)
     template_id = Column(
-        String(255),
+        UUID(as_uuid=True),
         ForeignKey("agent_templates.id", ondelete="SET NULL"),
         nullable=True,
     )
@@ -56,7 +59,7 @@ class VirtualAgent(Base):
 class TemplateSuite(Base):
     __tablename__ = "template_suites"
 
-    id = Column(String(255), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     category = Column(String(255), nullable=False)
     description = Column(String, nullable=True)
@@ -77,9 +80,9 @@ class TemplateSuite(Base):
 class AgentTemplate(Base):
     __tablename__ = "agent_templates"
 
-    id = Column(String(255), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     suite_id = Column(
-        String(255),
+        UUID(as_uuid=True),
         ForeignKey("template_suites.id", ondelete="CASCADE"),
         nullable=False,
     )

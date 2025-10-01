@@ -17,7 +17,7 @@ class UserBase(BaseModel):
     username: str
     email: EmailStr
     role: RoleEnum
-    agent_ids: List[str] = []
+    agent_ids: List[UUID] = []
 
 
 class UserCreate(UserBase):
@@ -32,7 +32,7 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[RoleEnum] = None
-    agent_ids: Optional[List[str]] = None
+    agent_ids: Optional[List[UUID]] = None
 
 
 class UserInDB(UserBase, TimestampMixin, BaseSchema):
@@ -50,4 +50,4 @@ class UserResponse(UserInDB):
 class UserAgentAssignment(BaseModel):
     """Schema for assigning/removing agents to/from a user."""
 
-    agent_ids: List[str]
+    agent_ids: List[UUID]

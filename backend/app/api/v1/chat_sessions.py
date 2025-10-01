@@ -374,7 +374,7 @@ async def create_chat_session(
             session_name = f"Chat-{timestamp}-{random_suffix}"
 
         # Create session locally without LlamaStack
-        session_id = str(uuid.uuid4())
+        session_id = uuid.uuid4()
         logger.info(f"Generated local session ID: {session_id}")
 
         # Get agent name for display from our VirtualAgent

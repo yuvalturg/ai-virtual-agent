@@ -7,6 +7,8 @@ configures the database connection, and provides utilities
 for managing database sessions and transactions.
 """
 
+from typing import Generator
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -19,7 +21,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 
-async def get_db():
+async def get_db() -> Generator[AsyncSession, None, None]:
     """
     Dependency function that provides database sessions for FastAPI endpoints.
 

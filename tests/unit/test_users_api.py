@@ -424,7 +424,9 @@ class TestUserAgents:
         setup_dependencies(user=regular_user, db_session=mock_db_session)
 
         # Mock user found with agents
-        regular_user.agent_ids = ["agent1", "agent2"]
+        agent_uuid1 = uuid.uuid4()
+        agent_uuid2 = uuid.uuid4()
+        regular_user.agent_ids = [agent_uuid1, agent_uuid2]
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = regular_user
         mock_db_session.execute.return_value = mock_result
@@ -465,15 +467,17 @@ class TestUserAgents:
         mock_db_session.execute.return_value = mock_result
 
         # Mock virtual agent config
+        agent_uuid1 = uuid.uuid4()
+        agent_uuid2 = uuid.uuid4()
         mock_agent_config = VirtualAgent(
-            id="agent1",
+            id=agent_uuid1,
             name="Test Agent",
             model_name="test-model",
             prompt="Test prompt",
         )
         mock_get_virtual_agent.return_value = mock_agent_config
 
-        agent_data = {"agent_ids": ["agent1", "agent2"]}
+        agent_data = {"agent_ids": [str(agent_uuid1), str(agent_uuid2)]}
         response = test_client.post(
             f"/api/v1/users/{regular_user.id}/agents", json=agent_data
         )
@@ -497,15 +501,17 @@ class TestUserAgents:
         mock_db_session.execute.return_value = mock_result
 
         # Mock virtual agent config
+        agent_uuid1 = uuid.uuid4()
+        agent_uuid2 = uuid.uuid4()
         mock_agent_config = VirtualAgent(
-            id="agent1",
+            id=agent_uuid1,
             name="Test Agent",
             model_name="test-model",
             prompt="Test prompt",
         )
         mock_get_virtual_agent.return_value = mock_agent_config
 
-        agent_data = {"agent_ids": ["agent1", "agent2"]}
+        agent_data = {"agent_ids": [str(agent_uuid1), str(agent_uuid2)]}
         response = test_client.post(
             f"/api/v1/users/{regular_user.id}/agents", json=agent_data
         )

@@ -2,6 +2,7 @@
 CRUD operations for Agent Template and Template Suite models.
 """
 
+import uuid
 from typing import List, Optional
 
 from sqlalchemy import select
@@ -23,8 +24,17 @@ class CRUDAgentTemplate(
 ):
     """CRUD operations for AgentTemplate."""
 
+    async def get_by_name(
+        self, db: AsyncSession, *, name: str
+    ) -> Optional[AgentTemplate]:
+        """Get template by name."""
+        result = await db.execute(
+            select(AgentTemplate).where(AgentTemplate.name == name)
+        )
+        return result.scalars().first()
+
     async def get_by_suite(
-        self, db: AsyncSession, *, suite_id: str
+        self, db: AsyncSession, *, suite_id: uuid.UUID
     ) -> List[AgentTemplate]:
         """Get all templates in a suite."""
         result = await db.execute(
@@ -33,7 +43,7 @@ class CRUDAgentTemplate(
         return result.scalars().all()
 
     async def get_with_suite(
-        self, db: AsyncSession, *, template_id: str
+        self, db: AsyncSession, *, template_id: uuid.UUID
     ) -> Optional[AgentTemplate]:
         """Get template with suite information."""
         result = await db.execute(
@@ -59,7 +69,7 @@ class CRUDTemplateSuite(
         return result.scalars().all()
 
     async def get_with_templates(
-        self, db: AsyncSession, *, suite_id: str
+        self, db: AsyncSession, *, suite_id: uuid.UUID
     ) -> Optional[TemplateSuite]:
         """Get suite with all templates."""
         result = await db.execute(

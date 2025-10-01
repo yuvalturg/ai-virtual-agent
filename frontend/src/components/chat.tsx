@@ -210,12 +210,28 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     void loadDemoQuestions();
   }, [selectedAgentObj]);
 
-  // Hide demo questions after the first message is present
+  // Hide demo questions after the first message is present, but restore them for empty sessions
   useEffect(() => {
     if (chatMessages.length > 0 && demoQuestions.length > 0) {
       setDemoQuestions([]);
+    } else if (chatMessages.length === 0 && selectedAgentObj && demoQuestions.length === 0) {
+      // Restore demo questions when starting a new empty session and demo questions are not already loaded
+      const loadDemoQuestions = async () => {
+        try {
+          const templateName = selectedAgentObj?.template_id || selectedAgentObj?.template_name;
+          if (!templateName) {
+            return;
+          }
+          const details = await getTemplateDetails(templateName);
+          const questions = Array.isArray(details.demo_questions) ? details.demo_questions : [];
+          setDemoQuestions(questions);
+        } catch (e) {
+          console.warn('Failed to load demo questions:', e);
+        }
+      };
+      void loadDemoQuestions();
     }
-  }, [chatMessages.length, demoQuestions.length]);
+  }, [chatMessages.length, selectedAgentObj]);
 
   const onSelectAgent = (
     _event: React.MouseEvent<Element, MouseEvent> | undefined,

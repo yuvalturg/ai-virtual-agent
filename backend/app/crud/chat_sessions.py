@@ -110,7 +110,7 @@ class CRUDChatSession(CRUDBase[ChatSession, dict, dict]):
             for msg in db_messages:
                 messages.append(
                     {
-                        "id": str(msg.id),
+                        "id": msg.id,
                         "role": msg.role,
                         "content": msg.content,
                         "session_id": msg.session_id,

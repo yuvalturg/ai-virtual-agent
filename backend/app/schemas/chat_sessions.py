@@ -1,6 +1,7 @@
 """Schemas for chat sessions API."""
 
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -10,7 +11,7 @@ from .chat import ChatMessageResponse
 class CreateSessionRequest(BaseModel):
     """Request model for creating new chat sessions."""
 
-    agent_id: str
+    agent_id: UUID
     session_name: Optional[str] = None
 
 
@@ -27,7 +28,7 @@ class PaginationInfo(BaseModel):
 class ChatSessionSummary(BaseModel):
     """Chat session summary for list views."""
 
-    id: str
+    id: UUID
     title: str
     agent_name: str
     created_at: Optional[str] = None
@@ -38,10 +39,10 @@ class ChatSessionSummary(BaseModel):
 class ChatSessionDetail(BaseModel):
     """Detailed chat session with messages."""
 
-    id: str
+    id: UUID
     title: str
     agent_name: str
-    agent_id: str
+    agent_id: UUID
     messages: List[ChatMessageResponse]
     created_at: str
     updated_at: str

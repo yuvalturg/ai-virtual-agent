@@ -29,12 +29,10 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return result.scalar_one_or_none()
 
     async def get_users_with_agent(
-        self, db: AsyncSession, *, agent_id: str
+        self, db: AsyncSession, *, agent_id: UUID
     ) -> List[User]:
         """Get all users that have access to a specific agent."""
-        result = await db.execute(
-            select(User).where(User.agent_ids.contains([agent_id]))
-        )
+        result = await db.execute(select(User).where(User.agent_ids.any(agent_id)))
         return result.scalars().all()
 
     async def get_by_username_or_email(
@@ -62,7 +60,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         username: str = None,
         email: str = None,
         role: str = "user",
-        agent_ids: List[str] = None,
+        agent_ids: List[UUID] = None,
     ) -> User:
         """Create a new user with transaction management."""
         try:
@@ -88,8 +86,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db: AsyncSession,
         *,
         user_id: UUID,
-        agent_ids_to_add: List[str] = None,
-        agent_ids_to_remove: List[str] = None,
+        agent_ids_to_add: List[UUID] = None,
+        agent_ids_to_remove: List[UUID] = None,
     ) -> User:
         """Update user's agent assignments with transaction management."""
         try:
