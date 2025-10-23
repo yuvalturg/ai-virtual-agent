@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...config import settings
 from ...core.auth import is_local_dev_mode
 from ...crud.user import user
 from ...crud.virtual_agents import virtual_agents
@@ -225,7 +226,17 @@ async def create_user(
             detail="A user with this username or email already exists.",
         )
 
-    return await user.create(db, obj_in=user_data)
+    created_user = await user.create(db, obj_in=user_data)
+
+    # Sync all users with all agents if enabled
+    if settings.AUTO_ASSIGN_AGENTS_TO_USERS:
+        try:
+            sync_result = await virtual_agents.sync_all_users_with_all_agents(db)
+            logger.info(f"Agent-user sync completed after user creation: {sync_result}")
+        except Exception as sync_error:
+            logger.error(f"Error syncing agents to new user: {str(sync_error)}")
+
+    return created_user
 
 
 @router.put("/{user_id}", response_model=UserResponse)
