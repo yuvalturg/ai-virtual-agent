@@ -147,7 +147,7 @@ class CRUDChatSession(CRUDBase[ChatSession, dict, dict]):
                         "role": msg.role,
                         "content": msg.content,
                         "session_id": msg.session_id,
-                        "created_at": (
+                        "timestamp": (
                             msg.created_at.isoformat() if msg.created_at else None
                         ),
                         "response_id": msg.response_id,
