@@ -3,6 +3,9 @@
 # AI Virtual Agent Test Runner
 set -e
 
+# Generate a unique identifier for this test run
+export TAVERN_UNIQUE="test${RANDOM}"
+
 echo "🧪 AI Virtual Agent Test Suite"
 echo "====================================="
 

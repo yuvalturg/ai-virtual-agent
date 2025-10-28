@@ -85,6 +85,12 @@ build_helm_cmd() {
         cmd_args+=("--set" "seed.admin_user.email=$ADMIN_EMAIL")
     fi
 
+	# Oracle args
+	if [ "$ORACLE" = "true" ]; then
+		cmd_args+=("--set" "oracle-db.enabled=true")
+		cmd_args+=("--set" "mcp-servers.mcp-servers.oracle-sqlcl.enabled=true")
+	fi
+
 	# GCP args
 	if [ -n "$GCP_SERVICE_ACCOUNT_FILE" ]; then
 		cmd_args+=("--set-file" "llama-stack.gcpServiceAccountFile=$(realpath $GCP_SERVICE_ACCOUNT_FILE)")

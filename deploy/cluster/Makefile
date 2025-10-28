@@ -28,6 +28,7 @@ POSTGRES_DBNAME ?= rag_blueprint
 MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 HF_TOKEN ?=
+ORACLE ?= false
 AI_VIRTUAL_AGENT_CHART := helm
 AI_VIRTUAL_AGENT_RELEASE := ai-virtual-agent
 TOLERATIONS_TEMPLATE=[{"key":"$(1)","effect":"NoSchedule","operator":"Exists"}]
@@ -94,6 +95,10 @@ install: install-namespace deps ## Install the AI Virtual Agent deployment
 
 	@echo "Waiting for model services and llamastack to deploy. It may take around 10-15 minutes depending on the size of the model..."
 	@oc rollout status deploy/ai-virtual-agent -n $(NAMESPACE)
+	@if [ "$(ORACLE)" = "true" ]; then \
+		echo "Oracle enabled - waiting for TPC-DS data population to complete. This may take some time..."; \
+		oc wait --for=condition=complete --timeout=3600s job/oracle-db-tpcds-populate -n $(NAMESPACE); \
+	fi
 	@echo "$(AI_VIRTUAL_AGENT_RELEASE) installed successfully"
 	@echo ""
 	@echo "Getting application URL..."
@@ -112,7 +117,7 @@ uninstall: ## Uninstall deployment and clean up resources
 	@echo "Uninstalling $(AI_VIRTUAL_AGENT_RELEASE) helm chart from namespace $(NAMESPACE)"
 	@helm uninstall --ignore-not-found $(AI_VIRTUAL_AGENT_RELEASE) -n $(NAMESPACE)
 	@echo "Removing pgvector and minio PVCs from $(NAMESPACE)"
-	@oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs -I {} oc delete pvc -n $(NAMESPACE) {} ||:
+	@oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio|oracle)-data' | xargs -I {} oc delete pvc -n $(NAMESPACE) {} ||:
 	@echo "Deleting remaining pods in namespace $(NAMESPACE)"
 	@oc delete pods -n $(NAMESPACE) --all
 	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
