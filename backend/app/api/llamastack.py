@@ -13,7 +13,7 @@ from llama_stack_client import AsyncLlamaStackClient
 load_dotenv()
 
 LLAMASTACK_URL = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
-LLAMASTACK_TIMEOUT = float(os.getenv("LLAMASTACK_TIMEOUT", "30.0"))
+LLAMASTACK_TIMEOUT = float(os.getenv("LLAMASTACK_TIMEOUT", "60.0"))
 
 # Set up logging
 logger = logging.getLogger(__name__)
