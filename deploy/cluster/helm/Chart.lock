@@ -4,7 +4,7 @@ dependencies:
   version: 0.5.0
 - name: mcp-servers
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
-  version: 0.5.1
+  version: 0.5.5
 - name: llm-service
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.2
@@ -17,5 +17,8 @@ dependencies:
 - name: ingestion-pipeline
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.1
-digest: sha256:94ecf8338e2784a3fc33144cc96a2994c7eb0da5640ba615288189b2d83bd770
-generated: "2025-10-23T15:32:04.507348071-04:00"
+- name: oracle-db
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.5.0
+digest: sha256:1f1f79297120f6dea0b2f7970b25a4d4e33c4bc40fd22ca4fdb7b591b463c90e
+generated: "2025-10-28T17:32:00.533398777-04:00"

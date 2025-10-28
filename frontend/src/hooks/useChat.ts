@@ -257,6 +257,8 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
                       // Replace content (backend sends complete response, not chunks)
                       c[0].text = parsed;
                       lastMsg.content = c;
+                      // Update timestamp when response arrives
+                      lastMsg.timestamp = new Date();
                     }
                   }
                   return updated;

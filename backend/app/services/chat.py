@@ -195,6 +195,8 @@ class ChatService:
         user_input: Any,
         assistant_content_items: List[Any],
         response_id: str,
+        user_timestamp: datetime,
+        assistant_timestamp: datetime,
     ) -> None:
         """
         Store both user input and assistant response in a single transaction.
@@ -206,6 +208,8 @@ class ChatService:
             user_input: User message content
             assistant_content_items: Assistant response content items from LlamaStack
             response_id: LlamaStack response ID
+            user_timestamp: Timestamp when user sent the message
+            assistant_timestamp: Timestamp when assistant responded
         """
         # Convert user input to JSON format - expecting Pydantic models
         if isinstance(user_input, list):
@@ -252,23 +256,22 @@ class ChatService:
             session.session_state = {"last_response_id": response_id}
             session.title = title
 
-        # Create user message with explicit timestamp
-        now = datetime.now()
+        # Create user message with provided timestamp
         user_message = ChatMessage(
             session_id=session_id,
             role="user",
             content=user_json_content,
-            created_at=now,
+            created_at=user_timestamp,
         )
         self.db.add(user_message)
 
-        # Create assistant message with smallest possible later timestamp (1 microsecond)
+        # Create assistant message with provided timestamp
         assistant_message = ChatMessage(
             session_id=session_id,
             role="assistant",
             content=assistant_json_content,
             response_id=response_id,
-            created_at=now + timedelta(microseconds=1),
+            created_at=assistant_timestamp,
         )
         self.db.add(assistant_message)
 
@@ -346,6 +349,9 @@ class ChatService:
             logger.warning("Output shields not yet supported in Responses API")
 
         try:
+            # Capture timestamp when user sent the message
+            user_timestamp = datetime.now()
+
             # Call LlamaStack Responses API
             client = get_client_from_request(self.request)
 
@@ -353,6 +359,9 @@ class ChatService:
             logger.info(f"LlamaStack send: {response_params}")
             response = await client.responses.create(**response_params)
             logger.info(f"LlamaStack recv: {response}")
+
+            # Capture timestamp when assistant responded (add 1ms to ensure it's after user)
+            assistant_timestamp = datetime.now() + timedelta(milliseconds=1)
 
             # Extract content from response.output array
             content = ""
@@ -375,6 +384,8 @@ class ChatService:
                     user_input,
                     assistant_content_items,
                     response.id,
+                    user_timestamp,
+                    assistant_timestamp,
                 )
 
             return {
