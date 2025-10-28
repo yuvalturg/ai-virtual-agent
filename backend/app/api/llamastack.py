@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Optional
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import Request
 from llama_stack_client import AsyncLlamaStackClient
@@ -12,6 +13,7 @@ from llama_stack_client import AsyncLlamaStackClient
 load_dotenv()
 
 LLAMASTACK_URL = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
+LLAMASTACK_TIMEOUT = float(os.getenv("LLAMASTACK_TIMEOUT", "30.0"))
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -67,6 +69,8 @@ def get_client(
     client = AsyncLlamaStackClient(
         base_url=LLAMASTACK_URL,
         default_headers=headers or {},
+        timeout=httpx.Timeout(LLAMASTACK_TIMEOUT),
+        max_retries=0,
     )
     if api_key:
         client.api_key = api_key
