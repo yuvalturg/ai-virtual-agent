@@ -249,19 +249,28 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
                 }
 
                 setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastMsg = updated[updated.length - 1];
-                  if (lastMsg && lastMsg.role === 'assistant') {
-                    const c: SimpleContentItem[] = [...lastMsg.content];
-                    if (c[0].type === 'output_text') {
-                      // Replace content (backend sends complete response, not chunks)
-                      c[0].text = parsed;
-                      lastMsg.content = c;
-                      // Update timestamp when response arrives
-                      lastMsg.timestamp = new Date();
-                    }
+                  const lastMsg = prev[prev.length - 1];
+                  if (
+                    lastMsg &&
+                    lastMsg.role === 'assistant' &&
+                    lastMsg.content[0]?.type === 'output_text'
+                  ) {
+                    // Create new message object and content array to trigger React update
+                    const newContent: SimpleContentItem[] = [
+                      {
+                        type: 'output_text',
+                        text: parsed,
+                      },
+                    ];
+                    const newLastMsg: ChatMessage = {
+                      ...lastMsg,
+                      content: newContent,
+                      timestamp: new Date(),
+                    };
+                    // Only spread array once, replace last message
+                    return [...prev.slice(0, -1), newLastMsg];
                   }
-                  return updated;
+                  return prev;
                 });
               }
 
