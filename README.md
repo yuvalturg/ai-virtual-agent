@@ -41,10 +41,23 @@ The platform integrates several components:
 
 ### Minimum hardware requirements
 
+For a full working version with local inference:
+- **GPU** - Required for running inference locally
+- Alternatively, you can deploy without a GPU by using:
+  - Remote vLLM deployment
+  - Vertex AI
+
 ### Minimum software requirements
-<!-- oc, make, others ? -->
+
+- **Red Hat OpenShift** - Container orchestration platform
+- **Red Hat OpenShift AI** - AI/ML platform for model serving and management
+- **oc CLI** - OpenShift command-line tool
+- **make** - Build automation tool
+- **Hugging Face token** - With access to models (some models require authorization)
 
 ### Required user permissions
+
+- **Cluster admin access** - Required for installing ClusterRole resources for OAuth authentication
 
 
 ## Deploy
@@ -74,11 +87,6 @@ cd deploy/cluster
 
 # Install with interactive prompts for configuration
 make install NAMESPACE=your-namespace
-
-# Or set environment variables and install
-export NAMESPACE=ai-virtual-agent
-export HF_TOKEN=your-huggingface-token
-make install
 ```
 
 🧭 **[Advanced instructions →](#advanced-instructions)**
@@ -88,25 +96,90 @@ make install
 
 ### Delete
 
+To remove the application and all associated resources:
 
-## Example Use Cases
-
-**Customer Support Agent**
-```typescript
-const agent = await createAgent({
-  name: "Support Bot",
-  model: "llama3.1-8b-instruct",
-  knowledge_bases: ["support-docs"],
-  tools: ["builtin::rag", "builtin::web_search"]
-});
+```bash
+cd deploy/cluster
+make uninstall NAMESPACE=your-namespace
 ```
 
-**Domain Expert (Banking)**
-```typescript
-const expert = await initializeAgentTemplate({
-  template: "commercial_banker",
-  knowledge_bases: ["banking-regulations"]
-});
+This will automatically clean up the Helm chart, deployed resources, and PVCs.
+
+## Example Use Case
+
+**Creating a Customer Support Agent with Knowledge Base**
+
+```python
+import requests
+
+BASE_URL = "http://localhost:8000/api/v1"
+
+# 1. Create a knowledge base
+kb_response = requests.post(
+    f"{BASE_URL}/knowledge_bases",
+    json={
+        "vector_store_name": "support-docs-v1",
+        "name": "Support Documentation",
+        "version": "v1",
+        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "provider_id": "ollama",
+        "source": "S3"
+    }
+)
+print(f"Knowledge base created: {kb_response.status_code}")
+
+# 2. Create a support agent
+agent_response = requests.post(
+    f"{BASE_URL}/virtual_agents",
+    headers={
+        "X-Forwarded-User": "admin",
+        "X-Forwarded-Email": "admin@change.me"
+    },
+    json={
+        "name": "Support Agent",
+        "model_name": "meta-llama/Llama-3.2-3B-Instruct",
+        "prompt": "You are a helpful customer support agent",
+        "knowledge_base_ids": ["support-docs-v1"],
+        "tools": [{"toolgroup_id": "builtin::web_search"}],
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "max_tokens": 2048
+    }
+)
+agent_id = agent_response.json()["id"]
+print(f"Agent created: {agent_id}")
+
+# 3. Create a chat session
+session_response = requests.post(
+    f"{BASE_URL}/chat_sessions",
+    json={
+        "agent_id": agent_id,
+        "session_name": "Customer Support Session"
+    }
+)
+session_id = session_response.json()["id"]
+print(f"Chat session created: {session_id}")
+
+# 4. Send a chat message
+chat_response = requests.post(
+    f"{BASE_URL}/chat",
+    json={
+        "virtualAgentId": agent_id,
+        "sessionId": session_id,
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": "Who is the first president of the United States?"
+                }
+            ]
+        },
+        "stream": False
+    }
+)
+answer = chat_response.json()
+print(f"Agent response: {answer}")
 ```
 
 ## Advanced instructions
@@ -154,75 +227,46 @@ For local containerized development (without cluster):
 
 📖 **[→ See Local Development Guide](DEVELOPMENT.md)**
 
-For local development setup:
+> **Note**: Local setup has limited functionality compared to OpenShift AI deployment:
+> - No authentication/authorization
+> - Knowledge bases not available
+> - MCP servers not tested
+>
+> These features are only available with the full OpenShift AI deployment.
 
 ```bash
-# Navigate to local deployment directory
 cd deploy/local
 
-# Start all services with Docker Compose
+# Start all services
 make compose-up
 
-# Or start step-by-step:
-# 1. Start database (automatically initializes with permissions)
-podman compose up -d
-# or with Docker:
-# docker-compose up -d
-
-# 2. Start backend
-cd ../../backend && python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt && alembic upgrade head
-uvicorn main:app --reload &
-
-# 3. Start frontend
-cd ../frontend && npm install && npm run dev
+# Other available commands
+make compose-down        # Stop all services
+make compose-logs        # View logs
+make compose-restart     # Restart services
+make compose-status      # Show status
 ```
-
-> **Note**: The PostgreSQL database is automatically initialized with proper permissions. Works with both Docker and Podman. No manual database setup needed!
 
 **Access your app:**
 - Frontend: http://localhost:5173
 - API: http://localhost:8000
 - Docs: http://localhost:8000/docs
 
+### Cluster Development
 
-**Local Development:**
-```bash
-cd deploy/local
-
-# Start everything locally with Docker Compose
-make compose-up
-
-# Stop all services
-make compose-down
-
-# View logs from development services
-make compose-logs
-
-# Restart development services
-make compose-restart
-
-# Show status of development services
-make compose-status
-```
-
-### Cluster development
-
-**Cluster Deployment:**
 ```bash
 cd deploy/cluster
 
 # Install on cluster
 make install NAMESPACE=your-namespace
 
-# Uninstall from cluster
-make uninstall NAMESPACE=your-namespace
-
-# Check status
-make install-status NAMESPACE=your-namespace
+# Other available commands
+make uninstall NAMESPACE=your-namespace    # Remove application
+make install-status NAMESPACE=your-namespace    # Check status
+make list-mcps                              # List available MCP servers
 ```
 
-> Note: All Makefile targets automatically load environment variables from a `.env` file in the repository root if it exists. No manual `export` is required for common workflows.
+> **Note**: All Makefile targets automatically load environment variables from a `.env` file in the repository root if it exists.
 
 ### Environment setup (.env)
 
@@ -250,29 +294,7 @@ DISABLE_ATTACHMENTS=true
 # ADMIN_EMAIL=admin@change.me
 ```
 
-### Attachments (optional dependency)
-
-If you plan to use file attachments locally or see this error during tests:
-
-```
-ImportError: failed to find libmagic. Check your installation
-```
-
-install the MIME detection dependency (libmagic) and Python binding:
-
-- macOS (Homebrew):
-  - `brew install file`
-  - `pip install python-magic`
-- Ubuntu/Debian:
-  - `sudo apt-get install libmagic1` (or `libmagic-dev`)
-  - `pip install python-magic`
-- Fedora/RHEL:
-  - `sudo dnf install file libmagic`
-  - `pip install python-magic`
-
-Notes:
-- Unit tests import parts of the attachments stack. Without libmagic installed you can still proceed by installing the packages above.
-- If you’re not using attachments in local dev, you can set `DISABLE_ATTACHMENTS=true` in `.env` to skip bucket-related startup paths.
+**Note**: If you're not using attachments in local dev, you can set `DISABLE_ATTACHMENTS=true` in `.env` to skip attachment-related initialization.
 
 
 ## Community & Support

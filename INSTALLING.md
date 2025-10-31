@@ -70,8 +70,13 @@ graph TB
 
 ### Hardware Requirements
 
+For local inference:
 - **1 GPU with 24GB+ VRAM** for the primary LLM model
 - **1 GPU with 24GB+ VRAM** for the safety/shield model (optional)
+
+Alternatively, you can deploy without a GPU by using:
+- Remote vLLM deployment
+- Vertex AI
 
 ### Supported Models
 
@@ -89,14 +94,15 @@ graph TB
 - **OpenShift Client CLI** - [oc](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/cli_tools/openshift-cli-oc#installing-openshift-cli)
 - **Helm CLI** - [helm](https://helm.sh/docs/intro/install/)
 - **[Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)** (optional)
-- **[Hugging Face Token](https://huggingface.co/settings/tokens)** with access to Meta Llama models
+- **[Hugging Face Token](https://huggingface.co/settings/tokens)** with access to models (some models require authorization)
 - **[Tavily API Key](https://tavily.com/)** for web search capabilities
 
 ### Required Access
 
 - Access to [Meta Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/) models
 - Access to [Meta Llama Guard](https://huggingface.co/meta-llama/Llama-Guard-3-8B/) models (optional)
-- OpenShift cluster admin or sufficient permissions for:
+- **OpenShift cluster admin access** required for:
+  - Installing ClusterRole resources for OAuth authentication
   - Creating namespaces
   - Deploying workloads with GPU resources
   - Creating persistent volume claims
