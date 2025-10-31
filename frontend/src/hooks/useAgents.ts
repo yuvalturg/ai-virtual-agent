@@ -68,6 +68,10 @@ export const useAgents = () => {
     createError: createAgentMutation.error,
     deleteError: deleteAgentMutation.error,
 
+    // Error reset functions
+    resetCreateError: createAgentMutation.reset,
+    resetDeleteError: deleteAgentMutation.reset,
+
     // Utilities
     refreshAgents,
   };

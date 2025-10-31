@@ -64,6 +64,10 @@ export const useKnowledgeBases = () => {
     createError: createKnowledgeBaseMutation.error,
     deleteError: deleteKnowledgeBaseMutation.error,
 
+    // Error reset functions
+    resetCreateError: createKnowledgeBaseMutation.reset,
+    resetDeleteError: deleteKnowledgeBaseMutation.reset,
+
     // Utilities
     refreshKnowledgeBases,
   };

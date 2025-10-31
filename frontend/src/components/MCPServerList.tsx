@@ -95,13 +95,11 @@ export function MCPServerList() {
           {serversError.message}
         </Alert>
       )}
-      <Flex direction={{ default: 'column' }}>
-        <FlexItem>
-          <NewMCPServerCard
-            editingServer={editingServer}
-            onEditComplete={() => setEditingServer(null)}
-          />
-        </FlexItem>
+      <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+        <NewMCPServerCard
+          editingServer={editingServer}
+          onEditComplete={() => setEditingServer(null)}
+        />
         {!isLoadingServers &&
           !serversError &&
           mcpServers &&

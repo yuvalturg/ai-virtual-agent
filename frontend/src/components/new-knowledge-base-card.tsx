@@ -8,7 +8,6 @@ import {
   Flex,
   FlexItem,
   Title,
-  Alert,
 } from '@patternfly/react-core';
 import { PlusIcon } from '@patternfly/react-icons';
 import { useState } from 'react';
@@ -27,7 +26,7 @@ export function NewKnowledgeBaseCard() {
     isLoadingProviders,
     providersError,
   } = useModels();
-  const { createKnowledgeBase, isCreating, createError } = useKnowledgeBases();
+  const { createKnowledgeBase, isCreating, createError, resetCreateError } = useKnowledgeBases();
 
   const handleCreateKb = (values: KnowledgeBase) => {
     // Strip out fields that shouldn't be sent to the API
@@ -44,68 +43,54 @@ export function NewKnowledgeBaseCard() {
     })();
   };
 
+  const handleCancel = () => {
+    resetCreateError();
+    setIsOpen(false);
+  };
+
   return (
-    <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
-      <FlexItem>
-        <Card isExpanded={isOpen} isClickable={!isOpen}>
-          <CardHeader
-            selectableActions={{
-              onClickAction: () => setIsOpen(!isOpen),
-              selectableActionAriaLabelledby: 'clickable-kb-card-title-1',
-            }}
-          >
-            <CardTitle>
-              {!isOpen ? (
-                <Flex>
-                  <FlexItem>
-                    <PlusIcon />
-                  </FlexItem>
-                  <FlexItem>
-                    <Title headingLevel="h3">New Knowledge Base</Title>
-                  </FlexItem>
-                </Flex>
-              ) : (
+    <Card isExpanded={isOpen} isClickable={!isOpen} style={{ overflow: 'visible' }}>
+      <CardHeader
+        selectableActions={{
+          onClickAction: () => setIsOpen(!isOpen),
+          selectableActionAriaLabelledby: 'clickable-kb-card-title-1',
+        }}
+      >
+        <CardTitle>
+          {!isOpen ? (
+            <Flex>
+              <FlexItem>
+                <PlusIcon />
+              </FlexItem>
+              <FlexItem>
                 <Title headingLevel="h3">New Knowledge Base</Title>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardExpandableContent>
-            <CardBody>
-              <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
-                <FlexItem>
-                  <KnowledgeBaseForm
-                    embeddingModelProps={{
-                      models: embeddingModels ?? [],
-                      isLoadingModels: isLoadingEmbeddingModels,
-                      modelsError: embeddingModelsError,
-                    }}
-                    providersProps={{
-                      providers: providers ?? [],
-                      isLoadingProviders,
-                      providersError,
-                    }}
-                    isSubmitting={isCreating}
-                    onSubmit={handleCreateKb}
-                    onCancel={() => setIsOpen(false)}
-                    error={createError}
-                  />
-                </FlexItem>
-                {createError && (
-                  <FlexItem>
-                    <Alert
-                      variant="danger"
-                      title="Failed to create knowledge base"
-                      className="pf-v6-u-mt-md"
-                    >
-                      {createError?.message || 'An unexpected error occurred.'}
-                    </Alert>
-                  </FlexItem>
-                )}
-              </Flex>
-            </CardBody>
-          </CardExpandableContent>
-        </Card>
-      </FlexItem>
-    </Flex>
+              </FlexItem>
+            </Flex>
+          ) : (
+            <Title headingLevel="h3">New Knowledge Base</Title>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardExpandableContent style={{ overflow: 'visible' }}>
+        <CardBody style={{ overflow: 'visible' }}>
+          <KnowledgeBaseForm
+            embeddingModelProps={{
+              models: embeddingModels ?? [],
+              isLoadingModels: isLoadingEmbeddingModels,
+              modelsError: embeddingModelsError,
+            }}
+            providersProps={{
+              providers: providers ?? [],
+              isLoadingProviders,
+              providersError,
+            }}
+            isSubmitting={isCreating}
+            onSubmit={handleCreateKb}
+            onCancel={handleCancel}
+            error={createError}
+          />
+        </CardBody>
+      </CardExpandableContent>
+    </Card>
   );
 }

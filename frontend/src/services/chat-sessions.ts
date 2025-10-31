@@ -1,5 +1,6 @@
 import { CHAT_SESSIONS_API_ENDPOINT } from '@/config/api';
 import { ChatSessionSummary, ChatSessionDetail } from '@/types/chat';
+import { ErrorResponse } from '@/types';
 
 // Re-export types for backward compatibility
 export type { ChatSessionSummary, ChatSessionDetail } from '@/types/chat';
@@ -11,7 +12,10 @@ export async function fetchChatSessions(agentId?: string): Promise<ChatSessionSu
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error('Failed to fetch chat sessions');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to fetch chat sessions' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to fetch chat sessions');
   }
   return response.json() as Promise<ChatSessionSummary[]>;
 }
@@ -32,7 +36,10 @@ export async function fetchChatSession(
 
   const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?${params}`);
   if (!response.ok) {
-    throw new Error('Failed to fetch chat session');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to fetch chat session' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to fetch chat session');
   }
   return response.json() as Promise<ChatSessionDetail>;
 }
@@ -42,7 +49,10 @@ export async function deleteChatSession(sessionId: string, agentId: string): Pro
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete chat session');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to delete chat session' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to delete chat session');
   }
 }
 
@@ -62,7 +72,10 @@ export async function createChatSession(
   });
 
   if (!response.ok) {
-    throw new Error('Failed to create chat session');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to create chat session' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to create chat session');
   }
   return response.json() as Promise<ChatSessionDetail>;
 }

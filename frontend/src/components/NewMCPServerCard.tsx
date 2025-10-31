@@ -123,88 +123,80 @@ export function NewMCPServerCard({ editingServer, onEditComplete }: NewMCPServer
   const error = createError || updateError;
 
   return (
-    <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
-      <FlexItem>
-        <Card isExpanded={isOpen} isClickable={!isOpen}>
-          <CardHeader
-            selectableActions={{
-              onClickAction: () => setIsOpen(!isOpen),
-              selectableActionAriaLabelledby: 'clickable-mcp-card-title-1',
-            }}
-          >
-            <CardTitle>
-              {!isOpen ? (
-                <Flex>
-                  <FlexItem>
-                    <PlusIcon />
-                  </FlexItem>
-                  <FlexItem>
-                    <Title headingLevel="h3">
-                      {editingServer ? `Edit ${editingServer.name}` : 'New MCP Server'}
-                    </Title>
-                  </FlexItem>
-                </Flex>
-              ) : (
+    <Card isExpanded={isOpen} isClickable={!isOpen} style={{ overflow: 'visible' }}>
+      <CardHeader
+        selectableActions={{
+          onClickAction: () => setIsOpen(!isOpen),
+          selectableActionAriaLabelledby: 'clickable-mcp-card-title-1',
+        }}
+      >
+        <CardTitle>
+          {!isOpen ? (
+            <Flex>
+              <FlexItem>
+                <PlusIcon />
+              </FlexItem>
+              <FlexItem>
                 <Title headingLevel="h3">
                   {editingServer ? `Edit ${editingServer.name}` : 'New MCP Server'}
                 </Title>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardExpandableContent>
-            <CardBody>
-              <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
-                {/* Show discovered servers dropdown only when creating new server (not editing) */}
-                {!editingServer && discoveredServers && discoveredServers.length > 0 && (
-                  <FlexItem>
-                    <FormGroup label="Use Discovered MCP Server" fieldId="discovered-server-select">
-                      <FormSelect
-                        id="discovered-server-select"
-                        value={selectedDiscoveredServer}
-                        onChange={handleDiscoveredServerChange}
-                        aria-label="Select discovered MCP server"
-                      >
-                        <FormSelectOption
-                          key="empty"
-                          value=""
-                          label="Select a discovered server..."
-                        />
-                        {discoveredServers.map((server) => (
-                          <FormSelectOption
-                            key={server.name}
-                            value={server.name}
-                            label={`${server.name} (${server.source})`}
-                          />
-                        ))}
-                      </FormSelect>
-                    </FormGroup>
-                  </FlexItem>
-                )}
+              </FlexItem>
+            </Flex>
+          ) : (
+            <Title headingLevel="h3">
+              {editingServer ? `Edit ${editingServer.name}` : 'New MCP Server'}
+            </Title>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardExpandableContent style={{ overflow: 'visible' }}>
+        <CardBody style={{ overflow: 'visible' }}>
+          <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+            {/* Show discovered servers dropdown only when creating new server (not editing) */}
+            {!editingServer && discoveredServers && discoveredServers.length > 0 && (
+              <FlexItem>
+                <FormGroup label="Use Discovered MCP Server" fieldId="discovered-server-select">
+                  <FormSelect
+                    id="discovered-server-select"
+                    value={selectedDiscoveredServer}
+                    onChange={handleDiscoveredServerChange}
+                    aria-label="Select discovered MCP server"
+                  >
+                    <FormSelectOption key="empty" value="" label="Select a discovered server..." />
+                    {discoveredServers.map((server) => (
+                      <FormSelectOption
+                        key={server.name}
+                        value={server.name}
+                        label={`${server.name} (${server.source})`}
+                      />
+                    ))}
+                  </FormSelect>
+                </FormGroup>
+              </FlexItem>
+            )}
 
-                {/* Show discovery error if any */}
-                {!editingServer && discoverError && (
-                  <FlexItem>
-                    <Alert variant="warning" title="Could not discover MCP servers" isInline>
-                      {discoverError.message}
-                    </Alert>
-                  </FlexItem>
-                )}
+            {/* Show discovery error if any */}
+            {!editingServer && discoverError && (
+              <FlexItem>
+                <Alert variant="warning" title="Could not discover MCP servers" isInline>
+                  {discoverError.message}
+                </Alert>
+              </FlexItem>
+            )}
 
-                <FlexItem>
-                  <MCPServerForm
-                    defaultServer={editingServer || formDefaults}
-                    isSubmitting={isSubmitting}
-                    onSubmit={handleSubmit}
-                    onCancel={handleCancel}
-                    error={error}
-                    isEditing={!!editingServer}
-                  />
-                </FlexItem>
-              </Flex>
-            </CardBody>
-          </CardExpandableContent>
-        </Card>
-      </FlexItem>
-    </Flex>
+            <FlexItem>
+              <MCPServerForm
+                defaultServer={editingServer || formDefaults}
+                isSubmitting={isSubmitting}
+                onSubmit={handleSubmit}
+                onCancel={handleCancel}
+                error={error}
+                isEditing={!!editingServer}
+              />
+            </FlexItem>
+          </Flex>
+        </CardBody>
+      </CardExpandableContent>
+    </Card>
   );
 }

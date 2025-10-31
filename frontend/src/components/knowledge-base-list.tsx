@@ -87,10 +87,8 @@ export function KnowledgeBaseList() {
           {knowledgeBasesError.message}
         </Alert>
       )}
-      <Flex direction={{ default: 'column' }}>
-        <FlexItem>
-          <NewKnowledgeBaseCard />
-        </FlexItem>
+      <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
+        <NewKnowledgeBaseCard />
         {!isLoadingKnowledgeBases &&
           !knowledgeBasesError &&
           knowledgeBases &&

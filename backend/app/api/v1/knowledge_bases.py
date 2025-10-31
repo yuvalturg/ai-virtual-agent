@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.llamastack import get_client_from_request
-from ...crud.knowledge_bases import knowledge_bases
+from ...crud.knowledge_bases import DuplicateKnowledgeBaseNameError, knowledge_bases
+from ...crud.virtual_agents import virtual_agents
 from ...database import get_db
 from ...schemas import KnowledgeBaseCreate, KnowledgeBaseResponse
 
@@ -27,8 +28,9 @@ async def create_knowledge_base_internal(
     Internal utility function to create a knowledge base.
     Can be used by API endpoints and other services without dependency injection issues.
     """
-    await create_ingestion_pipeline(kb)
+    # Check for duplicates in database first before creating pipeline
     db_kb = await knowledge_bases.create(db, obj_in=kb)
+    await create_ingestion_pipeline(kb)
     db_kb.status = await get_pipeline_status(db_kb.vector_store_name)
     return db_kb
 
@@ -39,8 +41,19 @@ async def create_knowledge_base_internal(
 async def create_knowledge_base(
     kb: KnowledgeBaseCreate, db: AsyncSession = Depends(get_db)
 ):
-    """Create a new knowledge base."""
-    return await create_knowledge_base_internal(kb, db)
+    """Create a new knowledge base.
+
+    Raises:
+        HTTPException: 409 if a knowledge base with the same vector_store_name already exists
+    """
+    try:
+        return await create_knowledge_base_internal(kb, db)
+    except DuplicateKnowledgeBaseNameError as e:
+        logger.warning(f"Duplicate knowledge base: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating knowledge base: {str(e)}", exc_info=True)
+        raise
 
 
 @router.get("/", response_model=List[KnowledgeBaseResponse])
@@ -78,12 +91,35 @@ async def read_knowledge_base(
 async def delete_knowledge_base(
     vector_store_name: str, request: Request, db: AsyncSession = Depends(get_db)
 ):
-    """Delete a knowledge base from both the database and LlamaStack."""
+    """Delete a knowledge base from both the database and LlamaStack.
+
+    Raises:
+        HTTPException: 404 if knowledge base not found
+        HTTPException: 409 if any virtual agents are using this knowledge base
+    """
     kb = await knowledge_bases.get_by_vector_store_name(
         db, vector_store_name=vector_store_name
     )
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+    # Check if any virtual agents are using this knowledge base
+    agents = await virtual_agents.get_all_with_templates(db)
+    agents_using_kb = []
+
+    for agent in agents:
+        if agent.knowledge_base_ids and vector_store_name in agent.knowledge_base_ids:
+            agents_using_kb.append(agent.name)
+
+    if agents_using_kb:
+        agent_list = ", ".join(agents_using_kb)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cannot delete knowledge base '{vector_store_name}'. "
+                f"It is used by the following virtual agents: {agent_list}"
+            ),
+        )
 
     kb_name = kb.name  # Store name before deletion
 

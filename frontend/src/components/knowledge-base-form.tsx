@@ -1,19 +1,6 @@
 import { useForm } from '@tanstack/react-form';
 import { EmbeddingModel, KnowledgeBase, Provider } from '@/types';
-import {
-  Button,
-  ActionGroup,
-  Form,
-  FormGroup,
-  TextInput,
-  Alert,
-  Accordion,
-  AccordionItem,
-  AccordionContent,
-  AccordionToggle,
-  CodeBlock,
-  CodeBlockCode,
-} from '@patternfly/react-core';
+import { Button, ActionGroup, Form, FormGroup, TextInput, Alert } from '@patternfly/react-core';
 import {
   FormSelect,
   FormSelectOption,
@@ -80,9 +67,6 @@ export function KnowledgeBaseForm({
   const [urlInputs, setUrlInputs] = useState<string[]>(['']);
   const [urlErrors, setUrlErrors] = useState<(string | undefined)[]>(['']);
   const [defaultVectorStoreName, setDefaultVectorStoreName] = useState<string>('');
-
-  // State for configuration preview
-  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   // Validation functions
   const validateS3Field = (fieldName: string, value: string): string | undefined => {
@@ -281,43 +265,6 @@ export function KnowledgeBaseForm({
   }, [defaultKnowledgeBase, form]);
 
   // Generate preview of the configuration JSON
-  const generatePreviewJson = () => {
-    const currentValues = form.state.values;
-    const previewConfig: Record<string, unknown> = {
-      name: currentValues.name || '',
-      version: currentValues.version || '',
-      embedding_model: currentValues.embedding_model || '',
-      provider_id: currentValues.provider_id || '',
-      vector_store_name: currentValues.vector_store_name || '',
-      is_external: currentValues.is_external || false,
-      source: currentValues.source || '',
-      source_configuration: {},
-    };
-
-    // Build source_configuration based on selected source
-    if (currentValues.source === 'S3') {
-      previewConfig.source_configuration = {
-        ACCESS_KEY_ID: currentValues.s3_access_key_id || '',
-        SECRET_ACCESS_KEY: currentValues.s3_secret_access_key || '',
-        ENDPOINT_URL: currentValues.s3_endpoint_url || '',
-        BUCKET_NAME: currentValues.s3_bucket_name || '',
-        REGION: currentValues.s3_region || '',
-      };
-    } else if (currentValues.source === 'GITHUB') {
-      previewConfig.source_configuration = {
-        url: currentValues.github_url || '',
-        path: currentValues.github_path || '',
-        token: currentValues.github_token || '',
-        branch: currentValues.github_branch || '',
-      };
-    } else if (currentValues.source === 'URL') {
-      const filteredUrls = urlInputs.filter((url) => url.trim() !== '');
-      previewConfig.source_configuration = filteredUrls;
-    }
-
-    return JSON.stringify(previewConfig, null, 2);
-  };
-
   const buildDefaultVectorStoreName = () => {
     const name = form.getFieldValue('name')?.trim() || '';
     const version = form.getFieldValue('version')?.trim() || '';
@@ -872,27 +819,6 @@ export function KnowledgeBaseForm({
               </FormGroup>
             )}
           </>
-        )}
-      </form.Subscribe>
-
-      {/* Configuration Preview */}
-      <form.Subscribe selector={(state) => [state.values]}>
-        {() => (
-          <Accordion asDefinitionList={false}>
-            <AccordionItem>
-              <AccordionToggle
-                onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
-                id="preview-toggle"
-              >
-                Configuration Preview
-              </AccordionToggle>
-              <AccordionContent id="preview-content" hidden={!isPreviewExpanded}>
-                <CodeBlock>
-                  <CodeBlockCode>{generatePreviewJson()}</CodeBlockCode>
-                </CodeBlock>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
         )}
       </form.Subscribe>
 

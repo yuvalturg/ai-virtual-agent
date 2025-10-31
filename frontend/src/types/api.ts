@@ -32,3 +32,7 @@ export interface LlamaStackResponse {
 export type LlamaStackParser = {
   parse(text: string): string | null;
 };
+
+export interface ErrorResponse {
+  detail?: string;
+}

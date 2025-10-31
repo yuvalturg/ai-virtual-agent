@@ -1036,12 +1036,8 @@ function MyAgents() {
             View and manage your deployed AI agents.
           </p>
         </FlexItem>
-        <FlexItem>
-          <NewAgentCard />
-        </FlexItem>
-        <FlexItem>
-          <AgentList />
-        </FlexItem>
+        <NewAgentCard />
+        <AgentList />
       </Flex>
     </div>
   );
