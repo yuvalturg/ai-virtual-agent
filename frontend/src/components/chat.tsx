@@ -137,7 +137,8 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       // Session list will be refreshed when user opens the drawer (on-demand)
     },
   });
-  const contentToText = (content: SimpleContentItem): string => {
+  // Memoized content conversion to prevent recreation on every render
+  const contentToText = React.useCallback((content: SimpleContentItem): string => {
     if (content.type === 'input_text' || content.type === 'output_text') {
       return content.text;
     }
@@ -151,44 +152,33 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     }
 
     return '';
-  };
-
-  const multipleContentToText = React.useCallback((content: SimpleContentItem[]): string => {
-    return content.map((m) => contentToText(m)).join('\n');
   }, []);
 
-  // Convert our chat messages to PatternFly format
-  const messages = React.useMemo(
-    () =>
-      chatMessages.map(
-        (msg): MessageProps => ({
-          id: msg.id,
-          role: msg.role === 'user' ? 'user' : 'bot',
-          content: multipleContentToText(msg.content),
-          name: msg.role === 'user' ? 'You' : 'Agent',
-          timestamp: msg.timestamp.toLocaleString(),
-          avatar: msg.role === 'user' ? userAvatar : botAvatar,
-          avatarProps: { isBordered: true },
-          isLoading:
-            msg.role === 'assistant' &&
-            isLoading &&
-            msg.id === chatMessages[chatMessages.length - 1]?.id,
-        })
-      ),
-    [chatMessages, isLoading, multipleContentToText]
+  const multipleContentToText = React.useCallback(
+    (content: SimpleContentItem[]): string => {
+      return content.map((m) => contentToText(m)).join('\n');
+    },
+    [contentToText]
   );
 
-  const displayMode = ChatbotDisplayMode.embedded;
+  // Convert our chat messages to PatternFly format
+  const messages = React.useMemo(() => {
+    const lastMessageId = chatMessages[chatMessages.length - 1]?.id;
+    return chatMessages.map(
+      (msg): MessageProps => ({
+        id: msg.id,
+        role: msg.role === 'user' ? 'user' : 'bot',
+        content: multipleContentToText(msg.content),
+        name: msg.role === 'user' ? 'You' : 'Agent',
+        timestamp: msg.timestamp.toLocaleString(),
+        avatar: msg.role === 'user' ? userAvatar : botAvatar,
+        avatarProps: { isBordered: true },
+        isLoading: msg.role === 'assistant' && isLoading && msg.id === lastMessageId,
+      })
+    );
+  }, [chatMessages, isLoading, multipleContentToText]);
 
-  // Track message composer width to align suggestions with it
-  useEffect(() => {
-    // Keeping observer attached in case of future width-based logic
-    if (!composerRef.current) return;
-    const el = composerRef.current;
-    const ro = new ResizeObserver(() => {});
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const displayMode = ChatbotDisplayMode.embedded;
 
   // Load demo questions for the selected agent (if template-backed)
   useEffect(() => {
