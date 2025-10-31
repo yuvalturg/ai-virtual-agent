@@ -1,7 +1,7 @@
 // Export all custom hooks
 export { useAgents } from './useAgents';
 export { useKnowledgeBases } from './useKnowledgeBases';
-export { useMCPServers } from './useMCPServers';
+export { useMCPServers, useDiscoveredMCPServers } from './useMCPServers';
 export { useModels } from './useModels';
 export { useTools } from './useTools';
 export { useShields } from './useShields';

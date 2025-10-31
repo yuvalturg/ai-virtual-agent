@@ -18,6 +18,7 @@ import {
   ModalFooter,
   Button,
   Icon,
+  Alert,
 } from '@patternfly/react-core';
 import { EllipsisVIcon, TrashIcon, EditIcon } from '@patternfly/react-icons';
 import { useState, Fragment } from 'react';
@@ -28,6 +29,8 @@ interface MCPServerCardProps {
   onDelete?: (toolgroup_id: string) => void;
   onEdit?: (mcpServer: MCPServer) => void;
   isDeleting?: boolean;
+  deleteError?: Error | null;
+  resetDeleteError?: () => void;
 }
 
 export function MCPServerCard({
@@ -35,6 +38,8 @@ export function MCPServerCard({
   onDelete,
   onEdit,
   isDeleting = false,
+  deleteError,
+  resetDeleteError,
 }: MCPServerCardProps) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -43,6 +48,10 @@ export function MCPServerCard({
   const onExpand = () => setIsExpanded(!isExpanded);
 
   const toggleModal = () => {
+    if (modalOpen && resetDeleteError) {
+      // Clear error when closing modal
+      resetDeleteError();
+    }
     setModalOpen(!modalOpen);
   };
 
@@ -111,16 +120,24 @@ export function MCPServerCard({
       >
         <ModalHeader title="Delete MCP Server" labelId="delete-mcp-modal-title" />
         <ModalBody id="delete-mcp-modal-desc">
-          Are you sure you want to delete this MCP server? This action cannot be undone.
+          {deleteError ? (
+            <Alert variant="danger" title="Error deleting MCP server" isInline>
+              {deleteError.message}
+            </Alert>
+          ) : (
+            'Are you sure you want to delete this MCP server? This action cannot be undone.'
+          )}
         </ModalBody>
-        <ModalFooter>
-          <Button isLoading={isDeleting} onClick={handleDeleteServer} variant="danger">
-            Delete
-          </Button>
-          <Button variant="link" onClick={toggleModal}>
-            Cancel
-          </Button>
-        </ModalFooter>
+        {!deleteError && (
+          <ModalFooter>
+            <Button isLoading={isDeleting} onClick={handleDeleteServer} variant="danger">
+              Delete
+            </Button>
+            <Button variant="link" onClick={toggleModal}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        )}
       </Modal>
     </Fragment>
   );

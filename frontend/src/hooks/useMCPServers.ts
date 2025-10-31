@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MCPServer, MCPServerCreate } from '@/types';
+import { MCPServer, MCPServerCreate, DiscoveredMCPServer } from '@/types';
 import {
   fetchMCPServers,
   createMCPServer,
   updateMCPServer,
   deleteMCPServer,
   syncMCPServers,
+  discoverMCPServers,
 } from '@/services/mcp-servers';
 
 export const useMCPServers = () => {
@@ -22,6 +23,7 @@ export const useMCPServers = () => {
     mutationFn: createMCPServer,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+      void queryClient.invalidateQueries({ queryKey: ['tools'] }); // MCP servers are toolgroups
     },
     onError: (error) => {
       console.error('Failed to create MCP server:', error);
@@ -37,6 +39,7 @@ export const useMCPServers = () => {
     mutationFn: ({ toolgroup_id, serverUpdate }) => updateMCPServer(toolgroup_id, serverUpdate),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+      void queryClient.invalidateQueries({ queryKey: ['tools'] }); // MCP servers are toolgroups
     },
     onError: (error) => {
       console.error('Failed to update MCP server:', error);
@@ -48,6 +51,7 @@ export const useMCPServers = () => {
     mutationFn: deleteMCPServer,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+      void queryClient.invalidateQueries({ queryKey: ['tools'] }); // MCP servers are toolgroups
     },
     onError: (error) => {
       console.error('Failed to delete MCP server:', error);
@@ -59,6 +63,7 @@ export const useMCPServers = () => {
     mutationFn: syncMCPServers,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+      void queryClient.invalidateQueries({ queryKey: ['tools'] }); // MCP servers are toolgroups
     },
     onError: (error) => {
       console.error('Failed to sync MCP servers:', error);
@@ -68,6 +73,7 @@ export const useMCPServers = () => {
   // Helper function to refresh MCP servers
   const refreshMCPServers = () => {
     void queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+    void queryClient.invalidateQueries({ queryKey: ['tools'] }); // MCP servers are toolgroups
   };
 
   return {
@@ -93,7 +99,27 @@ export const useMCPServers = () => {
     deleteError: deleteMCPServerMutation.error,
     syncError: syncMCPServersMutation.error,
 
+    // Mutation resets
+    resetCreateError: createMCPServerMutation.reset,
+    resetUpdateError: updateMCPServerMutation.reset,
+    resetDeleteError: deleteMCPServerMutation.reset,
+
     // Utilities
     refreshMCPServers,
+  };
+};
+
+export const useDiscoveredMCPServers = (enabled: boolean = true) => {
+  const discoveredServersQuery = useQuery<DiscoveredMCPServer[], Error>({
+    queryKey: ['discoveredMCPServers'],
+    queryFn: discoverMCPServers,
+    enabled,
+  });
+
+  return {
+    discoveredServers: discoveredServersQuery.data,
+    isDiscovering: discoveredServersQuery.isLoading,
+    discoverError: discoveredServersQuery.error,
+    refetchDiscovered: discoveredServersQuery.refetch,
   };
 };

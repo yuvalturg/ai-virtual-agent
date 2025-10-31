@@ -34,3 +34,10 @@ export type Tool = ToolGroup;
 export interface ToolAssociationInfo {
   toolgroup_id: string;
 }
+
+export interface DiscoveredMCPServer {
+  source: 'mcpserver' | 'service';
+  name: string;
+  description: string;
+  endpoint_url: string;
+}
