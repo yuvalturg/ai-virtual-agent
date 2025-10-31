@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  release:
+    if: github.repository_owner == 'rh-ai-quickstart' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version (auto-increment or use manual bump)
+        id: version
+        run: |
+          current=$(grep '^appVersion:' deploy/cluster/helm/Chart.yaml | awk '{print $2}' | tr -d '"')
+          echo "Current version: $current"
+
+          # Check if tag exists for this version
+          tag_name="v${current}"
+          if git rev-parse "$tag_name" >/dev/null 2>&1; then
+            echo "Tag $tag_name already exists, auto-incrementing patch version"
+
+            # Parse version and increment patch
+            IFS='.' read -r major minor patch <<< "$current"
+            patch=$((patch + 1))
+            new_version="${major}.${minor}.${patch}"
+
+            echo "Auto-incremented to: $new_version"
+          else
+            echo "Tag $tag_name does not exist, using current version (manual bump detected)"
+            new_version="$current"
+          fi
+
+          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+          echo "Final version: $new_version"
+
+      - name: Update Chart.yaml
+        run: |
+          new_version="${{ steps.version.outputs.new_version }}"
+
+          # Update both version and appVersion to the same value
+          sed -i "0,/^version:.*/s/^version:.*/version: $new_version/" deploy/cluster/helm/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"$new_version\"/" deploy/cluster/helm/Chart.yaml
+
+          echo "Updated Chart.yaml:"
+          grep -E '^(version|appVersion):' deploy/cluster/helm/Chart.yaml
+
+      - name: Commit version bump
+        run: |
+          new_version="${{ steps.version.outputs.new_version }}"
+          git add deploy/cluster/helm/Chart.yaml
+          git commit -m "chore: bump version to $new_version [skip ci]"
+          git push
+
+      - name: Create Git tag
+        run: |
+          new_version="${{ steps.version.outputs.new_version }}"
+          git tag -a "v$new_version" -m "Release v$new_version"
+          git push origin "v$new_version"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/cluster/Containerfile
+          push: true
+          tags: |
+            quay.io/ecosystem-appeng/ai-virtual-agent:${{ steps.version.outputs.new_version }}
+            quay.io/ecosystem-appeng/ai-virtual-agent:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package Helm chart
+        run: |
+          helm dependency update deploy/cluster/helm/
+          helm package deploy/cluster/helm/ -d .helm-releases
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          name: Release v${{ steps.version.outputs.new_version }}
+          body: |
+            ## Release v${{ steps.version.outputs.new_version }}
+
+            **Docker Image:**
+            ```
+            quay.io/ecosystem-appeng/ai-virtual-agent:${{ steps.version.outputs.new_version }}
+            ```
+
+            **Install Helm Chart:**
+            ```bash
+            helm install ai-virtual-agent https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.new_version }}/ai-virtual-agent-*.tgz
+            ```
+          files: .helm-releases/*.tgz
+          draft: false
+          prerelease: false
