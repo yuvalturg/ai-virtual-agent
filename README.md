@@ -1,5 +1,8 @@
 # Build an AI-powered virtual agent
 
+[![GitHub release](https://img.shields.io/github/v/release/rh-ai-quickstart/ai-virtual-agent)](https://github.com/rh-ai-quickstart/ai-virtual-agent/releases)
+[![Docker Image](https://img.shields.io/badge/quay.io-ai--virtual--agent-blue)](https://quay.io/repository/rh-ai-quickstart/ai-virtual-agent)
+
 Build and deploy a conversational AI virtual agent on Red Hat OpenShift AI to automate customer interactions and provide instant support.
 
 ## Detailed description
@@ -113,7 +116,7 @@ const expert = await initializeAgentTemplate({
 #### 👩‍💻 **For Developers**
 - **[Local Development Guide](DEVELOPMENT.md)** - Containerized development environment (without cluster)
 - **[Contributing Guide](CONTRIBUTING.md)** - Development setup and workflow
-- **[Backend API Reference](docs/api-reference.md)** - Complete API documentation
+- **[Backend API Reference](docs/API.md)** - Complete API documentation
 - **[Frontend Architecture](frontend/README.md)** - UI components and patterns
 
 #### 🚀 **For Deployment**
@@ -122,9 +125,8 @@ const expert = await initializeAgentTemplate({
 - **[Knowledge Base Setup](docs/knowledge-base-architecture.md)** - Document processing pipeline
 
 #### 🔧 **For Integration**
-- **[MCP Servers](mcpservers/README.md)** - Building custom tool integrations
 - **[Testing Guide](tests/README.md)** - Running integration tests
-- **[API Reference](docs/api-reference.md)** - Backend API endpoints
+- **[API Reference](docs/API.md)** - Backend API endpoints
 
 ### Project Structure
 
@@ -132,7 +134,6 @@ const expert = await initializeAgentTemplate({
 ai-virtual-agent/
 ├── frontend/           # React UI with PatternFly components
 ├── backend/            # FastAPI server with PostgreSQL
-├── mcpservers/         # Custom MCP tool servers
 ├── docs/               # Architecture and API documentation
 ├── deploy/
 │   ├── cluster/        # Kubernetes/Helm cluster deployment

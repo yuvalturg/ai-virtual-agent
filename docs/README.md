@@ -19,13 +19,12 @@ Welcome to the AI Virtual Agent Quickstart documentation! This page provides eas
 | [Virtual Agents Architecture](virtual-agents-architecture.md) | How AI agents work in the platform |
 | [Knowledge Base Architecture](knowledge-base-architecture.md) | Document ingestion and RAG system |
 | [Agent Templates Guide](agent-templates-ingestion.md) | Pre-configured agent templates |
-| [MCP Servers Guide](../mcpservers/README.md) | External tool server development |
 
 ### 💻 **Technical Implementation**
 
 | Document | Description |
 |----------|-------------|
-| [API Reference](api-reference.md) | Complete backend API documentation |
+| [API Reference](API.md) | Complete backend API documentation |
 | [Frontend Documentation](../frontend/README.md) | React frontend architecture |
 | [Backend Documentation](../backend/README.md) | FastAPI backend architecture |
 | [Testing Documentation](../tests/README.md) | Integration testing setup |

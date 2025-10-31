@@ -90,8 +90,8 @@ jobs:
           file: deploy/cluster/Containerfile
           push: true
           tags: |
-            quay.io/ecosystem-appeng/ai-virtual-agent:${{ steps.version.outputs.new_version }}
-            quay.io/ecosystem-appeng/ai-virtual-agent:latest
+            quay.io/rh-ai-quickstart/ai-virtual-agent:${{ steps.version.outputs.new_version }}
+            quay.io/rh-ai-quickstart/ai-virtual-agent:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -113,7 +113,7 @@ jobs:
 
             **Docker Image:**
             ```
-            quay.io/ecosystem-appeng/ai-virtual-agent:${{ steps.version.outputs.new_version }}
+            quay.io/rh-ai-quickstart/ai-virtual-agent:${{ steps.version.outputs.new_version }}
             ```
 
             **Install Helm Chart:**

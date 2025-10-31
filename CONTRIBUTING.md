@@ -503,7 +503,7 @@ Before making significant changes, familiarize yourself with the system architec
 
 - **[Virtual Agents Architecture](docs/virtual-agents-architecture.md)** - Understanding agent lifecycle and chat system
 - **[Knowledge Base Architecture](docs/knowledge-base-architecture.md)** - Document processing and RAG implementation
-- **[API Reference](docs/api-reference.md)** - Complete API documentation
+- **[API Reference](docs/API.md)** - Complete API documentation
 - **[Installation Guide](INSTALLING.md)** - Production deployment guide
 
 ### Key Concepts
