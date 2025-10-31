@@ -1,7 +1,7 @@
 # AI Virtual Agent - Helm Deployment Makefile
 # Run `make help` to see available targets.
 
-.PHONY: help install install-help install-status deps uninstall install-namespace list-models
+.PHONY: help install install-help install-status deps uninstall install-namespace list-models list-mcps
 
 # -----------------------------------------------------------------------------
 # Helper
@@ -11,7 +11,7 @@ help: ## Show help for helm deployment targets
 	@echo "==========================================="
 	@echo ""
 	@echo "☸️  Deployment Commands:"
-	@grep -E '^(install|install-help|install-status|deps|uninstall|list-models):.*?## ' $(MAKEFILE_LIST) | \
+	@grep -E '^(install|install-help|install-status|deps|uninstall|list-models|list-mcps):.*?## ' $(MAKEFILE_LIST) | \
 		sed -e 's/^/  /' -e 's/:.*## / - /'
 	@echo ""
 	@echo "For detailed deployment help, run: make install-help"
@@ -85,6 +85,9 @@ deps: ## Update Helm dependencies
 
 list-models: deps ## List available models
 	@helm template dummy-release $(AI_VIRTUAL_AGENT_CHART) --set llm-service._debugListModels=true | grep ^model:
+
+list-mcps: deps
+	@helm template dummy-release $(AI_VIRTUAL_AGENT_CHART) --set mcp-servers._debugListMcps=true | grep ^MCP
 
 install-namespace: ## Create and configure deployment namespace
 	@oc create namespace $(NAMESPACE) &> /dev/null && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
