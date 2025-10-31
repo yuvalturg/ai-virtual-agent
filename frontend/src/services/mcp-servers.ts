@@ -1,9 +1,5 @@
 import { MCP_SERVERS_API_ENDPOINT } from '@/config/api';
-import { MCPServer, MCPServerCreate, DiscoveredMCPServer } from '@/types';
-
-interface ErrorResponse {
-  detail?: string;
-}
+import { MCPServer, MCPServerCreate, DiscoveredMCPServer, ErrorResponse } from '@/types';
 
 export const fetchMCPServers = async (): Promise<MCPServer[]> => {
   const response = await fetch(MCP_SERVERS_API_ENDPOINT);

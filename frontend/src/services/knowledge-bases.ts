@@ -1,10 +1,13 @@
 import { KNOWLEDGE_BASES_API_ENDPOINT } from '@/config/api';
-import { KnowledgeBase, KnowledgeBaseWithStatus } from '@/types';
+import { KnowledgeBase, KnowledgeBaseWithStatus, ErrorResponse } from '@/types';
 
 export const fetchKnowledgeBasesWithStatus = async (): Promise<KnowledgeBaseWithStatus[]> => {
   const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT);
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as KnowledgeBaseWithStatus[];
@@ -21,7 +24,10 @@ export const createKnowledgeBase = async (
     body: JSON.stringify(newKnowledgeBase),
   });
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as KnowledgeBase;
@@ -32,6 +38,9 @@ export const deleteKnowledgeBase = async (vectorStoreName: string): Promise<void
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
 };

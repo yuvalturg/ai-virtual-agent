@@ -2,6 +2,7 @@ import { Agent, NewAgent } from '@/types/agent';
 import { ToolGroup, ToolAssociationInfo, SamplingStrategy, KnowledgeBaseWithStatus } from '@/types';
 import {
   ActionGroup,
+  Alert,
   Button,
   Form,
   FormGroup,
@@ -30,6 +31,7 @@ interface AgentFormProps {
   onSubmit: (values: NewAgent) => void;
   isSubmitting: boolean;
   onCancel: () => void;
+  error?: Error | null;
 }
 
 // Form interface for internal form state (user-friendly)
@@ -125,7 +127,13 @@ const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): Ne
   };
 };
 
-export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel }: AgentFormProps) {
+export function AgentForm({
+  defaultAgentProps,
+  onSubmit,
+  isSubmitting,
+  onCancel,
+  error,
+}: AgentFormProps) {
   // Use custom hooks to get data
   const { models, isLoadingModels, modelsError } = useModels();
   const {
@@ -212,7 +220,7 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
     }
     return knowledgeBases.map((kb: KnowledgeBaseWithStatus) => ({
       value: kb.vector_store_name, // Use vector_store_name as the primary key
-      children: kb.name, // The name will be displayed
+      children: `${kb.name} (${kb.vector_store_name})`, // Display name with vector_store_name
       id: `kb-option-${kb.vector_store_name}`, // Unique ID for React key and ARIA
     }));
   }, [knowledgeBases, isLoadingKnowledgeBases, knowledgeBasesError]);
@@ -283,6 +291,7 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
         void form.handleSubmit();
       }}
     >
+      {error && <Alert variant="danger" title={error.message} />}
       <form.Field
         name="name"
         validators={{
@@ -574,7 +583,7 @@ export function AgentForm({ defaultAgentProps, onSubmit, isSubmitting, onCancel 
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      <ActionGroup>
+      <ActionGroup className="pf-v6-u-mt-md">
         <form.Subscribe
           selector={(state) => [state.canSubmit, state.isSubmitting, state.isPristine]}
         >

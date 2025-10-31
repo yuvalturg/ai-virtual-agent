@@ -10,6 +10,7 @@ import {
   TemplateInitializationRequest,
   TemplateInitializationResponse,
 } from '@/types/agent';
+import { ErrorResponse } from '@/types';
 
 // Re-export types for backward compatibility
 export type {
@@ -26,7 +27,10 @@ const API_BASE_URL = '/api/v1';
 export async function getAvailableTemplates(): Promise<string[]> {
   const response = await fetch(`${API_BASE_URL}/agent_templates/`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch templates: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to fetch templates: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? `Failed to fetch templates: ${response.statusText}`);
   }
   return response.json() as Promise<string[]>;
 }
@@ -37,7 +41,10 @@ export async function getAvailableTemplates(): Promise<string[]> {
 export async function getTemplateDetails(templateName: string): Promise<AgentTemplate> {
   const response = await fetch(`${API_BASE_URL}/agent_templates/${templateName}`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch template details: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to fetch template details: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? `Failed to fetch template details: ${response.statusText}`);
   }
   return response.json() as Promise<AgentTemplate>;
 }
@@ -57,8 +64,10 @@ export async function initializeAgentFromTemplate(
   });
 
   if (!response.ok) {
-    const errorData = (await response.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(errorData.detail || `Failed to initialize agent: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to initialize agent: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? `Failed to initialize agent: ${response.statusText}`);
   }
 
   return response.json() as Promise<TemplateInitializationResponse>;
@@ -77,9 +86,11 @@ export async function initializeAllTemplates(): Promise<TemplateInitializationRe
   });
 
   if (!response.ok) {
-    const errorData = (await response.json().catch(() => ({}))) as { detail?: string };
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to initialize all templates: ${response.statusText}`,
+    }))) as ErrorResponse;
     throw new Error(
-      errorData.detail || `Failed to initialize all templates: ${response.statusText}`
+      errorData.detail ?? `Failed to initialize all templates: ${response.statusText}`
     );
   }
 
@@ -99,8 +110,10 @@ export async function initializeSuite(suiteId: string): Promise<TemplateInitiali
   });
 
   if (!response.ok) {
-    const errorData = (await response.json()) as { detail?: string };
-    throw new Error(errorData.detail || `Failed to initialize suite: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to initialize suite: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? `Failed to initialize suite: ${response.statusText}`);
   }
 
   return response.json() as Promise<TemplateInitializationResponse[]>;
@@ -112,7 +125,12 @@ export async function initializeSuite(suiteId: string): Promise<TemplateInitiali
 export async function getSuitesByCategory(): Promise<Record<string, string[]>> {
   const response = await fetch(`/api/v1/agent_templates/suites/categories`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch suites by category: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to fetch suites by category: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(
+      errorData.detail ?? `Failed to fetch suites by category: ${response.statusText}`
+    );
   }
   return response.json() as Promise<Record<string, string[]>>;
 }
@@ -131,7 +149,10 @@ export async function getSuiteDetails(suiteId: string): Promise<{
 }> {
   const response = await fetch(`/api/v1/agent_templates/suites/${suiteId}/details`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch suite details: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to fetch suite details: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? `Failed to fetch suite details: ${response.statusText}`);
   }
   return response.json() as Promise<{
     id: string;
@@ -160,7 +181,10 @@ export async function getCategoriesInfo(): Promise<
 > {
   const response = await fetch(`/api/v1/agent_templates/categories/info`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch categories info: ${response.statusText}`);
+    const errorData = (await response.json().catch(() => ({
+      detail: `Failed to fetch categories info: ${response.statusText}`,
+    }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? `Failed to fetch categories info: ${response.statusText}`);
   }
   return response.json() as Promise<
     Record<

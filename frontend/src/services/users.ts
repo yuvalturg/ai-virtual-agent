@@ -1,5 +1,6 @@
 import { USERS_API_ENDPOINT } from '@/config/api';
 import { User } from '@/types/auth';
+import { ErrorResponse } from '@/types';
 
 // Re-export types for backward compatibility
 export type { User } from '@/types/auth';
@@ -7,7 +8,10 @@ export type { User } from '@/types/auth';
 export const fetchUsers = async (): Promise<User[]> => {
   const response = await fetch(USERS_API_ENDPOINT);
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as User[];
@@ -22,7 +26,10 @@ export const fetchCurrentUser = async (): Promise<User> => {
     if (response.status === 403) {
       throw new Error('User not found');
     }
-    throw new Error('Failed to fetch current user');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to fetch current user' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to fetch current user');
   }
   const data: unknown = await response.json();
   return data as User;
@@ -31,7 +38,10 @@ export const fetchCurrentUser = async (): Promise<User> => {
 export const fetchUserById = async (userId: string): Promise<User> => {
   const response = await fetch(`${USERS_API_ENDPOINT}${userId}`);
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as User;
@@ -48,7 +58,10 @@ export const updateUserAgents = async (userId: string, agentIds: string[]): Prom
     body: JSON.stringify({ agent_ids: agentIds }),
   });
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as User;
@@ -57,7 +70,10 @@ export const updateUserAgents = async (userId: string, agentIds: string[]): Prom
 export const getUserAgents = async (userId: string): Promise<string[]> => {
   const response = await fetch(`${USERS_API_ENDPOINT}${userId}/agents`);
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as string[];
@@ -74,7 +90,10 @@ export const removeUserAgents = async (userId: string, agentIds: string[]): Prom
     body: JSON.stringify({ agent_ids: agentIds }),
   });
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as User;
@@ -96,7 +115,10 @@ export const createUser = async (newUser: NewUser): Promise<User> => {
     body: JSON.stringify(newUser),
   });
   if (!response.ok) {
-    throw new Error('Failed to create user');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to create user' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to create user');
   }
   const data: unknown = await response.json();
   return data as User;
@@ -117,7 +139,10 @@ export const updateUser = async (userId: string, updates: UpdateUser): Promise<U
     body: JSON.stringify(updates),
   });
   if (!response.ok) {
-    throw new Error('Failed to update user');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to update user' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to update user');
   }
   const data: unknown = await response.json();
   return data as User;
@@ -128,6 +153,9 @@ export const deleteUser = async (userId: string): Promise<void> => {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete user');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to delete user' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to delete user');
   }
 };

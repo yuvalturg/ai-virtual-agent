@@ -174,12 +174,6 @@ export function KnowledgeBaseCard({
               <span className="pf-v6-u-text-color-subtle">Source: </span>
               {knowledgeBase.source}
             </FlexItem>
-            <FlexItem>
-              <span className="pf-v6-u-text-color-subtle">Configuration: </span>
-              {typeof knowledgeBase.source_configuration === 'string'
-                ? knowledgeBase.source_configuration
-                : JSON.stringify(knowledgeBase.source_configuration, null, 2)}
-            </FlexItem>
           </Flex>
         </CardBody>
       </CardExpandableContent>

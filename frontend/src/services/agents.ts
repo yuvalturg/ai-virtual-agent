@@ -1,11 +1,14 @@
 import { AGENTS_API_ENDPOINT } from '@/config/api';
-import { Agent, NewAgent } from '@/types/agent';
+import { Agent, NewAgent, ErrorResponse } from '@/types';
 import { getUserAgents } from '@/services/users';
 
 export const fetchAgents = async (): Promise<Agent[]> => {
   const response = await fetch(AGENTS_API_ENDPOINT);
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as Agent[];
@@ -45,7 +48,10 @@ export const createAgent = async (newAgent: NewAgent): Promise<Agent> => {
     body: JSON.stringify(newAgent),
   });
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   const data: unknown = await response.json();
   return data as Agent;
@@ -56,7 +62,10 @@ export const deleteAgent = async (agent_id: string): Promise<void> => {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Network response was not ok' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Network response was not ok');
   }
   return;
 };
