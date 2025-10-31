@@ -9,6 +9,14 @@ rules:
   resources:
   - secrets
   - endpoints
+  - services
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - toolhive.stacklok.dev
+  resources:
+  - mcpservers
   verbs:
   - get
   - list

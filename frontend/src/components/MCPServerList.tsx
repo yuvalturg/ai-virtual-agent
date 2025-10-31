@@ -19,6 +19,8 @@ export function MCPServerList() {
     error: serversError,
     deleteMCPServer,
     isDeleting,
+    deleteError,
+    resetDeleteError,
     refreshMCPServers,
   } = useMCPServers();
 
@@ -106,6 +108,7 @@ export function MCPServerList() {
           mcpServers.length > 0 &&
           mcpServers
             .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
+            .filter((server) => server.toolgroup_id !== editingServer?.toolgroup_id)
             .map((server) => (
               <MCPServerCard
                 key={server.toolgroup_id}
@@ -113,6 +116,8 @@ export function MCPServerList() {
                 onDelete={handleDeleteServer}
                 onEdit={handleEditServer}
                 isDeleting={isDeleting}
+                deleteError={deleteError}
+                resetDeleteError={resetDeleteError}
               />
             ))}
         {!isLoadingServers && !serversError && mcpServers && mcpServers.length === 0 && (
