@@ -13,6 +13,6 @@ spec:
   port:
     targetPort: proxy
   tls:
-    termination: reencrypt
+    termination: edge
     insecureEdgeTerminationPolicy: Redirect
   wildcardPolicy: None

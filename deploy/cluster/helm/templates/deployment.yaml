@@ -50,36 +50,47 @@ spec:
               echo "$url is ready."
       containers:
         - name: oauth-proxy
-          args:
-            - -provider=openshift
-            - -https-address=:8888
-            - -http-address=:8887
-            - -email-domain=*
-            - -upstream=http://localhost:8000
-            - -pass-user-headers=true
-            - -openshift-delegate-urls={"/validate-token":{"resource":"secrets","namespace":"{{ .Release.Namespace }}","verb":"get"}}
-            - -tls-cert=/etc/tls/private/tls.crt
-            - -tls-key=/etc/tls/private/tls.key
-            - -cookie-secret-file=/etc/proxy/secrets/session_secret
-            - -openshift-service-account={{ include "ai-virtual-agent.serviceAccountName" . }}
-            - -openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-            - -skip-auth-regex=^/metrics
-            - -skip-auth-regex=^/validate$
-            - -skip-auth-regex=^/validate/$
-          image: quay.io/openshift/origin-oauth-proxy:4.17
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
           imagePullPolicy: IfNotPresent
+          args:
+            - --provider=oidc
+            - --provider-display-name=Keycloak
+            - --http-address=:8888
+            - --email-domain=*
+            - --upstream=http://localhost:8000
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+            - --cookie-name=_oauth2_proxy
+            - --cookie-secret=$(COOKIE_SECRET)
+            - --client-id=oauth
+            - --client-secret=$(CLIENT_SECRET)
+            - --oidc-issuer-url={{ .Values.keycloak.publicUrl }}/realms/ai-virtual-agent
+            - --reverse-proxy=true
+            - --pass-authorization-header=true
+            - --pass-access-token=true
+            - --set-authorization-header=true
+            - --set-xauthrequest=true
+            - --scope=openid email profile
+            - --skip-provider-button=true
+            - --insecure-oidc-allow-unverified-email=true
+            - --code-challenge-method=S256
+            - --user-id-claim=name
+          env:
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-kc-client-oauth
+                  key: cookie-secret
+            - name: CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-kc-client-oauth
+                  key: client-secret
           ports:
             - name: oauth-proxy
               containerPort: 8888
               protocol: TCP
-            - name: proxy-http
-              containerPort: 8887
-              protocol: TCP
-          volumeMounts:
-            - mountPath: /etc/tls/private
-              name: secret-ai-virtual-agent-tls
-            - mountPath: /etc/proxy/secrets
-              name: secret-ai-virtual-agent-proxy
 
         - name: {{ .Chart.Name }}
           {{- with .Values.securityContext }}

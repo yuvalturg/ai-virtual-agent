@@ -20,5 +20,8 @@ dependencies:
 - name: oracle-db
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.2
-digest: sha256:29807fd0df5f95233159377e5dcb9b84f737ca1fa00ccfc77ba7bbde4a0ee4b3
-generated: "2025-10-30T13:30:48.034971395-04:00"
+- name: keycloak
+  repository: file://../../../../ai-architecture-charts/keycloak/helm
+  version: 0.1.0
+digest: sha256:302e83a14bf3854cd24dac8d17a626222d7b24dbecdedf5c67eff8ecd528ed0f
+generated: "2025-11-04T12:31:56.293686331-05:00"

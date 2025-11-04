@@ -46,3 +46,6 @@ dependencies:
     version: 0.5.2
     repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
     condition: oracle-db.enabled
+  - name: keycloak
+    version: 0.1.0
+    repository: file://../../../../ai-architecture-charts/keycloak/helm
