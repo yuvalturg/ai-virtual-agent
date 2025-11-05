@@ -79,21 +79,8 @@ async def validate(auth_request: AuthRequest, db: AsyncSession = Depends(get_db)
             message="Authentication successful",
         )
 
-    # Prepare headers
-    headers = token_to_auth_header(auth_request.api_key)
-    user_headers = get_user_headers_from_request(auth_request.request)
-    headers.update(user_headers)
-
-    # Make validation request
-    response = await make_http_request(SAR_VALIDATION_URL, headers)
-
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Authentication failed: {response.status_code}",
-        )
-
-    # Get user from database
+    # Get user from database based on OAuth proxy headers
+    # OAuth proxy already validated the user, we just need to look them up
     user = await get_user_from_headers(auth_request.request.headers, db)
     if not user:
         raise HTTPException(

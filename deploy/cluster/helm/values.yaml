@@ -141,7 +141,7 @@ llama-stack:
   auth:
     provider_config:
       type: "custom"
-      endpoint: http://ai-virtual-agent:8887/validate
+      endpoint: http://ai-virtual-agent:8000/validate
     access_policy:
     - permit:
         actions: [create]
@@ -232,13 +232,26 @@ keycloak:
         providerId: openshift-v4
         enabled: true
         trustEmail: true
-        firstBrokerLoginFlowAlias: first broker login
         config:
           baseUrl: https://api.ai-dev04.kni.syseng.devcluster.openshift.com:6443
           # clientId and clientSecret will be injected by Keycloak chart template
           defaultScope: "user:full"
-          syncMode: FORCE
+          syncMode: IMPORT
           userInfoUrl: https://api.ai-dev04.kni.syseng.devcluster.openshift.com:6443/apis/user.openshift.io/v1/users/~
+          guiOrder: "1"
+      identityProviderMappers:
+      - name: openshift-username-mapper
+        identityProviderAlias: openshift
+        identityProviderMapper: oidc-user-attribute-idp-mapper
+        config:
+          claim: metadata.name
+          user.attribute: username
+      - name: openshift-email-mapper
+        identityProviderAlias: openshift
+        identityProviderMapper: oidc-user-attribute-idp-mapper
+        config:
+          claim: metadata.name
+          user.attribute: email
 
 oracle-db:
   enabled: false
