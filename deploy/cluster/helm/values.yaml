@@ -147,6 +147,9 @@ configure-pipeline:
       urls:
       - https://raw.githubusercontent.com/burrsutter/sample-pdfs/main/FantaCo/HR/FantaCo-Fabulous-HR-Benefits.pdf
 
+oracle-db:
+  enabled: false
+
 llama-stack:
   auth:
     provider_config:
