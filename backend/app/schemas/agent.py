@@ -28,7 +28,7 @@ class VirtualAgentBase(BaseModel):
     top_k: Optional[int] = None
     max_tokens: Optional[int] = None
     repetition_penalty: Optional[float] = None
-    max_infer_iters: Optional[int] = None
+    max_infer_iters: Optional[int] = 100
 
 
 class VirtualAgentCreate(VirtualAgentBase):

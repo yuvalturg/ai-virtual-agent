@@ -46,11 +46,14 @@ def setup_logging(
 
     # Ensure our backend loggers use DEBUG level
     logging.getLogger("backend").setLevel(logging.DEBUG)
-    logging.getLogger("backend.routes").setLevel(logging.DEBUG)
-    logging.getLogger("backend.routes.chat").setLevel(logging.DEBUG)
-    logging.getLogger("backend.routes.chat_sessions").setLevel(logging.DEBUG)
-    logging.getLogger("backend.routes.llama_stack").setLevel(logging.DEBUG)
-    logging.getLogger("backend.routes.knowledge_bases").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.api").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.api.v1").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.api.v1.chat").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.api.v1.chat_sessions").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.api.v1.llama_stack").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.api.v1.knowledge_bases").setLevel(logging.DEBUG)
+    logging.getLogger("backend.app.services.chat").setLevel(logging.DEBUG)
 
 
 def _get_handlers(log_file: Optional[str], format_string: str) -> list:

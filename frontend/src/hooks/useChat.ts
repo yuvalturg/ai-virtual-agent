@@ -256,10 +256,12 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
                     lastMsg.content[0]?.type === 'output_text'
                   ) {
                     // Create new message object and content array to trigger React update
+                    // IMPORTANT: Append new chunk to existing text, don't replace
+                    const existingText = lastMsg.content[0].text || '';
                     const newContent: SimpleContentItem[] = [
                       {
                         type: 'output_text',
-                        text: parsed,
+                        text: existingText + parsed, // Append new chunk
                       },
                     ];
                     const newLastMsg: ChatMessage = {

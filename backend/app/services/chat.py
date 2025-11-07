@@ -322,6 +322,7 @@ class ChatService:
         # Add optional parameters from agent
         param_mapping = {
             "temperature": "temperature",
+            "max_infer_iters": "max_infer_iters",
         }
 
         for agent_attr, api_param in param_mapping.items():
@@ -353,12 +354,12 @@ class ChatService:
             user_timestamp = datetime.now()
 
             # Call LlamaStack Responses API
-            client = get_client_from_request(self.request)
-
-            # Log the exact call parameters and client info
-            logger.info(f"LlamaStack send: {response_params}")
-            response = await client.responses.create(**response_params)
-            logger.info(f"LlamaStack recv: {response}")
+            # Use async context manager to ensure proper connection cleanup
+            async with get_client_from_request(self.request) as client:
+                # Log the exact call parameters and client info
+                logger.info(f"LlamaStack send: {response_params}")
+                response = await client.responses.create(**response_params)
+                logger.info(f"LlamaStack recv: {response}")
 
             # Capture timestamp when assistant responded (add 1ms to ensure it's after user)
             assistant_timestamp = datetime.now() + timedelta(milliseconds=1)
@@ -366,8 +367,26 @@ class ChatService:
             # Extract content from response.output array
             content = ""
             assistant_content_items = []
+            tool_results = []  # Collect tool outputs for fallback formatting
+
             if hasattr(response, "output") and response.output:
-                for output_item in response.output:
+                for i, output_item in enumerate(response.output):
+                    output_type = type(output_item).__name__
+
+                    # Collect MCP tool call outputs for fallback
+                    if "McpCall" in output_type:
+                        tool_name = getattr(output_item, "name", "unknown")
+                        tool_output = getattr(output_item, "output", None)
+                        tool_error = getattr(output_item, "error", None)
+                        if tool_output or tool_error:
+                            tool_results.append(
+                                {
+                                    "name": tool_name,
+                                    "output": tool_output,
+                                    "error": tool_error,
+                                }
+                            )
+
                     if hasattr(output_item, "content") and output_item.content:
                         # Store the full content array from this output item
                         assistant_content_items.extend(output_item.content)
@@ -375,6 +394,26 @@ class ChatService:
                         for content_item in output_item.content:
                             if hasattr(content_item, "text"):
                                 content += content_item.text
+
+            # If content is empty but we have tool results, format them as response
+            if not content.strip() and tool_results:
+                formatted_results = []
+                for tool_result in tool_results:
+                    if tool_result["error"]:
+                        formatted_results.append(
+                            f"❌ {tool_result['name']}: {tool_result['error']}"
+                        )
+                    elif tool_result["output"]:
+                        # Truncate long outputs
+                        output_str = str(tool_result["output"])
+                        if len(output_str) > 500:
+                            output_str = output_str[:500] + "..."
+                        formatted_results.append(
+                            f"✓ {tool_result['name']}:\n{output_str}"
+                        )
+
+                if formatted_results:
+                    content = "\n\n".join(formatted_results)
 
             # Store conversation turn in database
             if session_id:
@@ -392,7 +431,7 @@ class ChatService:
                 "response_id": response.id,
                 "model": response.model,
                 "usage": getattr(response, "usage", None),
-                "content": content,
+                "content": content or "GIZMO",
                 "agent_id": agent_id,
             }
 
@@ -409,8 +448,7 @@ class ChatService:
         """
         Stream a response using the Responses API with virtual agent configuration.
 
-        This method maintains compatibility with the old interface while using
-        the new Responses API under the hood.
+        This method uses real streaming from LlamaStack's Responses API.
 
         Args:
             agent_id: Virtual agent configuration ID
@@ -421,38 +459,235 @@ class ChatService:
             JSON strings containing response chunks
         """
         try:
-            # Pass InterleavedContent directly to create_response to preserve images
-            response_data = await self.create_response(agent_id, prompt, session_id)
+            # Get virtual agent from database
+            agent = await virtual_agents.get_with_template(self.db, id=agent_id)
+            if not agent:
+                raise Exception(f"Virtual agent {agent_id} not found")
 
-            # Session state will be updated by the background task in llama_stack.py
+            # Build tools in Responses API format
+            tools = await build_responses_tools(
+                agent.tools, agent.vector_store_ids, self.request
+            )
 
-            # Stream the response content
-            # TODO: When LlamaStack Responses API supports streaming, update this
+            # Prepare input with full conversation history
+            openai_input = await self._prepare_conversation_input(session_id, prompt)
+
+            # Prepare streaming request parameters
+            response_params = {
+                "model": agent.model_name,
+                "input": openai_input,
+                "stream": True,  # Enable streaming!
+            }
+
+            # Add optional parameters
+            if agent.temperature is not None:
+                response_params["temperature"] = agent.temperature
+            if agent.max_infer_iters is not None:
+                response_params["max_infer_iters"] = agent.max_infer_iters
+            if agent.prompt:
+                response_params["instructions"] = agent.prompt
+            if tools:
+                response_params["tools"] = tools
+
+            # Track message timestamps and content
+            user_timestamp = datetime.now()
+            response_id = None
+            accumulated_content = ""
+            assistant_content_items = []
+
+            # Stream from LlamaStack
+            async with get_client_from_request(self.request) as client:
+                async for chunk in await client.responses.create(**response_params):
+                    chunk_type = chunk.type if hasattr(chunk, "type") else "unknown"
+
+                    # Check for error chunks
+                    if hasattr(chunk, "error") and chunk.error:
+                        error_msg = (
+                            chunk.error.get("message", str(chunk.error))
+                            if isinstance(chunk.error, dict)
+                            else str(chunk.error)
+                        )
+                        yield json.dumps(
+                            jsonable_encoder(
+                                {
+                                    "type": "error",
+                                    "content": f"Error: {error_msg}",
+                                    "session_id": session_id,
+                                }
+                            )
+                        )
+                        continue
+
+                    # Handle different chunk types
+                    if chunk_type == "response.output_text.delta":
+                        # Text content delta - the delta is a direct attribute
+                        if hasattr(chunk, "delta"):
+                            text = chunk.delta
+                            accumulated_content += text
+                            # Stream to frontend
+                            yield json.dumps(
+                                jsonable_encoder(
+                                    {
+                                        "type": "content",
+                                        "content": text,
+                                        "session_id": session_id,
+                                    }
+                                )
+                            )
+
+                    elif chunk_type == "response.mcp_call.in_progress":
+                        # Tool execution started - these chunks don't have name, just notify
+                        yield json.dumps(
+                            jsonable_encoder(
+                                {
+                                    "type": "tool_executing",
+                                    "status": "in_progress",
+                                    "session_id": session_id,
+                                }
+                            )
+                        )
+
+                    elif chunk_type == "response.mcp_call.completed":
+                        # Tool execution completed
+                        yield json.dumps(
+                            jsonable_encoder(
+                                {
+                                    "type": "tool_executing",
+                                    "status": "completed",
+                                    "session_id": session_id,
+                                }
+                            )
+                        )
+
+                    elif chunk_type == "response.completed":
+                        # Final response with all output
+                        response_id = chunk.response.id
+                        # Extract all content items for storage
+                        if hasattr(chunk.response, "output") and chunk.response.output:
+                            for output_item in chunk.response.output:
+                                if (
+                                    hasattr(output_item, "content")
+                                    and output_item.content
+                                ):
+                                    assistant_content_items.extend(output_item.content)
+
+                        # If no text was generated, build response from tool outputs
+                        if (
+                            not accumulated_content.strip()
+                            and hasattr(chunk.response, "output")
+                            and chunk.response.output
+                        ):
+                            tool_results = []
+                            for output_item in chunk.response.output:
+                                if hasattr(output_item, "type") and "mcp_call" in str(
+                                    output_item.type
+                                ):
+                                    tool_name = getattr(output_item, "name", "unknown")
+                                    tool_arguments = getattr(
+                                        output_item, "arguments", None
+                                    )
+                                    tool_output = getattr(output_item, "output", None)
+                                    tool_error = getattr(output_item, "error", None)
+                                    if tool_output or tool_error or tool_arguments:
+                                        tool_results.append(
+                                            {
+                                                "name": tool_name,
+                                                "arguments": tool_arguments,
+                                                "output": tool_output,
+                                                "error": tool_error,
+                                            }
+                                        )
+
+                            if tool_results:
+                                # Build a clear message that we couldn't generate a response
+                                fallback_parts = [
+                                    "⚠️ **Unable to generate a response**",
+                                    "",
+                                    "The model executed the requested operations but did not provide a summary.",
+                                    "",
+                                    "<details>",
+                                    "<summary>Tool Execution Results</summary>",
+                                    "",
+                                ]
+
+                                for idx, tool_result in enumerate(tool_results, 1):
+                                    fallback_parts.append(
+                                        f"**{idx}. {tool_result['name']}**"
+                                    )
+                                    fallback_parts.append("")
+
+                                    # Show arguments/input if available
+                                    if tool_result["arguments"]:
+                                        fallback_parts.append("*Input:*")
+                                        fallback_parts.append("```json")
+                                        fallback_parts.append(
+                                            f"{tool_result['arguments']}"
+                                        )
+                                        fallback_parts.append("```")
+                                        fallback_parts.append("")
+
+                                    # Show error if present
+                                    if tool_result["error"]:
+                                        fallback_parts.append("*Error:*")
+                                        fallback_parts.append("```")
+                                        fallback_parts.append(f"{tool_result['error']}")
+                                        fallback_parts.append("```")
+                                        fallback_parts.append("")
+
+                                    # Show output (even if there's an error)
+                                    if tool_result["output"]:
+                                        fallback_parts.append("*Output:*")
+                                        fallback_parts.append("```")
+                                        fallback_parts.append(
+                                            f"{tool_result['output']}"
+                                        )
+                                        fallback_parts.append("```")
+                                        fallback_parts.append("")
+
+                                    if idx < len(tool_results):
+                                        fallback_parts.append("---")
+                                        fallback_parts.append("")
+
+                                fallback_parts.append("</details>")
+
+                                fallback_content = "\n".join(fallback_parts)
+                                yield json.dumps(
+                                    jsonable_encoder(
+                                        {
+                                            "type": "content",
+                                            "content": fallback_content,
+                                            "session_id": session_id,
+                                        }
+                                    )
+                                )
+
+            assistant_timestamp = datetime.now() + timedelta(milliseconds=1)
+
+            # Store conversation turn
+            if session_id and response_id:
+                await self._store_conversation_turn(
+                    agent_id,
+                    session_id,
+                    prompt,
+                    assistant_content_items,
+                    response_id,
+                    user_timestamp,
+                    assistant_timestamp,
+                )
+
+            # Send done marker
             yield json.dumps(
                 jsonable_encoder(
                     {
-                        "type": "content",
-                        "content": response_data["content"],
-                        "response_id": response_data["response_id"],
-                        "model": response_data["model"],
+                        "type": "done",
+                        "response_id": response_id,
                         "session_id": session_id,
                     }
                 )
             )
 
-            # End stream marker
-            yield json.dumps(
-                jsonable_encoder(
-                    {
-                        "type": "done",
-                        "response_id": response_data["response_id"],
-                        "session_id": session_id,  # Return for compatibility
-                    }
-                )
-            )
-
         except Exception as e:
-            logger.error(f"Error in stream for agent {agent_id}: {e}")
+            logger.exception(f"Error in stream for agent {agent_id}: {e}")
             yield json.dumps(
                 jsonable_encoder(
                     {

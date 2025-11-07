@@ -74,7 +74,7 @@ stages:
         knowledge_base_ids: []
         vector_store_ids: []
         tools: []
-        max_infer_iters: null
+        max_infer_iters: 100
         id: "{agent_id}"
         created_at: !anything
         updated_at: !anything

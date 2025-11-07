@@ -111,10 +111,13 @@ class K8sMCPDiscovery:
                     description = (
                         f"MCP server discovered from mcpserver resource '{name}'"
                     )
-                proxy_mode = spec.get("proxyMode", "")
+
+                # Get transport type from label
+                labels = metadata.get("labels", {})
+                transport = labels.get("mcp.transport", "")
 
                 # Get URL from status
-                endpoint_url = self._get_mcpserver_url(status, proxy_mode)
+                endpoint_url = self._get_mcpserver_url(status, transport)
 
                 if endpoint_url:
                     discovered.append(
@@ -137,14 +140,14 @@ class K8sMCPDiscovery:
         return discovered
 
     def _get_mcpserver_url(
-        self, status: Dict[str, Any], proxy_mode: str
+        self, status: Dict[str, Any], transport: str
     ) -> Optional[str]:
         """
         Extract URL from MCPServer status.
 
         Args:
             status: MCPServer status object
-            proxy_mode: Proxy mode from spec
+            transport: Transport type from mcp.transport label
 
         Returns:
             Constructed endpoint URL or None
@@ -154,12 +157,12 @@ class K8sMCPDiscovery:
         if not base_url:
             return None
 
-        if proxy_mode == "streamable-http":
-            # Append /mcp for streamable-http mode
-            return f"{base_url}/mcp"
-        else:
-            # Append /sse for other modes
+        if transport == "sse":
+            # Append /sse for SSE transport
             return f"{base_url}/sse"
+        else:
+            # Append /mcp for streamable-http or other transports
+            return f"{base_url}/mcp"
 
     def _discover_service_resources(self) -> List[Dict[str, Any]]:
         """
@@ -189,13 +192,19 @@ class K8sMCPDiscovery:
                         f"MCP server discovered from service resource '{name}'"
                     )
 
+                # Get transport type from label
+                labels = service.metadata.labels or {}
+                transport = labels.get("mcp.transport", "")
+
                 # Get first port
                 if service.spec.ports:
                     port = service.spec.ports[0].port
+
+                    # Determine URL suffix based on transport type
+                    suffix = "/sse" if transport == "sse" else "/mcp"
+
                     # Construct service URL
-                    endpoint_url = (
-                        f"http://{name}.{self.namespace}.svc.cluster.local:{port}/sse"
-                    )
+                    endpoint_url = f"http://{name}.{self.namespace}.svc.cluster.local:{port}{suffix}"
 
                     discovered.append(
                         {

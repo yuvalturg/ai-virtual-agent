@@ -11,22 +11,41 @@ FastAPI backend for the AI Virtual Agent Quickstart project. For complete setup 
 
 ```
 backend/
-├── main.py               # FastAPI app entrypoint, includes routers
-├── database.py           # Database connection and session
-├── models.py             # SQLAlchemy models
-├── schemas.py            # Pydantic schemas
-├── routes/               # API route modules
-│   ├── users.py          # User management endpoints
-│   ├── mcp_servers.py    # MCP server management
-│   ├── knowledge_bases.py # Knowledge base operations
-│   ├── virtual_assistants.py # Agent CRUD operations
-│   ├── chat_sessions.py  # Chat session management
-│   ├── tools.py          # Tool configuration endpoints
-│   └── guardrails.py     # Guardrail management
-├── utils/                # Utility modules
-│   └── logging_config.py # Centralized logging setup
-├── requirements.txt      # Python dependencies
-└── .env                  # Environment variables (not committed)
+├── main.py                    # FastAPI app entrypoint
+├── app/
+│   ├── api/v1/               # API route modules
+│   │   ├── chat.py           # Chat endpoints
+│   │   ├── chat_sessions.py  # Session management
+│   │   ├── virtual_agents.py # Agent CRUD operations
+│   │   ├── knowledge_bases.py # Knowledge base operations
+│   │   ├── tools.py          # Tool configuration endpoints
+│   │   ├── users.py          # User management endpoints
+│   │   ├── mcp_servers.py    # MCP server management
+│   │   └── ...               # Additional API endpoints
+│   ├── core/                 # Core configuration
+│   │   ├── logging_config.py # Centralized logging setup
+│   │   ├── auth.py           # Authentication utilities
+│   │   └── template_startup.py # Template initialization
+│   ├── crud/                 # Data access layer
+│   │   ├── virtual_agents.py # Agent data operations
+│   │   ├── chat_sessions.py  # Session data operations
+│   │   └── ...               # Additional CRUD operations
+│   ├── models/               # SQLAlchemy database models
+│   │   ├── agent.py          # Agent models
+│   │   ├── chat.py           # Chat models
+│   │   └── ...               # Additional models
+│   ├── schemas/              # Pydantic schemas for validation
+│   │   ├── agent.py          # Agent schemas
+│   │   ├── chat.py           # Chat schemas
+│   │   └── ...               # Additional schemas
+│   ├── services/             # Business logic layer
+│   │   ├── chat.py           # Chat service logic
+│   │   └── ...               # Additional services
+│   └── database.py           # Database connection and session
+├── migrations/               # Alembic database migrations
+├── agent_templates/          # Agent template YAML files
+├── requirements.txt          # Python dependencies
+└── .env                      # Environment variables (not committed)
 ```
 
 ## Environment Variables
