@@ -19,6 +19,8 @@ import {
   MessageBox,
   MessageProps,
 } from '@patternfly/chatbot';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import {
   DropdownItem,
   DropdownList,
@@ -50,6 +52,16 @@ import userAvatar from '../assets/img/user-avatar.svg';
 import { ATTACHMENTS_API_ENDPOINT } from '@/config/api';
 import { SimpleContentItem } from '@/types/chat';
 import { getTemplateDetails } from '@/services/agent-templates';
+
+// Custom sanitize schema that allows <details> and <summary> tags for collapsible sections
+const customSanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames || []), 'details', 'summary'],
+  attributes: {
+    ...defaultSchema.attributes,
+    details: ['open'],
+  },
+};
 
 const footnoteProps = {
   label: 'ChatBot uses AI. Check for mistakes.',
@@ -742,11 +754,27 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                       return (
                         <Fragment key={message.id}>
                           <div ref={scrollToBottomRef}></div>
-                          <Message key={message.id} {...message} />
+                          <Message
+                            key={message.id}
+                            {...message}
+                            additionalRehypePlugins={[
+                              rehypeRaw,
+                              [rehypeSanitize, customSanitizeSchema],
+                            ]}
+                          />
                         </Fragment>
                       );
                     }
-                    return <Message key={message.id} {...message} />;
+                    return (
+                      <Message
+                        key={message.id}
+                        {...message}
+                        additionalRehypePlugins={[
+                          rehypeRaw,
+                          [rehypeSanitize, customSanitizeSchema],
+                        ]}
+                      />
+                    );
                   })}
                 </MessageBox>
               </ChatbotContent>

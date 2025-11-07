@@ -340,7 +340,7 @@ async def initialize_agent_from_template(
             top_p=0.95,
             max_tokens=4096,
             repetition_penalty=1.0,
-            max_infer_iters=10,
+            max_infer_iters=100,
             input_shields=[],
             output_shields=[],
             enable_session_persistence=False,

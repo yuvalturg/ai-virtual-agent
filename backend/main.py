@@ -13,7 +13,6 @@ capabilities.
 import asyncio
 import logging
 import sys
-import time
 from contextlib import asynccontextmanager
 
 import httpx
@@ -22,7 +21,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
-from kubernetes import client, config
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .app.api.v1.router import api_router
@@ -35,57 +33,6 @@ load_dotenv()
 # Configure centralized logging
 setup_logging(level="DEBUG")
 logger = logging.getLogger(__name__)
-
-
-def get_incluster_namespace() -> str:
-    """Get the current Kubernetes namespace."""
-    try:
-        with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace") as file:
-            return file.read().strip()
-    except Exception:
-        return "default"
-
-
-def wait_for_service_ready(
-    service_name: str,
-    namespace: str,
-    timeout_seconds: int = 300,
-    interval_seconds: int = 5,
-) -> bool:
-    """Wait for a Kubernetes service to be ready."""
-    start_time = time.time()
-
-    while time.time() - start_time < timeout_seconds:
-        try:
-            config.load_incluster_config()
-            core_v1 = client.CoreV1Api()
-            endpoints = core_v1.read_namespaced_endpoints(
-                name=service_name, namespace=namespace
-            )
-
-            if endpoints.subsets:
-                for subset in endpoints.subsets:
-                    if subset.addresses:
-                        logger.info(
-                            f"Service '{service_name}' in namespace "
-                            f"'{namespace}' is ready."
-                        )
-                        return True
-
-        except client.ApiException as e:
-            if e.status != 404:  # Ignore 404 if service not yet created
-                logger.error(f"Error checking endpoints: {e}")
-
-        logger.info(
-            f"Waiting for service '{service_name}' in namespace "
-            f"'{namespace}' to be ready..."
-        )
-        time.sleep(interval_seconds)
-
-    logger.warning(
-        f"Timeout waiting for service '{service_name}' in namespace '{namespace}'."
-    )
-    return False
 
 
 async def ensure_templates_available():
@@ -181,8 +128,8 @@ class SPAStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         if len(sys.argv) > 1 and sys.argv[1] == "dev":
             # We are in Dev mode, proxy to the React dev server
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"http://localhost:8000/{path}")
+            async with httpx.AsyncClient() as http_client:
+                response = await http_client.get(f"http://localhost:8000/{path}")
             return Response(response.text, status_code=response.status_code)
         else:
             try:
