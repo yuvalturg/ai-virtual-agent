@@ -182,6 +182,15 @@ llama-stack:
       when: user with admin in roles
       description: users with the admin role can create, update or delete vector_dbs
     - permit:
+        actions: [read]
+        resource: vector_store::*
+      description: all users have read access to vector_store
+    - permit:
+        actions: [create, update, delete]
+        resource: vector_store::*
+      when: user with admin in roles
+      description: users with the admin role can create, update or delete vector_stores
+    - permit:
         actions: [create, update, delete]
         resource: tool_group::*
       when: user with admin in roles
