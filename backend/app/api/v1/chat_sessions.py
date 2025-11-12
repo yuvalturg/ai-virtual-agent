@@ -21,14 +21,14 @@ import random
 import string
 import uuid
 from datetime import datetime, timezone
-from typing import Any, List
+from typing import List
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.llamastack import (
-    ERROR_NO_RESPONSE_MESSAGE,
-    create_tool_call_trace_entry,
     get_client_from_request,
 )
 from ...crud.chat_sessions import chat_sessions
@@ -47,51 +47,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat_sessions", tags=["chat_sessions"])
 
 
-def format_history_item(chunk: Any, text_parts: list, trace_entries: list) -> None:
-    """
-    Format conversation history items (direct data objects).
-
-    Args:
-        chunk: History item from LlamaStack conversation
-        text_parts: List to accumulate text (modified in-place)
-        trace_entries: List to accumulate trace entries (modified in-place)
-    """
-    # Log the chunk
-    logger.info(f"format_history_item received: {chunk}")
-
-    # Filter out items without type
-    if not hasattr(chunk, "type"):
-        return
-
-    # Filter out tool discovery items
-    if chunk.type == "mcp_list_tools":
-        return
-
-    # Handle message items
-    if chunk.type == "message":
-        if hasattr(chunk, "content") and chunk.content:
-            for content_item in chunk.content:
-                if hasattr(content_item, "type") and content_item.type in (
-                    "input_text",
-                    "output_text",
-                ):
-                    if hasattr(content_item, "text") and content_item.text:
-                        text_parts.append(content_item.text)
-                        logger.info(
-                            f"Added text from message, text_parts now has {len(text_parts)} items"
-                        )
-        return
-
-    # Handle MCP tool calls
-    if chunk.type == "mcp_call":
-        entry = create_tool_call_trace_entry(chunk)
-        trace_entries.append(entry)
-        logger.info(
-            f"Added tool call entry, trace_entries now has {len(trace_entries)} items: {entry}"
-        )
-        return
-
-
 def convert_internal_urls_to_relative(message_data: dict) -> None:
     """
     Convert internal service URLs back to relative URLs for frontend consumption.
@@ -99,36 +54,12 @@ def convert_internal_urls_to_relative(message_data: dict) -> None:
     Args:
         message_data: Message data dict (modified in-place)
     """
-    from urllib.parse import urlparse
-
     for content_item in message_data.get("content", []):
         if content_item.get("type") == "input_image":
             if image_url := content_item.get("image_url", ""):
                 parsed = urlparse(image_url)
                 # Keep only the path part of the URL
                 content_item["image_url"] = parsed.path
-
-
-def create_assistant_error_message(trace_entries: list) -> dict:
-    """
-    Create an assistant error message with trace entries attached.
-
-    Used when the model executes tool calls but fails to generate a text response.
-    Note: The frontend will add a ⚠️ emoji when displaying this error message.
-
-    Args:
-        trace_entries: List of trace entries (tool calls, reasoning) to attach
-
-    Returns:
-        Message dict with error content and trace entries
-    """
-    return {
-        "type": "message",
-        "role": "assistant",
-        "content": [{"type": "output_text", "text": ERROR_NO_RESPONSE_MESSAGE}],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "trace_entries": trace_entries,
-    }
 
 
 @router.get("/", response_model=List[ChatSession])
@@ -305,79 +236,145 @@ async def get_conversation_messages(
                 order="asc",
             )
 
-            # Process conversation items using shared formatter
+            # Convert conversation items to messages, grouping tool calls with their responses
             messages = []
-            pending_trace_entries = []
+            pending_tool_calls = (
+                []
+            )  # Accumulate tool calls until we see the assistant message
 
             logger.info(f"Total items received: {len(items_response.data)}")
+
             for item in items_response.data:
-                # Process each item - extract text and trace info
-                item_text_parts = []
-                item_trace_entries = []
-                format_history_item(item, item_text_parts, item_trace_entries)
+                item_dict = jsonable_encoder(item)
+                item_type = item_dict.get("type")
 
-                text = "".join(item_text_parts) if item_text_parts else None
-                logger.info(
-                    f"Formatter returned - text: {bool(text)}, trace_entries: {len(item_trace_entries)}"
+                logger.debug(
+                    f"Processing item: type={item_type}, id={item_dict.get('id')}"
                 )
 
-                # Collect trace entries
-                if item_trace_entries:
-                    pending_trace_entries.extend(item_trace_entries)
-                    logger.info(
-                        f"Extended pending_trace_entries, now has {len(pending_trace_entries)} items"
+                # Skip tool discovery items
+                if item_type == "mcp_list_tools":
+                    logger.debug("Skipping mcp_list_tools item")
+                    continue
+
+                if item_type == "message":
+                    # User or assistant message
+                    role = item_dict.get("role")
+                    message_id = item_dict.get("id")
+                    content_items = []
+
+                    for content_item in item_dict.get("content", []):
+                        content_type = content_item.get("type")
+                        if content_type in ("input_text", "output_text"):
+                            content_items.append(
+                                {
+                                    "type": (
+                                        "input_text"
+                                        if role == "user"
+                                        else "output_text"
+                                    ),
+                                    "text": content_item.get("text", ""),
+                                }
+                            )
+
+                    logger.debug(
+                        f"Message: role={role}, id={message_id}, "
+                        f"content_items={len(content_items)}, "
+                        f"pending_tool_calls={len(pending_tool_calls)}"
                     )
 
-                # Process messages
-                if text:
-                    # If this is a user message and there are pending trace entries,
-                    # create an assistant error message first to hold those trace entries
-                    # (represents a failed assistant response with only tool calls)
-                    if item.role == "user" and pending_trace_entries:
-                        logger.info(
-                            f"Creating assistant error message with {len(pending_trace_entries)} orphaned trace_entries"
+                    # If this is a user message and we have pending tool calls,
+                    # drop them (orphaned - assistant response not persisted)
+                    if role == "user" and pending_tool_calls:
+                        logger.warning(
+                            f"Dropping {len(pending_tool_calls)} orphaned tool calls "
+                            f"before user message {message_id}"
                         )
-                        assistant_error_msg = create_assistant_error_message(
-                            pending_trace_entries
-                        )
-                        messages.append(assistant_error_msg)
-                        pending_trace_entries = []
+                        pending_tool_calls = []
 
-                    # Use appropriate content type based on role
-                    content_type = (
-                        "input_text" if item.role == "user" else "output_text"
-                    )
-                    message_dict = {
-                        "type": "message",
-                        "role": item.role,
-                        "content": [{"type": content_type, "text": text}],
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    if content_items:
+                        msg = {
+                            "type": "message",
+                            "role": role,
+                            "content": content_items,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+
+                        # If assistant message, attach any pending tool calls
+                        if role == "assistant" and pending_tool_calls:
+                            msg["tool_calls"] = pending_tool_calls
+                            logger.info(
+                                f"Attached {len(pending_tool_calls)} tool calls to "
+                                f"assistant message {message_id}"
+                            )
+                            logger.debug(
+                                f"Tool calls: "
+                                f"{[tc['name'] for tc in pending_tool_calls]}"
+                            )
+                            pending_tool_calls = []
+
+                        logger.debug(
+                            f"Appending message: role={role}, "
+                            f"has_tool_calls={'tool_calls' in msg}"
+                        )
+                        messages.append(msg)
+
+                elif item_type == "mcp_call":
+                    # Tool call - accumulate for next assistant message
+                    tool_entry = {
+                        "type": "tool_call",
+                        "id": item_dict.get("id"),
+                        "name": item_dict.get("name"),
+                        "server_label": item_dict.get("server_label"),
+                        "arguments": item_dict.get("arguments"),
+                        "output": item_dict.get("output"),
+                        "error": item_dict.get("error"),
+                        "status": "failed" if item_dict.get("error") else "completed",
                     }
+                    logger.debug(
+                        f"Adding tool call: name={tool_entry['name']}, "
+                        f"id={tool_entry['id']}, status={tool_entry['status']}"
+                    )
+                    pending_tool_calls.append(tool_entry)
 
-                    # Attach pending trace entries to assistant messages
-                    if item.role == "assistant" and pending_trace_entries:
-                        message_dict["trace_entries"] = pending_trace_entries
-                        logger.info(
-                            f"Attached {len(pending_trace_entries)} trace_entries to assistant message"
-                        )
-                        pending_trace_entries = []
-
-                    messages.append(message_dict)
-
-            # Flush any remaining pending trace entries at the end
-            # (happens when conversation ends with tool calls but no assistant response)
-            if pending_trace_entries:
-                logger.info(
-                    f"Flushing {len(pending_trace_entries)} orphaned trace_entries at end of conversation"
+            # Check for orphaned tool calls at the end
+            if pending_tool_calls:
+                logger.warning(
+                    f"Dropping {len(pending_tool_calls)} orphaned tool calls at end "
+                    f"of conversation {session.conversation_id}"
                 )
-                final_assistant_error = create_assistant_error_message(
-                    pending_trace_entries
-                )
-                messages.append(final_assistant_error)
+
+            # Add a notice message at the beginning
+            notice_msg = {
+                "type": "message",
+                "role": "system",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": (
+                            "ℹ️ Note: Some messages may not be displayed due to "
+                            "conversation history limitations."
+                        ),
+                    }
+                ],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            messages.insert(0, notice_msg)
 
             logger.info(
-                f"Retrieved {len(messages)} messages for conversation {session.conversation_id}"
+                f"Retrieved {len(messages)} messages for conversation "
+                f"{session.conversation_id}"
             )
+            logger.debug(
+                f"Final messages being sent to frontend: {len(messages)} messages"
+            )
+            for idx, msg in enumerate(messages):
+                logger.debug(
+                    f"  Message {idx}: role={msg.get('role')}, "
+                    f"has_tool_calls={'tool_calls' in msg}, "
+                    f"content_items={len(msg.get('content', []))}"
+                )
+
             return ConversationMessagesResponse(messages=messages)
 
         except Exception as llamastack_error:

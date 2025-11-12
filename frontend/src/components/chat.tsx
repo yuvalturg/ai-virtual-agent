@@ -64,6 +64,7 @@ const customSanitizeSchema = {
     'pre',
     'code',
     'strong',
+    'i',
   ],
   attributes: {
     ...defaultSchema.attributes,
@@ -71,6 +72,7 @@ const customSanitizeSchema = {
     summary: ['style'],
     div: ['style'],
     pre: ['style'],
+    i: ['class', 'className', 'style'],
   },
 };
 
@@ -174,9 +176,9 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     }
 
     if (content.type === 'reasoning') {
-      // Display reasoning in italic, open while streaming, collapsed when complete
-      const openAttr = content.isComplete ? '' : ' open';
-      return `<details${openAttr} style="margin: 4px 0;"><summary style="cursor: pointer; font-style: italic; color: #6a6e73;">💭 Reasoning</summary><div style="font-style: italic; padding: 8px; margin-top: 4px; border-left: 2px solid #d2d2d2;">${content.text}</div></details>`;
+      // Display reasoning always collapsed, with status emoji like tool calls
+      const statusEmoji = content.isComplete ? '✅' : '⏳';
+      return `<details style="margin: 4px 0;"><summary style="cursor: pointer; font-style: italic; color: #6a6e73;">${statusEmoji} Reasoning</summary><div style="font-style: italic; padding: 8px; margin-top: 4px; border-left: 2px solid #d2d2d2;">${content.text}</div></details>`;
     }
 
     if (content.type === 'tool_call') {
@@ -225,18 +227,25 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   // Convert our chat messages to PatternFly format
   const messages = React.useMemo(() => {
     const lastMessageId = chatMessages[chatMessages.length - 1]?.id;
-    return chatMessages.map(
-      (msg): MessageProps => ({
+    return chatMessages.map((msg): MessageProps => {
+      // Merge tool_calls into content for display
+      const allContent = [...msg.content];
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        // Add tool calls before the text content
+        allContent.unshift(...msg.tool_calls);
+      }
+
+      return {
         id: msg.id,
         role: msg.role === 'user' ? 'user' : 'bot',
-        content: multipleContentToText(msg.content),
+        content: multipleContentToText(allContent),
         name: msg.role === 'user' ? 'You' : 'Agent',
         timestamp: msg.timestamp.toLocaleString(),
         avatar: msg.role === 'user' ? userAvatar : botAvatar,
         avatarProps: { isBordered: true },
         isLoading: msg.role === 'assistant' && isLoading && msg.id === lastMessageId,
-      })
-    );
+      };
+    });
   }, [chatMessages, isLoading, multipleContentToText]);
 
   // Memoize the message list to prevent re-rendering when only input changes
