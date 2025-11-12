@@ -21,126 +21,51 @@ def validate_exact_text(response, expected_text):
     else:
         body_text = str(response)
 
-    # For SSE responses, extract and combine all text content
+    # For SSE streaming responses, extract and combine all text content
     combined_text = ""
-    sse_lines = body_text.split("\n")
+    lines = body_text.split("\n")
 
-    for line in sse_lines:
-        if line.startswith("data: ") and line != "data: [DONE]":
-            try:
-                # Remove 'data: ' prefix and parse JSON
-                json_data = json.loads(line[6:])  # Remove 'data: ' (6 chars)
-                if answer := json_data.get("answer"):
-                    combined_text += str(answer)
-                elif (
-                    json_data.get("type") in ["text", "content"]
-                    and "content" in json_data
-                ):
-                    combined_text += json_data["content"]
-            except (json.JSONDecodeError, KeyError):
-                # Skip lines that aren't valid JSON or don't have expected
-                # structure
-                continue
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
 
-    # Check if expected text is contained in the combined text or raw response
+        # Handle SSE format - strip "data: " prefix
+        json_line = line
+        if line.startswith("data: "):
+            json_line = line[6:]  # Remove "data: " prefix
+
+        # Skip [DONE] markers
+        if json_line == "[DONE]":
+            continue
+
+        try:
+            # Parse JSON line
+            json_data = json.loads(json_line)
+
+            # Handle LlamaStack response format - accumulate text deltas
+            if json_data.get("type") == "response.output_text.delta" and json_data.get(
+                "delta"
+            ):
+                combined_text += json_data.get("delta", "")
+            elif json_data.get("type") == "error":
+                raise AssertionError(
+                    f"Error from backend: {json_data.get('content', 'Unknown error')}"
+                )
+
+        except (json.JSONDecodeError, KeyError):
+            # Skip lines that aren't valid JSON
+            continue
+
+    # Check if expected text is contained in the combined text
     if expected_text in combined_text:
         return True
 
     raise AssertionError(
         f"Expected text '{expected_text}' not found in response. "
-        f"Combined text from SSE chunks: '{combined_text}' "
+        f"Combined text from streaming chunks: '{combined_text}' "
         f"Raw response body: {body_text[:500]}..."  # Show first 500 chars
     )
-
-
-def parse_sse_response(response_text: str) -> dict:
-    """
-    Parse Server-Sent Events response text and extract JSON data.
-
-    Args:
-        response_text: Raw SSE response text
-
-    Returns:
-        Dict containing parsed SSE data with response_id, content, etc.
-
-    Raises:
-        ValueError: If no valid JSON data found in SSE stream
-    """
-    import json
-
-    lines = response_text.strip().split("\n")
-    json_data = {}
-
-    for line in lines:
-        line = line.strip()
-        if line.startswith("data: "):
-            data_content = line[6:]  # Remove "data: " prefix
-
-            # Skip [DONE] marker
-            if data_content == "[DONE]":
-                continue
-
-            try:
-                parsed = json.loads(data_content)
-                # Collect all data from the stream
-                json_data.update(parsed)
-
-                # If we find a response_id, prioritize it
-                if "response_id" in parsed:
-                    json_data["response_id"] = parsed["response_id"]
-
-            except json.JSONDecodeError:
-                # Skip non-JSON lines
-                continue
-
-    if not json_data:
-        raise ValueError("No valid JSON data found in SSE response")
-
-    return json_data
-
-
-def validate_sse_response_id(response):
-    """
-    Validate that SSE response contains a valid response_id and content.
-
-    This validator checks for successful chat responses that should contain
-    both a response_id (for chaining) and content (the actual response).
-
-    Args:
-        response: Tavern response object
-
-    Returns:
-        bool: True if validation passes
-
-    Raises:
-        AssertionError: If validation fails
-    """
-    try:
-        response_data = parse_sse_response(response.text)
-
-        # Check for response_id
-        assert "response_id" in response_data, "Response missing 'response_id' field"
-        assert response_data["response_id"], "Response ID is empty"
-        assert response_data["response_id"].startswith(
-            "resp-"
-        ), f"Invalid response ID format: {response_data['response_id']}"
-
-        # Check for content (successful response)
-        assert "content" in response_data, "Response missing 'content' field"
-        assert response_data["content"], "Response content is empty"
-
-        # Ensure it's not an error response
-        assert (
-            "type" not in response_data or response_data["type"] != "error"
-        ), f"Unexpected error in response: {response_data.get('content', 'Unknown error')}"
-
-        print(f"✓ Valid response with ID: {response_data['response_id']}")
-        return True
-
-    except Exception as e:
-        print(f"✗ Response validation failed: {str(e)}")
-        print(f"Response text: {response.text[:500]}...")
-        raise
 
 
 def validate_session_messages(
@@ -300,39 +225,6 @@ def validate_message_chronological_order(response, expected_sequence: list):
         raise
 
 
-def extract_response_id(response) -> dict:
-    """
-    Extract response_id from SSE response for use in subsequent requests.
-
-    This function is used with Tavern's $ext mechanism to save response IDs
-    that can be referenced in later test stages.
-
-    Args:
-        response: Tavern response object
-
-    Returns:
-        Dict with response_id key for Tavern to save
-
-    Raises:
-        ValueError: If no response_id found
-    """
-    try:
-        response_data = parse_sse_response(response.text)
-
-        if "response_id" not in response_data:
-            raise ValueError("No response_id found in SSE response")
-
-        response_id = response_data["response_id"]
-        print(f"✓ Extracted response ID: {response_id}")
-
-        return {"response_id": response_id}
-
-    except Exception as e:
-        print(f"✗ Failed to extract response ID: {str(e)}")
-        print(f"Response text: {response.text[:500]}...")
-        raise
-
-
 def validate_list_not_empty(response):
     """
     Validate that the response contains a non-empty list.
@@ -362,6 +254,45 @@ def validate_list_not_empty(response):
 
     except Exception as e:
         print(f"✗ List validation failed: {str(e)}")
+        print(f"Response text: {response.text[:500]}...")
+        raise
+
+
+def validate_conversation_messages(response):
+    """
+    Validate that conversation messages response has non-empty messages array.
+
+    Args:
+        response: Tavern response object
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        AssertionError: If validation fails
+    """
+    try:
+        if hasattr(response, "json"):
+            data = response.json()
+        else:
+            import json
+
+            data = json.loads(response.text)
+
+        assert isinstance(data, dict), f"Expected dict, got {type(data)}"
+        assert "messages" in data, "Response missing 'messages' field"
+        assert isinstance(
+            data["messages"], list
+        ), f"Expected messages to be list, got {type(data['messages'])}"
+        assert len(data["messages"]) > 0, "Expected non-empty messages list"
+
+        print(
+            f"✓ Conversation messages validation passed: {len(data['messages'])} messages"
+        )
+        return True
+
+    except Exception as e:
+        print(f"✗ Conversation messages validation failed: {str(e)}")
         print(f"Response text: {response.text[:500]}...")
         raise
 

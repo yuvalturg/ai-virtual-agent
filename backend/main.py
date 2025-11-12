@@ -102,9 +102,6 @@ app.add_middleware(
 # Include the main API router with all endpoints
 app.include_router(api_router, prefix="/api/v1")
 
-# For backward compatibility, also include some routes at the old paths
-# app.include_router(api_router, prefix="/api")
-
 # Include debug router only in local development mode
 if is_local_dev_mode():
     from .app.api.v1.debug import router as debug_router
@@ -113,8 +110,6 @@ if is_local_dev_mode():
 
 # Include validate router at root for compatibility
 app.include_router(validate_router)
-
-# Agent templates route is now included in the main API router
 
 
 class SPAStaticFiles(StaticFiles):

@@ -18,7 +18,7 @@ export const fetchUsers = async (): Promise<User[]> => {
 };
 
 export const fetchCurrentUser = async (): Promise<User> => {
-  const response = await fetch(`${USERS_API_ENDPOINT}profile/`);
+  const response = await fetch(`${USERS_API_ENDPOINT}profile`);
   if (!response.ok) {
     if (response.status === 401) {
       throw new Error('User not authenticated');

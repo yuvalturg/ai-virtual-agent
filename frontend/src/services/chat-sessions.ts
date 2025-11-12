@@ -1,9 +1,13 @@
 import { CHAT_SESSIONS_API_ENDPOINT } from '@/config/api';
-import { ChatSessionSummary, ChatSessionDetail } from '@/types/chat';
+import { ChatSessionSummary, ChatSessionDetail, ChatMessage } from '@/types/chat';
 import { ErrorResponse } from '@/types';
 
 // Re-export types for backward compatibility
 export type { ChatSessionSummary, ChatSessionDetail } from '@/types/chat';
+
+interface ConversationMessagesResponse {
+  messages: ChatMessage[];
+}
 
 export async function fetchChatSessions(agentId?: string): Promise<ChatSessionSummary[]> {
   const url = agentId
@@ -20,18 +24,25 @@ export async function fetchChatSessions(agentId?: string): Promise<ChatSessionSu
   return response.json() as Promise<ChatSessionSummary[]>;
 }
 
+export async function fetchSessionMessages(sessionId: string): Promise<ChatMessage[]> {
+  const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}/messages`);
+  if (!response.ok) {
+    const errorData = (await response
+      .json()
+      .catch(() => ({ detail: 'Failed to fetch conversation messages' }))) as ErrorResponse;
+    throw new Error(errorData.detail ?? 'Failed to fetch conversation messages');
+  }
+  const data = (await response.json()) as ConversationMessagesResponse;
+  return data.messages;
+}
+
 export async function fetchChatSession(
   sessionId: string,
   agentId: string,
-  page: number = 1,
-  pageSize: number = 50,
   loadMessages: boolean = true
 ): Promise<ChatSessionDetail> {
   const params = new URLSearchParams({
     agent_id: agentId,
-    page: page.toString(),
-    page_size: pageSize.toString(),
-    load_messages: loadMessages.toString(),
   });
 
   const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?${params}`);
@@ -41,7 +52,16 @@ export async function fetchChatSession(
       .catch(() => ({ detail: 'Failed to fetch chat session' }))) as ErrorResponse;
     throw new Error(errorData.detail ?? 'Failed to fetch chat session');
   }
-  return response.json() as Promise<ChatSessionDetail>;
+
+  const sessionData = (await response.json()) as Omit<ChatSessionDetail, 'messages'>;
+
+  // Fetch messages separately if requested
+  const messages = loadMessages ? await fetchSessionMessages(sessionId) : [];
+
+  return {
+    ...sessionData,
+    messages,
+  } as ChatSessionDetail;
 }
 
 export async function deleteChatSession(sessionId: string, agentId: string): Promise<void> {

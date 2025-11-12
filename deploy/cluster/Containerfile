@@ -26,14 +26,19 @@ USER root
 # Set working directory
 WORKDIR /app
 
+# Install system dependencies (cached separately)
 RUN dnf install -y nmap-ncat && dnf clean all
 
-# Copy backend and install dependencies
+# Copy only requirements first to leverage cache
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# Copy backend code (this layer changes most frequently)
 COPY backend/ ./backend/
+
+# Copy static assets and scripts
 COPY frontend/src/assets/ ./backend/public/assets
 COPY deploy/cluster/scripts/entrypoint.sh ./entrypoint.sh
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy built frontend to backend's static files
 COPY --from=frontend-builder /app/frontend/dist ./backend/public/

@@ -5,7 +5,6 @@ Chat service for handling LlamaStack conversations with virtual agent configurat
 import json
 import logging
 import os
-from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import Request
@@ -14,8 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..api.llamastack import get_client_from_request
-from ..crud.virtual_agents import virtual_agents
-from ..models import ChatMessage, ChatSession
+from ..models import ChatSession
 
 logger = logging.getLogger(__name__)
 
@@ -106,41 +104,6 @@ async def build_responses_tools(
     return responses_tools
 
 
-async def get_conversation_history(
-    db: AsyncSession, session_id: str
-) -> List[Dict[str, Any]]:
-    """
-    Retrieve conversation history for a session in OpenAI message format.
-
-    Args:
-        db: Database session
-        session_id: Chat session ID
-
-    Returns:
-        List of messages in OpenAI format for LlamaStack
-    """
-    result = await db.execute(
-        select(ChatMessage)
-        .where(ChatMessage.session_id == session_id)
-        .order_by(ChatMessage.created_at)
-    )
-    messages = result.scalars().all()
-
-    conversation = []
-    for message in messages:
-        # Expand image URLs in message content for LlamaStack
-        content = message.content
-        if isinstance(content, list):
-            # Process each content item and expand image URLs
-            for item in content:
-                if isinstance(item, dict):
-                    expand_image_url(item)
-
-        conversation.append({"role": message.role, "content": content})
-
-    return conversation
-
-
 class ChatService:
     """
     A chat service using LlamaStack's Responses API with virtual agent configurations.
@@ -158,20 +121,54 @@ class ChatService:
     """
 
     def __init__(self, request: Request, db: AsyncSession, user_id):
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         self.request = request
         self.db = db
         self.user_id = user_id  # Can be UUID or string, SQLAlchemy handles conversion
 
-    async def _prepare_conversation_input(self, session_id, user_input):
-        """Prepare input with full conversation history."""
-        if not session_id:
-            raise Exception("session_id is required")
+    async def _get_or_create_conversation(self, session_id: str, client) -> str:
+        """
+        Get or create a LlamaStack conversation for the session.
 
-        # Get existing conversation history (don't store user message yet)
-        conversation_history = await get_conversation_history(self.db, session_id)
+        Args:
+            session_id: Chat session ID
+            client: LlamaStack client
 
-        # Add current user input to conversation
+        Returns:
+            LlamaStack conversation ID
+        """
+        # Get session from database
+        result = await self.db.execute(
+            select(ChatSession).where(ChatSession.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+
+        if not session:
+            raise Exception(f"Session {session_id} not found")
+
+        # Return existing conversation_id if available
+        if session.conversation_id:
+            logger.info(f"Using existing conversation: {session.conversation_id}")
+            return session.conversation_id
+
+        # Create new conversation in LlamaStack
+        conversation = await client.conversations.create()
+        conversation_id = conversation.id
+
+        # Store conversation_id in our session
+        session.conversation_id = conversation_id
+        await self.db.commit()
+        logger.info(f"Created new conversation: {conversation_id}")
+
+        return conversation_id
+
+    async def _prepare_conversation_input(self, user_input):
+        """
+        Prepare input with just the current user message.
+
+        When using the conversation parameter, LlamaStack manages the conversation
+        history automatically - we only need to send the new user message.
+        """
+        # Prepare current user input only
         if isinstance(user_input, list):
             # Multimodal content - serialize and expand URLs
             content_items = []
@@ -179,48 +176,28 @@ class ChatService:
                 content_item = item.model_dump()
                 expand_image_url(content_item)
                 content_items.append(content_item)
-            conversation_history.append({"role": "user", "content": content_items})
+            return [{"role": "user", "content": content_items}]
         else:
             # Single content item
             content_item = user_input.model_dump()
             expand_image_url(content_item)
-            conversation_history.append({"role": "user", "content": [content_item]})
+            return [{"role": "user", "content": [content_item]}]
 
-        return conversation_history
-
-    async def _store_conversation_turn(
+    async def _update_session_title(
         self,
         agent_id: str,
         session_id: str,
         user_input: Any,
-        assistant_content_items: List[Any],
-        response_id: str,
-        user_timestamp: datetime,
-        assistant_timestamp: datetime,
     ) -> None:
         """
-        Store both user input and assistant response in a single transaction.
-        Also ensures the chat session exists before storing messages.
+        Update session title based on first user message.
 
         Args:
             agent_id: Virtual agent configuration ID
             session_id: Chat session ID
             user_input: User message content
-            assistant_content_items: Assistant response content items from LlamaStack
-            response_id: LlamaStack response ID
-            user_timestamp: Timestamp when user sent the message
-            assistant_timestamp: Timestamp when assistant responded
         """
-        # Convert user input to JSON format - expecting Pydantic models
-        if isinstance(user_input, list):
-            user_json_content = [item.model_dump() for item in user_input]
-        else:
-            user_json_content = user_input.model_dump()
-
-        # Convert assistant content items to JSON format
-        assistant_json_content = [item.model_dump() for item in assistant_content_items]
-
-        # Check if session exists, create if not
+        # Get session
         result = await self.db.execute(
             select(ChatSession)
             .where(ChatSession.id == session_id)
@@ -228,7 +205,17 @@ class ChatService:
         )
         session = result.scalar_one_or_none()
 
-        # Generate title from user message (do this for both new and existing sessions)
+        if not session:
+            # Session should already exist (created via create_chat_session endpoint)
+            logger.warning(f"Session {session_id} not found, cannot update title")
+            return
+
+        # Only update title if it's still the default
+        if session.title and not session.title.startswith("Chat"):
+            # Title already customized, don't override
+            return
+
+        # Generate title from user message
         title = "New Chat"
         if isinstance(user_input, list) and user_input:
             # For multimodal content, look for text content
@@ -241,236 +228,42 @@ class ChatService:
             txt = user_input.text
             title = txt[:50] + "..." if len(txt) > 50 else txt[:50]
 
-        if not session:
-            # Create new session owned by the current user
-            session = ChatSession(
-                id=session_id,
-                title=title,
-                agent_id=agent_id,
-                user_id=self.user_id,
-                session_state={"last_response_id": response_id},
-            )
-            self.db.add(session)
-        else:
-            # Update existing session with latest response_id and title
-            session.session_state = {"last_response_id": response_id}
-            session.title = title
-
-        # Create user message with provided timestamp
-        user_message = ChatMessage(
-            session_id=session_id,
-            role="user",
-            content=user_json_content,
-            created_at=user_timestamp,
-        )
-        self.db.add(user_message)
-
-        # Create assistant message with provided timestamp
-        assistant_message = ChatMessage(
-            session_id=session_id,
-            role="assistant",
-            content=assistant_json_content,
-            response_id=response_id,
-            created_at=assistant_timestamp,
-        )
-        self.db.add(assistant_message)
+        session.title = title
 
         try:
-            # Commit the transaction
             await self.db.commit()
         except Exception as e:
-            logger.error(f"Error during commit: {e}")
+            logger.error(f"Error updating session title: {e}")
             await self.db.rollback()
-            raise
-
-    async def create_response(
-        self, agent_id: str, user_input, session_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Create a new response using the Responses API with virtual agent config.
-
-        Args:
-            agent_id: Virtual agent configuration ID
-            user_input: User's message/input
-            session_id: Chat session ID for message storage
-
-        Returns:
-            Response data including response ID and content
-
-        Raises:
-            Exception: If virtual agent not found or response creation fails
-        """
-        # Get virtual agent from database
-        agent = await virtual_agents.get_with_template(self.db, id=agent_id)
-        if not agent:
-            raise Exception(f"Virtual agent {agent_id} not found")
-
-        # Build tools in Responses API format using agent config
-        tools = await build_responses_tools(
-            agent.tools, agent.vector_store_ids, self.request
-        )
-
-        # Prepare input with full conversation history
-        openai_input = await self._prepare_conversation_input(session_id, user_input)
-
-        # Prepare response creation parameters using agent config
-        response_params = {
-            "model": agent.model_name,  # Use model from agent
-            "input": openai_input,
-        }
-
-        # Add optional parameters from agent
-        param_mapping = {
-            "temperature": "temperature",
-            "max_infer_iters": "max_infer_iters",
-        }
-
-        for agent_attr, api_param in param_mapping.items():
-            if hasattr(agent, agent_attr):
-                value = getattr(agent, agent_attr)
-                if value is not None and (
-                    not isinstance(value, list) or len(value) > 0
-                ):
-                    response_params[api_param] = value
-
-        # Add system prompt if available
-        if agent.prompt:
-            # Use the instructions parameter for system prompt in LlamaStack
-            # Responses API
-            response_params["instructions"] = agent.prompt
-
-        # Add tools from agent if any
-        if tools:
-            response_params["tools"] = tools
-
-        # Note: Input/output shields not yet supported in Responses API
-        if agent.input_shields:
-            logger.warning("Input shields not yet supported in Responses API")
-        if agent.output_shields:
-            logger.warning("Output shields not yet supported in Responses API")
-
-        try:
-            # Capture timestamp when user sent the message
-            user_timestamp = datetime.now()
-
-            # Call LlamaStack Responses API
-            # Use async context manager to ensure proper connection cleanup
-            async with get_client_from_request(self.request) as client:
-                # Log the exact call parameters and client info
-                logger.info(f"LlamaStack send: {response_params}")
-                response = await client.responses.create(**response_params)
-                logger.info(f"LlamaStack recv: {response}")
-
-            # Capture timestamp when assistant responded (add 1ms to ensure it's after user)
-            assistant_timestamp = datetime.now() + timedelta(milliseconds=1)
-
-            # Extract content from response.output array
-            content = ""
-            assistant_content_items = []
-            tool_results = []  # Collect tool outputs for fallback formatting
-
-            if hasattr(response, "output") and response.output:
-                for i, output_item in enumerate(response.output):
-                    output_type = type(output_item).__name__
-
-                    # Collect MCP tool call outputs for fallback
-                    if "McpCall" in output_type:
-                        tool_name = getattr(output_item, "name", "unknown")
-                        tool_output = getattr(output_item, "output", None)
-                        tool_error = getattr(output_item, "error", None)
-                        if tool_output or tool_error:
-                            tool_results.append(
-                                {
-                                    "name": tool_name,
-                                    "output": tool_output,
-                                    "error": tool_error,
-                                }
-                            )
-
-                    if hasattr(output_item, "content") and output_item.content:
-                        # Store the full content array from this output item
-                        assistant_content_items.extend(output_item.content)
-                        # Build concatenated string for return value
-                        for content_item in output_item.content:
-                            if hasattr(content_item, "text"):
-                                content += content_item.text
-
-            # If content is empty but we have tool results, format them as response
-            if not content.strip() and tool_results:
-                formatted_results = []
-                for tool_result in tool_results:
-                    if tool_result["error"]:
-                        formatted_results.append(
-                            f"❌ {tool_result['name']}: {tool_result['error']}"
-                        )
-                    elif tool_result["output"]:
-                        # Truncate long outputs
-                        output_str = str(tool_result["output"])
-                        if len(output_str) > 500:
-                            output_str = output_str[:500] + "..."
-                        formatted_results.append(
-                            f"✓ {tool_result['name']}:\n{output_str}"
-                        )
-
-                if formatted_results:
-                    content = "\n\n".join(formatted_results)
-
-            # Store conversation turn in database
-            if session_id:
-                await self._store_conversation_turn(
-                    agent_id,
-                    session_id,
-                    user_input,
-                    assistant_content_items,
-                    response.id,
-                    user_timestamp,
-                    assistant_timestamp,
-                )
-
-            return {
-                "response_id": response.id,
-                "model": response.model,
-                "usage": getattr(response, "usage", None),
-                "content": content or "GIZMO",
-                "agent_id": agent_id,
-            }
-
-        except Exception as e:
-            logger.error(f"Error creating response: {str(e)}")
-            raise
 
     async def stream(
         self,
-        agent_id: str,
-        session_id: str,  # Session ID for updating session state
+        agent,  # VirtualAgent object (already fetched with template)
+        session_id: str,
         prompt,  # Can be str or InterleavedContent
     ):
         """
-        Stream a response using the Responses API with virtual agent configuration.
+        Stream a response using the Responses API with Conversations.
 
-        This method uses real streaming from LlamaStack's Responses API.
+        This method streams responses from LlamaStack using the Conversations API,
+        which manages message history automatically.
 
         Args:
-            agent_id: Virtual agent configuration ID
-            session_id: Session ID for message storage
+            agent: Virtual agent object (already fetched with template)
+            session_id: Session ID
             prompt: User's message/input
 
         Yields:
-            JSON strings containing response chunks
+            SSE-formatted JSON strings containing response chunks
         """
         try:
-            # Get virtual agent from database
-            agent = await virtual_agents.get_with_template(self.db, id=agent_id)
-            if not agent:
-                raise Exception(f"Virtual agent {agent_id} not found")
-
             # Build tools in Responses API format
             tools = await build_responses_tools(
                 agent.tools, agent.vector_store_ids, self.request
             )
 
-            # Prepare input with full conversation history
-            openai_input = await self._prepare_conversation_input(session_id, prompt)
+            # Prepare input with just the current message
+            openai_input = await self._prepare_conversation_input(prompt)
 
             # Prepare streaming request parameters
             response_params = {
@@ -489,211 +282,34 @@ class ChatService:
             if tools:
                 response_params["tools"] = tools
 
-            # Track message timestamps and content
-            user_timestamp = datetime.now()
-            response_id = None
-            accumulated_content = ""
-            assistant_content_items = []
-
-            # Stream from LlamaStack
+            # Stream from LlamaStack - just forward everything to frontend
             async with get_client_from_request(self.request) as client:
+                # Get or create conversation for this session
+                conversation_id = await self._get_or_create_conversation(
+                    session_id, client
+                )
+                response_params["conversation"] = conversation_id
+
                 async for chunk in await client.responses.create(**response_params):
-                    chunk_type = chunk.type if hasattr(chunk, "type") else "unknown"
+                    # Forward the chunk directly to frontend with session_id
+                    chunk_dict = jsonable_encoder(chunk)
+                    chunk_dict["session_id"] = str(session_id)
+                    logger.info(f"Streaming chunk: {chunk_dict}")
+                    yield f"data: {json.dumps(chunk_dict)}\n\n"
 
-                    # Check for error chunks
-                    if hasattr(chunk, "error") and chunk.error:
-                        error_msg = (
-                            chunk.error.get("message", str(chunk.error))
-                            if isinstance(chunk.error, dict)
-                            else str(chunk.error)
-                        )
-                        yield json.dumps(
-                            jsonable_encoder(
-                                {
-                                    "type": "error",
-                                    "content": f"Error: {error_msg}",
-                                    "session_id": session_id,
-                                }
-                            )
-                        )
-                        continue
+            logger.info(f"Stream loop completed for session {session_id}")
 
-                    # Handle different chunk types
-                    if chunk_type == "response.output_text.delta":
-                        # Text content delta - the delta is a direct attribute
-                        if hasattr(chunk, "delta"):
-                            text = chunk.delta
-                            accumulated_content += text
-                            # Stream to frontend
-                            yield json.dumps(
-                                jsonable_encoder(
-                                    {
-                                        "type": "content",
-                                        "content": text,
-                                        "session_id": session_id,
-                                    }
-                                )
-                            )
+            # Send [DONE] to signal stream completion
+            yield "data: [DONE]\n\n"
 
-                    elif chunk_type == "response.mcp_call.in_progress":
-                        # Tool execution started - these chunks don't have name, just notify
-                        yield json.dumps(
-                            jsonable_encoder(
-                                {
-                                    "type": "tool_executing",
-                                    "status": "in_progress",
-                                    "session_id": session_id,
-                                }
-                            )
-                        )
-
-                    elif chunk_type == "response.mcp_call.completed":
-                        # Tool execution completed
-                        yield json.dumps(
-                            jsonable_encoder(
-                                {
-                                    "type": "tool_executing",
-                                    "status": "completed",
-                                    "session_id": session_id,
-                                }
-                            )
-                        )
-
-                    elif chunk_type == "response.completed":
-                        # Final response with all output
-                        response_id = chunk.response.id
-                        # Extract all content items for storage
-                        if hasattr(chunk.response, "output") and chunk.response.output:
-                            for output_item in chunk.response.output:
-                                if (
-                                    hasattr(output_item, "content")
-                                    and output_item.content
-                                ):
-                                    assistant_content_items.extend(output_item.content)
-
-                        # If no text was generated, build response from tool outputs
-                        if (
-                            not accumulated_content.strip()
-                            and hasattr(chunk.response, "output")
-                            and chunk.response.output
-                        ):
-                            tool_results = []
-                            for output_item in chunk.response.output:
-                                if hasattr(output_item, "type") and "mcp_call" in str(
-                                    output_item.type
-                                ):
-                                    tool_name = getattr(output_item, "name", "unknown")
-                                    tool_arguments = getattr(
-                                        output_item, "arguments", None
-                                    )
-                                    tool_output = getattr(output_item, "output", None)
-                                    tool_error = getattr(output_item, "error", None)
-                                    if tool_output or tool_error or tool_arguments:
-                                        tool_results.append(
-                                            {
-                                                "name": tool_name,
-                                                "arguments": tool_arguments,
-                                                "output": tool_output,
-                                                "error": tool_error,
-                                            }
-                                        )
-
-                            if tool_results:
-                                # Build a clear message that we couldn't generate a response
-                                fallback_parts = [
-                                    "⚠️ **Unable to generate a response**",
-                                    "",
-                                    "The model executed the requested operations but did not provide a summary.",
-                                    "",
-                                    "<details>",
-                                    "<summary>Tool Execution Results</summary>",
-                                    "",
-                                ]
-
-                                for idx, tool_result in enumerate(tool_results, 1):
-                                    fallback_parts.append(
-                                        f"**{idx}. {tool_result['name']}**"
-                                    )
-                                    fallback_parts.append("")
-
-                                    # Show arguments/input if available
-                                    if tool_result["arguments"]:
-                                        fallback_parts.append("*Input:*")
-                                        fallback_parts.append("```json")
-                                        fallback_parts.append(
-                                            f"{tool_result['arguments']}"
-                                        )
-                                        fallback_parts.append("```")
-                                        fallback_parts.append("")
-
-                                    # Show error if present
-                                    if tool_result["error"]:
-                                        fallback_parts.append("*Error:*")
-                                        fallback_parts.append("```")
-                                        fallback_parts.append(f"{tool_result['error']}")
-                                        fallback_parts.append("```")
-                                        fallback_parts.append("")
-
-                                    # Show output (even if there's an error)
-                                    if tool_result["output"]:
-                                        fallback_parts.append("*Output:*")
-                                        fallback_parts.append("```")
-                                        fallback_parts.append(
-                                            f"{tool_result['output']}"
-                                        )
-                                        fallback_parts.append("```")
-                                        fallback_parts.append("")
-
-                                    if idx < len(tool_results):
-                                        fallback_parts.append("---")
-                                        fallback_parts.append("")
-
-                                fallback_parts.append("</details>")
-
-                                fallback_content = "\n".join(fallback_parts)
-                                yield json.dumps(
-                                    jsonable_encoder(
-                                        {
-                                            "type": "content",
-                                            "content": fallback_content,
-                                            "session_id": session_id,
-                                        }
-                                    )
-                                )
-
-            assistant_timestamp = datetime.now() + timedelta(milliseconds=1)
-
-            # Store conversation turn
-            if session_id and response_id:
-                await self._store_conversation_turn(
-                    agent_id,
-                    session_id,
-                    prompt,
-                    assistant_content_items,
-                    response_id,
-                    user_timestamp,
-                    assistant_timestamp,
-                )
-
-            # Send done marker
-            yield json.dumps(
-                jsonable_encoder(
-                    {
-                        "type": "done",
-                        "response_id": response_id,
-                        "session_id": session_id,
-                    }
-                )
-            )
+            # Update session title based on first message
+            await self._update_session_title(agent.id, session_id, prompt)
 
         except Exception as e:
-            logger.exception(f"Error in stream for agent {agent_id}: {e}")
-            yield json.dumps(
-                jsonable_encoder(
-                    {
-                        "type": "error",
-                        "content": f"Error occurred while processing your request: "
-                        f"{str(e)}",
-                    }
-                )
-            )
+            logger.exception(f"Error in stream for agent {agent.id}: {e}")
+            error_data = {
+                "type": "error",
+                "content": f"Error: {str(e)}",
+                "session_id": str(session_id),
+            }
+            yield f"data: {json.dumps(jsonable_encoder(error_data))}\n\n"

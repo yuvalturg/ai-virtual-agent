@@ -19,12 +19,7 @@ from .agent_templates import (
     TemplateInitializationResponse,
 )
 from .chat import (
-    ChatMessageResponse,
     ChatRequest,
-    ChatSessionCreate,
-    ChatSessionResponse,
-    ChatSessionUpdate,
-    ChatSessionWithMessages,
     ContentItem,
     ImageContentItem,
     TextContentItem,
@@ -61,11 +56,6 @@ __all__ = [
     "TemplateSuiteUpdate",
     "TemplateSuiteResponse",
     # Chat schemas
-    "ChatMessageResponse",
-    "ChatSessionCreate",
-    "ChatSessionUpdate",
-    "ChatSessionResponse",
-    "ChatSessionWithMessages",
     "ChatRequest",
     "ContentItem",
     "TextContentItem",

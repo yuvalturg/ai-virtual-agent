@@ -69,7 +69,7 @@ stages:
         X-Forwarded-Email: admin@change.me
       json:
         template_name: "{first_template}"
-        custom_name: "Test Agent from Template {tavern.env_vars.TAVERN_UNIQUE}"
+        custom_name: "Test Agent from Template"
         include_knowledge_base: false
         model_name: "{available_model}"
     response:
@@ -79,7 +79,7 @@ stages:
       json:
         status: "success"  # Template deployment successful
         agent_id: !anystr  # UUID of newly created agent
-        agent_name: "Test Agent from Template {tavern.env_vars.TAVERN_UNIQUE}"
+        agent_name: "Test Agent from Template"
         persona: !anystr
         knowledge_base_created: false
         knowledge_base_name: !anything

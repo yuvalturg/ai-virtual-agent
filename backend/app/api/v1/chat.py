@@ -48,22 +48,26 @@ async def chat(
         # Create chat service with the database session
         chat_service = ChatService(request, db, user_id=current_user.id)
 
-        async def chat_stream():
-            try:
-                async for chunk in chat_service.stream(
-                    chat_request.virtualAgentId,
-                    chat_request.sessionId or "default",
-                    chat_request.message.content,
-                ):
-                    yield f"data: {chunk}\n\n"
+        # Require a valid session ID
+        if not chat_request.sessionId:
+            raise HTTPException(
+                status_code=400,
+                detail="Session ID is required",
+            )
 
-                yield "data: [DONE]\n\n"
-
-            except Exception as e:
-                logger.error(f"Error in stream: {str(e)}")
-                yield f'data: {{"type":"error","content":"Error: {str(e)}"}}\n\n'
-
-        return StreamingResponse(chat_stream(), media_type="text/event-stream")
+        # Stream directly from service (SSE format)
+        return StreamingResponse(
+            chat_service.stream(
+                agent,  # Pass the agent object, not ID (already fetched above)
+                chat_request.sessionId,
+                chat_request.message.content,
+            ),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",  # Disable nginx buffering
+            },
+        )
 
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")

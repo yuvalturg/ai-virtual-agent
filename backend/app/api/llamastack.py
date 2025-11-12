@@ -1,19 +1,17 @@
+import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import Request
 from llama_stack_client import AsyncLlamaStackClient
 
-# TODO: Need to update this import when virtual_agents is refactored
-# from ..virtual_agents.agent_resource import EnhancedAgentResource
-
 load_dotenv()
 
 LLAMASTACK_URL = os.getenv("LLAMASTACK_URL", "http://localhost:8321")
-LLAMASTACK_TIMEOUT = float(os.getenv("LLAMASTACK_TIMEOUT", "300.0"))
+LLAMASTACK_TIMEOUT = float(os.getenv("LLAMASTACK_TIMEOUT", "180.0"))
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -178,3 +176,28 @@ def get_sync_client() -> AsyncLlamaStackClient:
 
 # Create sync client instance
 sync_client = get_sync_client()
+
+
+def create_tool_call_trace_entry(item: Any) -> dict:
+    """Create trace entry for MCP tool call."""
+    args = item.arguments
+    if args and isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except Exception:
+            pass
+
+    return {
+        "type": "tool_call",
+        "name": item.name or "tool",
+        "server_label": item.server_label,
+        "arguments": args,
+        "output": item.output,
+        "error": item.error,
+        "status": "failed" if item.error else "completed",
+    }
+
+
+ERROR_NO_RESPONSE_MESSAGE = (
+    "⚠️ Unable to generate a response. Please try rephrasing your question or try again."
+)

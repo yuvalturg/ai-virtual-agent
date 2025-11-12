@@ -158,7 +158,6 @@ async def require_admin_role(current_user=Depends(get_current_user)):
 
 
 @router.get("/profile", response_model=UserResponse)
-@router.get("/profile/", response_model=UserResponse)
 async def read_profile(request: Request, db: AsyncSession = Depends(get_db)):
     """Retrieve an authorized user's profile."""
     current_user = await get_user_from_headers(request.headers, db)
@@ -235,6 +234,9 @@ async def create_user(
             logger.info(f"Agent-user sync completed after user creation: {sync_result}")
         except Exception as sync_error:
             logger.error(f"Error syncing agents to new user: {str(sync_error)}")
+
+    # Refresh the user object to ensure all fields are loaded
+    await db.refresh(created_user)
 
     return created_user
 

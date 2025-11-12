@@ -10,9 +10,6 @@ RUN dnf install -y nmap-ncat && \
 # Set working directory
 WORKDIR /app
 
-# Switch to non-root user (UBI images use 1001 by default)
-USER 1001
-
 # Configure pip for better performance
 RUN pip install --upgrade pip && \
     pip config set global.disable-pip-version-check true
@@ -23,8 +20,8 @@ COPY backend/requirements.txt .
 # Install Python dependencies with optimizations
 RUN pip install --prefer-binary --no-cache-dir -r requirements.txt
 
-# Copy backend code (excluding __pycache__ via .dockerignore)
-COPY backend/ ./backend/
+# Note: backend code will be mounted via volume in compose.yaml
+# No need to COPY it here for dev environment
 
 # Set Python path
 ENV PYTHONPATH=/app
