@@ -17,22 +17,6 @@ export interface Provider {
   api: string;
 }
 
-export interface LlamaStackResponse {
-  type: string;
-  content: string;
-  sessionId?: string;
-  tool?: {
-    name: string;
-    params?: Record<string, unknown>;
-  };
-  thought?: string;
-  answer?: string;
-}
-
-export type LlamaStackParser = {
-  parse(text: string): string | null;
-};
-
 export interface ErrorResponse {
   detail?: string;
 }

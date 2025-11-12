@@ -1,12 +1,12 @@
 """CRUD operations for chat sessions."""
 
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.chat import ChatMessage, ChatSession
+from ..models.chat import ChatSession
 from .base import CRUDBase
 
 logger = logging.getLogger(__name__)
@@ -91,12 +91,7 @@ class CRUDChatSession(CRUDBase[ChatSession, dict, dict]):
                 # Session doesn't exist or user doesn't own it
                 return False
 
-            # Now safe to delete messages (user owns the session)
-            await db.execute(
-                delete(ChatMessage).where(ChatMessage.session_id == session_id)
-            )
-
-            # Delete the session
+            # Delete the session (CASCADE will handle any related data)
             await db.execute(delete(ChatSession).where(ChatSession.id == session_id))
 
             await db.commit()
@@ -107,58 +102,6 @@ class CRUDChatSession(CRUDBase[ChatSession, dict, dict]):
                 f"Error deleting session {session_id} for user {user_id}: {str(e)}"
             )
             raise
-
-    async def load_messages_paginated(
-        self, db: AsyncSession, *, session_id, page: int = 1, page_size: int = 50
-    ) -> Tuple[List[dict], int, bool]:
-        """Load messages from ChatMessage table with pagination.
-
-        Args:
-            session_id: Session UUID (string or UUID object)
-        """
-        try:
-            # Get total count
-            count_result = await db.execute(
-                select(ChatMessage).where(ChatMessage.session_id == session_id)
-            )
-            all_messages = count_result.scalars().all()
-            total_messages = len(all_messages)
-
-            # Calculate pagination
-            offset = (page - 1) * page_size
-            has_more = offset + page_size < total_messages
-
-            # Get paginated messages
-            result = await db.execute(
-                select(ChatMessage)
-                .where(ChatMessage.session_id == session_id)
-                .order_by(ChatMessage.created_at.asc())
-                .offset(offset)
-                .limit(page_size)
-            )
-            db_messages = result.scalars().all()
-
-            # Convert to API format
-            messages = []
-            for msg in db_messages:
-                messages.append(
-                    {
-                        "id": msg.id,
-                        "role": msg.role,
-                        "content": msg.content,
-                        "session_id": msg.session_id,
-                        "timestamp": (
-                            msg.created_at.isoformat() if msg.created_at else None
-                        ),
-                        "response_id": msg.response_id,
-                    }
-                )
-
-            return messages, total_messages, has_more
-
-        except Exception as e:
-            logger.error(f"Error loading messages from database: {str(e)}")
-            return [], 0, False
 
 
 chat_sessions = CRUDChatSession(ChatSession)

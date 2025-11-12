@@ -7,6 +7,8 @@ stages:
       method: GET
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
@@ -22,6 +24,8 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         name: "Two Word Assistant"
         prompt: "You are a helpful assistant. Always answer questions with exactly 2 words only. Never use more than 2 words in your responses."
@@ -49,6 +53,8 @@ stages:
       method: GET
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
@@ -62,6 +68,8 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         agent_id: "{agent_id}"
         session_name: "Tavern-Test-Session"
@@ -80,6 +88,8 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         sessionId: "{session_id}"
@@ -88,7 +98,6 @@ stages:
           content:
             - type: "input_text"
               text: "Who is the first president of the united states?"
-        stream: false
     response:
       status_code: 200
       verify_response_with:
@@ -103,6 +112,8 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         sessionId: "{session_id}"
@@ -111,7 +122,6 @@ stages:
           content:
             - type: "input_text"
               text: "Who is the second president of the united states?"
-        stream: false
     response:
       status_code: 200
       verify_response_with:
@@ -126,5 +136,7 @@ stages:
       method: DELETE
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 204

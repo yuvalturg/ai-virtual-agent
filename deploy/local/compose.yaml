@@ -64,16 +64,18 @@ services:
 
   # LlamaStack service
   llamastack:
-    image: llamastack/distribution-starter:0.2.18
+    image: llamastack/distribution-starter:0.3.1
     container_name: llamastack-dev
     platform: linux/amd64
     restart: unless-stopped
+    environment:
+      - RUN_CONFIG_PATH=/app-config/config.yaml
     ports:
       - '${LLAMASTACK_PORT:-8321}:8321'
     volumes:
-      - llama:/root/.llama
-      - ${PWD}/deploy/local/llamastack-run.yaml:/run.yaml:Z
-    entrypoint: ["python", "-m", "llama_stack.core.server.server", "/run.yaml"]
+      - llama:/.llama
+      - llamadist:/.llama/distributions
+      - ${PWD}/deploy/local/llamastack-run.yaml:/app-config/config.yaml:Z
     networks:
       - ai-va-network
     healthcheck:
@@ -175,6 +177,7 @@ volumes:
   minio_data:
   ollama:
   llama:
+  llamadist:
 
 networks:
   ai-va-network:

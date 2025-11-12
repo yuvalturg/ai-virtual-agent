@@ -56,10 +56,21 @@ import { getTemplateDetails } from '@/services/agent-templates';
 // Custom sanitize schema that allows <details> and <summary> tags for collapsible sections
 const customSanitizeSchema = {
   ...defaultSchema,
-  tagNames: [...(defaultSchema.tagNames || []), 'details', 'summary'],
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    'details',
+    'summary',
+    'div',
+    'pre',
+    'code',
+    'strong',
+  ],
   attributes: {
     ...defaultSchema.attributes,
-    details: ['open'],
+    details: ['open', 'style'],
+    summary: ['style'],
+    div: ['style'],
+    pre: ['style'],
   },
 };
 
@@ -104,6 +115,8 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   const composerRef = React.useRef<HTMLDivElement>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [isSwitchWarningOpen, setIsSwitchWarningOpen] = useState<boolean>(false);
+  const [pendingSessionSwitch, setPendingSessionSwitch] = useState<string | null>(null);
   const scrollToBottomRef = React.useRef<HTMLDivElement>(null);
   const historyRef = React.useRef<HTMLButtonElement>(null);
 
@@ -126,16 +139,13 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     append,
     isLoading,
     loadSession,
-    loadMoreMessages,
     sessionId,
     setSessionId,
     attachedFiles,
     handleAttach,
     clearAttachedFiles,
     setAttachedFiles,
-    hasMoreMessages,
-    isLoadingMore,
-    totalMessages,
+    flushPendingUpdates,
   } = useChat(selectedAgent || 'default', {
     onError: (error: Error) => {
       console.error('Chat error:', error);
@@ -163,14 +173,53 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       return `![Image](${imageUrl})`;
     }
 
+    if (content.type === 'reasoning') {
+      // Display reasoning in italic, open while streaming, collapsed when complete
+      const openAttr = content.isComplete ? '' : ' open';
+      return `<details${openAttr} style="margin: 4px 0;"><summary style="cursor: pointer; font-style: italic; color: #6a6e73;">💭 Reasoning</summary><div style="font-style: italic; padding: 8px; margin-top: 4px; border-left: 2px solid #d2d2d2;">${content.text}</div></details>`;
+    }
+
+    if (content.type === 'tool_call') {
+      // Display tool call in italic, open while in progress, collapsed when complete/failed
+      const statusEmoji =
+        content.status === 'completed' ? '✅' : content.status === 'failed' ? '❌' : '⏳';
+      const toolName = content.server_label
+        ? `${content.server_label}::${content.name}`
+        : content.name;
+      const openAttr = content.status === 'in_progress' ? ' open' : '';
+
+      let detailsContent = '';
+      if (content.arguments) {
+        detailsContent += `<div style="margin-top: 4px;"><strong>Arguments:</strong><pre style="background: #f4f4f4; padding: 8px; border-radius: 4px; overflow-x: auto;"><code>${content.arguments}</code></pre></div>`;
+      }
+      if (content.output) {
+        detailsContent += `<div style="margin-top: 4px;"><strong>Output:</strong><pre style="background: #f4f4f4; padding: 8px; border-radius: 4px; overflow-x: auto;"><code>${content.output}</code></pre></div>`;
+      }
+      if (content.error) {
+        detailsContent += `<div style="margin-top: 4px; color: #c9190b;"><strong>Error:</strong><pre style="background: #ffe6e6; padding: 8px; border-radius: 4px; overflow-x: auto;"><code>${content.error}</code></pre></div>`;
+      }
+
+      return `<details${openAttr} style="margin: 4px 0;"><summary style="cursor: pointer; font-style: italic; color: #6a6e73;">${statusEmoji} Tool Call: ${toolName}</summary><div style="font-style: italic; padding: 8px; margin-top: 4px; border-left: 2px solid #d2d2d2;">${detailsContent}</div></details>`;
+    }
+
     return '';
   }, []);
 
   const multipleContentToText = React.useCallback(
-    (content: SimpleContentItem[]): string => {
-      return content.map((m) => contentToText(m)).join('\n');
+    (content: SimpleContentItem[] | undefined): string => {
+      if (!content || !Array.isArray(content) || content.length === 0) {
+        return '';
+      }
+      // Join with empty string - spacing is handled by CSS margins on each element
+      return content.map((m) => contentToText(m)).join('');
     },
     [contentToText]
+  );
+
+  // Memoize rehype plugins to prevent re-creating on every render
+  const rehypePlugins = React.useMemo(
+    () => [rehypeRaw, [rehypeSanitize, customSanitizeSchema]],
+    []
   );
 
   // Convert our chat messages to PatternFly format
@@ -189,6 +238,29 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       })
     );
   }, [chatMessages, isLoading, multipleContentToText]);
+
+  // Memoize the message list to prevent re-rendering when only input changes
+  const MemoizedMessageBox = React.useMemo(
+    () => (
+      <MessageBox
+        announcement={announcement}
+        style={{ maxWidth: '85%', width: '85%', margin: '0 auto' }}
+      >
+        {messages.map((message, index) => {
+          if (index === messages.length - 1) {
+            return (
+              <Fragment key={message.id}>
+                <div ref={scrollToBottomRef}></div>
+                <Message key={message.id} {...message} additionalRehypePlugins={rehypePlugins} />
+              </Fragment>
+            );
+          }
+          return <Message key={message.id} {...message} additionalRehypePlugins={rehypePlugins} />;
+        })}
+      </MessageBox>
+    ),
+    [messages, announcement, rehypePlugins]
+  );
 
   const displayMode = ChatbotDisplayMode.embedded;
 
@@ -241,7 +313,6 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   ) => {
     if (value) {
       const agentId = value.toString();
-      console.log('Agent selected:', agentId);
       setSelectedAgent(agentId);
       if (noAgentsWarning) setNoAgentsWarning(null);
     }
@@ -252,6 +323,13 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     selectedItem?: string | number
   ) => {
     if (!selectedItem || typeof selectedItem !== 'string') return;
+
+    // Check if currently loading - show warning
+    if (isLoading) {
+      setPendingSessionSwitch(selectedItem);
+      setIsSwitchWarningOpen(true);
+      return;
+    }
 
     // Set session ID immediately on click to prevent race condition
     setSessionId(selectedItem);
@@ -265,6 +343,32 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         setAnnouncement('Failed to load chat session');
       }
     })();
+  };
+
+  const confirmSessionSwitch = () => {
+    if (!pendingSessionSwitch) return;
+
+    // Flush any pending batched updates before switching
+    flushPendingUpdates();
+
+    setSessionId(pendingSessionSwitch);
+
+    void (async () => {
+      try {
+        await loadSession(pendingSessionSwitch);
+        setIsDrawerOpen(false);
+        setIsSwitchWarningOpen(false);
+        setPendingSessionSwitch(null);
+      } catch (error) {
+        console.error('Error loading session:', error);
+        setAnnouncement('Failed to load chat session');
+      }
+    })();
+  };
+
+  const cancelSessionSwitch = () => {
+    setIsSwitchWarningOpen(false);
+    setPendingSessionSwitch(null);
   };
 
   const onNewChat = () => {
@@ -386,9 +490,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   const fetchSessionsData = useCallback(
     async (agentId?: string) => {
       try {
-        console.log('fetchSessionsData called with agentId:', agentId);
         const sessions = await fetchChatSessions(agentId);
-        console.log('Fetched sessions:', sessions);
         setChatSessions(sessions);
 
         // Convert to PatternFly conversation format
@@ -401,23 +503,18 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         }));
 
         setConversations(conversations);
-        console.log('Set conversations:', conversations);
 
         // Auto-select first session if no session is currently selected and sessions exist
         // OR if the current sessionId doesn't exist in the fetched sessions (i.e., from different agent)
-        console.log('Current sessionId:', sessionId, 'sessions.length:', sessions.length);
         const currentSessionExists =
           sessionId && sessions.some((session) => session.id === sessionId);
-        console.log('Current session exists in fetched sessions:', currentSessionExists);
 
         if ((!sessionId || !currentSessionExists) && sessions.length > 0) {
           const firstSession = sessions[0]; // Sessions should be ordered by updated_at desc (most recent first)
-          console.log('Auto-selecting first session:', firstSession.id);
           await loadSession(firstSession.id);
         } else if (sessions.length === 0 && agentId) {
           // Create a new session if agent has no sessions
           try {
-            console.log('No sessions found, creating new session for agent:', agentId);
             // Generate unique session name with timestamp
             const timestamp = new Date()
               .toISOString()
@@ -471,7 +568,6 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       if (!currentUser) return;
 
       try {
-        console.log('Fetching agents for user:', currentUser.id);
         const agents = await fetchUserAgents(currentUser.id);
         setAvailableAgents(agents);
 
@@ -481,17 +577,14 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
           // Pre-select agent if requested and available; otherwise use first available
           if (preSelectedAgentId && agents.some((a) => a.id === preSelectedAgentId)) {
             agentToSelect = preSelectedAgentId;
-            console.log('Setting pre-selected agent:', agentToSelect);
           } else {
             // No specific agent requested, use first available
             agentToSelect = agents[0].id;
-            console.log('Setting first available agent:', agentToSelect);
           }
 
           setSelectedAgent(agentToSelect);
           // Don't fetch sessions here - let the selectedAgent useEffect handle it
         } else {
-          console.log('No agents found for user:', currentUser.id);
           setAnnouncement('No agents assigned to this user');
           setNoAgentsWarning('No agents are assigned to your account. Please contact an admin.');
         }
@@ -507,7 +600,6 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   // Handle selectedAgent changes - fetch sessions for the new agent
   useEffect(() => {
     if (selectedAgent) {
-      console.log('selectedAgent changed to:', selectedAgent, 'fetching sessions...');
       void fetchSessionsData(selectedAgent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -515,10 +607,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
 
   // Handle message sending
   const handleSendMessage = async (message: string | number) => {
-    console.log('handleSendMessage called with:', message, 'selectedAgent:', selectedAgent);
-    console.log('Current session ID:', sessionId);
     if (typeof message === 'string' && message.trim() && selectedAgent) {
-      console.log('Sending message via append:', message, 'using session:', sessionId);
       const contents: SimpleContentItem[] = [];
       contents.push({ type: 'input_text', text: message });
       for (const file of attachedFiles) {
@@ -532,12 +621,6 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         content: contents,
       });
       clearAttachedFiles();
-    } else {
-      console.log('Message not sent - conditions not met:', {
-        messageType: typeof message,
-        messageLength: typeof message === 'string' ? message.trim().length : 0,
-        selectedAgent: selectedAgent,
-      });
     }
   };
 
@@ -560,7 +643,6 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     }
 
     const data = (await response.json()) as { filename: string };
-    console.log('Attachment uploaded successfully:', data);
 
     // NOTE: The frontend is not aware of its own base URL,
     // so the URL returned here is only the path portion, e.g. /api/attachments/...
@@ -729,54 +811,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                     </div>
                   </div>
                 )}
-                <MessageBox
-                  announcement={announcement}
-                  style={{ maxWidth: '85%', width: '85%', margin: '0 auto' }}
-                >
-                  {/* Show load more messages button if there are more messages to load */}
-                  {hasMoreMessages && (
-                    <div style={{ textAlign: 'center', padding: '16px' }}>
-                      <Button
-                        variant="link"
-                        onClick={() => void loadMoreMessages()}
-                        isLoading={isLoadingMore}
-                        size="sm"
-                        style={{ fontSize: '14px' }}
-                      >
-                        {isLoadingMore
-                          ? 'Loading...'
-                          : `Load earlier messages (${totalMessages - messages.length} more)`}
-                      </Button>
-                    </div>
-                  )}
-                  {messages.map((message, index) => {
-                    if (index === messages.length - 1) {
-                      return (
-                        <Fragment key={message.id}>
-                          <div ref={scrollToBottomRef}></div>
-                          <Message
-                            key={message.id}
-                            {...message}
-                            additionalRehypePlugins={[
-                              rehypeRaw,
-                              [rehypeSanitize, customSanitizeSchema],
-                            ]}
-                          />
-                        </Fragment>
-                      );
-                    }
-                    return (
-                      <Message
-                        key={message.id}
-                        {...message}
-                        additionalRehypePlugins={[
-                          rehypeRaw,
-                          [rehypeSanitize, customSanitizeSchema],
-                        ]}
-                      />
-                    );
-                  })}
-                </MessageBox>
+                {MemoizedMessageBox}
               </ChatbotContent>
               <ChatbotFooter>
                 <Panel variant="secondary" ref={composerRef}>
@@ -837,6 +872,26 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
               onClick={confirmDeleteSession}
             >
               Delete
+            </Button>
+          </ModalFooter>
+        </Modal>
+        <Modal
+          variant={ModalVariant.small}
+          title="Message in Progress"
+          isOpen={isSwitchWarningOpen}
+          onClose={cancelSessionSwitch}
+        >
+          <ModalHeader title="Message in Progress" labelId="switch-session-modal-title" />
+          <ModalBody id="switch-session-modal-desc">
+            A message is currently being generated. If you switch sessions now, you can view the
+            completed message by switching back later. Do you want to continue?
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="link" onClick={cancelSessionSwitch}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={confirmSessionSwitch}>
+              Switch Session
             </Button>
           </ModalFooter>
         </Modal>

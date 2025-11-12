@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models import AgentTemplate, ChatMessage, ChatSession, User, VirtualAgent
+from ..models import AgentTemplate, User, VirtualAgent
 from ..schemas import VirtualAgentCreate
 from .base import CRUDBase
 
@@ -96,16 +96,6 @@ class CRUDVirtualAgent(CRUDBase[VirtualAgent, VirtualAgentCreate, dict]):
             agent = await self.get(db, id=id)
             if not agent:
                 return False
-
-            # Delete messages for all sessions associated with this agent
-            # (must be done before CASCADE deletes the sessions)
-            await db.execute(
-                delete(ChatMessage).where(
-                    ChatMessage.session_id.in_(
-                        select(ChatSession.id).where(ChatSession.agent_id == id)
-                    )
-                )
-            )
 
             # Delete the agent (CASCADE will delete associated sessions)
             await db.execute(delete(VirtualAgent).where(VirtualAgent.id == id))

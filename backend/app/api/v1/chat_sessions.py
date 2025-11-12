@@ -20,19 +20,23 @@ import logging
 import random
 import string
 import uuid
-from datetime import datetime
-from typing import List
+from datetime import datetime, timezone
+from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.llamastack import get_client_from_request
+from ...api.llamastack import (
+    ERROR_NO_RESPONSE_MESSAGE,
+    create_tool_call_trace_entry,
+    get_client_from_request,
+)
 from ...crud.chat_sessions import chat_sessions
 from ...crud.virtual_agents import virtual_agents
 from ...database import get_db
 from ...schemas.chat_sessions import (
-    ChatSessionDetail,
-    ChatSessionSummary,
+    ChatSession,
+    ConversationMessagesResponse,
     CreateSessionRequest,
     DeleteSessionResponse,
 )
@@ -41,6 +45,51 @@ from .users import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat_sessions", tags=["chat_sessions"])
+
+
+def format_history_item(chunk: Any, text_parts: list, trace_entries: list) -> None:
+    """
+    Format conversation history items (direct data objects).
+
+    Args:
+        chunk: History item from LlamaStack conversation
+        text_parts: List to accumulate text (modified in-place)
+        trace_entries: List to accumulate trace entries (modified in-place)
+    """
+    # Log the chunk
+    logger.info(f"format_history_item received: {chunk}")
+
+    # Filter out items without type
+    if not hasattr(chunk, "type"):
+        return
+
+    # Filter out tool discovery items
+    if chunk.type == "mcp_list_tools":
+        return
+
+    # Handle message items
+    if chunk.type == "message":
+        if hasattr(chunk, "content") and chunk.content:
+            for content_item in chunk.content:
+                if hasattr(content_item, "type") and content_item.type in (
+                    "input_text",
+                    "output_text",
+                ):
+                    if hasattr(content_item, "text") and content_item.text:
+                        text_parts.append(content_item.text)
+                        logger.info(
+                            f"Added text from message, text_parts now has {len(text_parts)} items"
+                        )
+        return
+
+    # Handle MCP tool calls
+    if chunk.type == "mcp_call":
+        entry = create_tool_call_trace_entry(chunk)
+        trace_entries.append(entry)
+        logger.info(
+            f"Added tool call entry, trace_entries now has {len(trace_entries)} items: {entry}"
+        )
+        return
 
 
 def convert_internal_urls_to_relative(message_data: dict) -> None:
@@ -60,14 +109,36 @@ def convert_internal_urls_to_relative(message_data: dict) -> None:
                 content_item["image_url"] = parsed.path
 
 
-@router.get("/", response_model=List[ChatSessionSummary])
+def create_assistant_error_message(trace_entries: list) -> dict:
+    """
+    Create an assistant error message with trace entries attached.
+
+    Used when the model executes tool calls but fails to generate a text response.
+    Note: The frontend will add a ⚠️ emoji when displaying this error message.
+
+    Args:
+        trace_entries: List of trace entries (tool calls, reasoning) to attach
+
+    Returns:
+        Message dict with error content and trace entries
+    """
+    return {
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "output_text", "text": ERROR_NO_RESPONSE_MESSAGE}],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "trace_entries": trace_entries,
+    }
+
+
+@router.get("/", response_model=List[ChatSession])
 async def get_chat_sessions(
     agent_id: str,
     request: Request,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
-) -> List[ChatSessionSummary]:
+) -> List[ChatSession]:
     """
     Get a list of chat sessions for a specific agent from LlamaStack.
 
@@ -102,32 +173,15 @@ async def get_chat_sessions(
             f"Successfully retrieved {len(local_sessions)} sessions from local database"
         )
 
-        # Get agent name from our VirtualAgent
-        agent_name = "Unknown Agent"
-        try:
-            agent_config = await virtual_agents.get(db, id=agent_id)
-            if agent_config:
-                agent_name = agent_config.name
-        except Exception as e:
-            logger.warning(f"Could not get agent info: {e}")
-
         # Convert local ChatSession objects to response format
         sessions_response = [
-            ChatSessionSummary(
+            ChatSession(
                 id=session.id,
-                title=session.title or f"Chat {session.id[:8]}...",
-                agent_name=agent_name,
-                created_at=(
-                    session.created_at.isoformat() if session.created_at else None
-                ),
-                updated_at=(
-                    session.updated_at.isoformat() if session.updated_at else None
-                ),
-                last_response_id=(
-                    session.session_state.get("last_response_id")
-                    if session.session_state
-                    else None
-                ),
+                title=session.title or f"Chat {str(session.id)[:8]}...",
+                agent_id=session.agent_id,
+                conversation_id=session.conversation_id,
+                created_at=session.created_at.isoformat(),
+                updated_at=session.updated_at.isoformat(),
             )
             for session in local_sessions
         ]
@@ -145,103 +199,47 @@ async def get_chat_sessions(
         )
 
 
-@router.get("/{session_id}", response_model=ChatSessionDetail)
+@router.get("/{session_id}", response_model=ChatSession)
 async def get_chat_session(
     session_id: str,
     agent_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    page: int = 1,
-    page_size: int = 50,
-    load_messages: bool = True,
     current_user=Depends(get_current_user),
-) -> ChatSessionDetail:
+) -> ChatSession:
     """
-    Get detailed information for a specific chat session including message
-    history.
-
-    Retrieves the complete session data from LlamaStack including all
-    conversation turns (user messages and assistant responses). If session
-    retrieval fails, returns a basic session structure with empty message history.
+    Get session metadata (messages are managed by LlamaStack Conversations API).
 
     Args:
         session_id: The unique identifier of the session to retrieve
         agent_id: The unique identifier of the agent that owns the session
 
     Returns:
-        Dictionary containing complete session details:
-        - id: Session identifier
-        - title: Session display title
-        - agent_name: Display name of the associated agent
-        - agent_id: Agent identifier
-        - messages: List of conversation messages with role and content
-        - created_at: Session creation timestamp
-        - updated_at: Session last update timestamp
+        Session metadata including ID, title, agent_id, conversation_id, and timestamps
 
     Raises:
-        HTTPException: If agent is not found (404) or retrieval fails (500)
+        HTTPException: If session is not found (404) or retrieval fails (500)
     """
     try:
         logger.info(f"Fetching session {session_id} for agent {agent_id}")
 
-        # Verify agent exists in our VirtualAgent table
-        agent_config = await virtual_agents.get(db, id=agent_id)
-        if not agent_config:
-            logger.error(f"Agent {agent_id} not found in VirtualAgent")
-            raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
-
-        # Get agent name from our VirtualAgent
-        agent_name = agent_config.name if agent_config.name else "Unknown Agent"
-
-        # Try to get session from database to retrieve state (filtered by user)
+        # Get session from database (filtered by user)
         session = await chat_sessions.get_with_agent(
             db, session_id=session_id, user_id=current_user.id
         )
 
-        # Get last_response_id from session state if available
-        last_response_id = None
-        if session and session.session_state:
-            last_response_id = session.session_state.get("last_response_id")
-
-        # Get messages from database
-        messages = []
-        total_messages = 0
-        has_more = False
-
-        if session and load_messages:
-            # Load from ChatMessage table
-            messages, total_messages, has_more = (
-                await chat_sessions.load_messages_paginated(
-                    db, session_id=session_id, page=page, page_size=page_size
-                )
+        if not session:
+            raise HTTPException(
+                status_code=404, detail=f"Session {session_id} not found"
             )
 
-        return ChatSessionDetail(
-            id=session_id,
-            title=session.title if session else f"Chat {session_id[:8]}...",
-            agent_name=(
-                session.agent.name if session and session.agent else agent_name
-            ),
-            agent_id=agent_id,
-            messages=messages,
-            created_at=(
-                session.created_at.isoformat()
-                if session
-                else datetime.now().isoformat()
-            ),
-            updated_at=(
-                session.updated_at.isoformat()
-                if session
-                else datetime.now().isoformat()
-            ),
-            last_response_id=last_response_id,
-            pagination={
-                "page": page,
-                "page_size": page_size,
-                "total_messages": total_messages,
-                "has_more": has_more,
-                "messages_loaded": len(messages),
-            },
+        return ChatSession(
+            id=session.id,
+            title=session.title or f"Chat {str(session.id)[:8]}...",
+            agent_id=session.agent_id,
+            conversation_id=session.conversation_id,
+            created_at=session.created_at.isoformat(),
+            updated_at=session.updated_at.isoformat(),
         )
 
     except HTTPException:
@@ -250,6 +248,151 @@ async def get_chat_session(
         logger.error(f"Error fetching chat session: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch chat session: {str(e)}"
+        )
+
+
+@router.get("/{session_id}/messages", response_model=ConversationMessagesResponse)
+async def get_conversation_messages(
+    session_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> ConversationMessagesResponse:
+    """
+    Get messages for a conversation from LlamaStack.
+
+    Args:
+        session_id: The unique identifier of the session
+
+    Returns:
+        List of messages from the LlamaStack conversation
+
+    Raises:
+        HTTPException: If session is not found (404) or retrieval fails (500)
+    """
+    try:
+        logger.info(f"Fetching messages for session {session_id}")
+
+        # Get session from database (filtered by user)
+        session = await chat_sessions.get_with_agent(
+            db, session_id=session_id, user_id=current_user.id
+        )
+
+        if not session:
+            raise HTTPException(
+                status_code=404, detail=f"Session {session_id} not found"
+            )
+
+        # If no conversation_id yet, return empty messages
+        if not session.conversation_id:
+            logger.info(
+                f"No conversation_id for session {session_id}, returning empty messages"
+            )
+            return ConversationMessagesResponse(messages=[])
+
+        # Fetch messages from LlamaStack
+        client = get_client_from_request(request)
+        try:
+            # List items in the conversation
+            # The include parameter is required (empty list to get default fields)
+            # Available include values are for extra fields like:
+            # "file_search_call.results", "reasoning.encrypted_content", etc.
+            items_response = await client.conversations.items.list(
+                conversation_id=session.conversation_id,
+                after=None,
+                include=[],
+                limit=100,
+                order="asc",
+            )
+
+            # Process conversation items using shared formatter
+            messages = []
+            pending_trace_entries = []
+
+            logger.info(f"Total items received: {len(items_response.data)}")
+            for item in items_response.data:
+                # Process each item - extract text and trace info
+                item_text_parts = []
+                item_trace_entries = []
+                format_history_item(item, item_text_parts, item_trace_entries)
+
+                text = "".join(item_text_parts) if item_text_parts else None
+                logger.info(
+                    f"Formatter returned - text: {bool(text)}, trace_entries: {len(item_trace_entries)}"
+                )
+
+                # Collect trace entries
+                if item_trace_entries:
+                    pending_trace_entries.extend(item_trace_entries)
+                    logger.info(
+                        f"Extended pending_trace_entries, now has {len(pending_trace_entries)} items"
+                    )
+
+                # Process messages
+                if text:
+                    # If this is a user message and there are pending trace entries,
+                    # create an assistant error message first to hold those trace entries
+                    # (represents a failed assistant response with only tool calls)
+                    if item.role == "user" and pending_trace_entries:
+                        logger.info(
+                            f"Creating assistant error message with {len(pending_trace_entries)} orphaned trace_entries"
+                        )
+                        assistant_error_msg = create_assistant_error_message(
+                            pending_trace_entries
+                        )
+                        messages.append(assistant_error_msg)
+                        pending_trace_entries = []
+
+                    # Use appropriate content type based on role
+                    content_type = (
+                        "input_text" if item.role == "user" else "output_text"
+                    )
+                    message_dict = {
+                        "type": "message",
+                        "role": item.role,
+                        "content": [{"type": content_type, "text": text}],
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+
+                    # Attach pending trace entries to assistant messages
+                    if item.role == "assistant" and pending_trace_entries:
+                        message_dict["trace_entries"] = pending_trace_entries
+                        logger.info(
+                            f"Attached {len(pending_trace_entries)} trace_entries to assistant message"
+                        )
+                        pending_trace_entries = []
+
+                    messages.append(message_dict)
+
+            # Flush any remaining pending trace entries at the end
+            # (happens when conversation ends with tool calls but no assistant response)
+            if pending_trace_entries:
+                logger.info(
+                    f"Flushing {len(pending_trace_entries)} orphaned trace_entries at end of conversation"
+                )
+                final_assistant_error = create_assistant_error_message(
+                    pending_trace_entries
+                )
+                messages.append(final_assistant_error)
+
+            logger.info(
+                f"Retrieved {len(messages)} messages for conversation {session.conversation_id}"
+            )
+            return ConversationMessagesResponse(messages=messages)
+
+        except Exception as llamastack_error:
+            logger.error(
+                f"LlamaStack error retrieving conversation: {llamastack_error}"
+            )
+            # If conversation doesn't exist in LlamaStack, return empty messages
+            return ConversationMessagesResponse(messages=[])
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching conversation messages: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch conversation messages: {str(e)}"
         )
 
 
@@ -322,13 +465,13 @@ async def delete_chat_session(
         )
 
 
-@router.post("/", response_model=ChatSessionDetail)
+@router.post("/", response_model=ChatSession)
 async def create_chat_session(
     sessionRequest: CreateSessionRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
-) -> ChatSessionDetail:
+) -> ChatSession:
     """
     Create a new chat session for an agent using LlamaStack.
 
@@ -377,12 +520,9 @@ async def create_chat_session(
             )
             session_name = f"Chat-{timestamp}-{random_suffix}"
 
-        # Create session locally without LlamaStack
+        # Create session locally (conversation will be created by LlamaStack on first message)
         session_id = uuid.uuid4()
         logger.info(f"Generated local session ID: {session_id}")
-
-        # Get agent name for display from our VirtualAgent
-        agent_name = agent_config.name if agent_config else "Unknown Agent"
 
         # Create ChatSession record in database
         session_data = {
@@ -390,24 +530,20 @@ async def create_chat_session(
             "title": session_name,
             "agent_id": sessionRequest.agent_id,
             "user_id": current_user.id,
-            "session_state": {
-                "last_response_id": None,  # No responses yet
-            },
+            "conversation_id": None,  # Will be set when first message is sent
         }
 
         new_session = await chat_sessions.create_session(db, session_data=session_data)
 
         logger.info(f"Created ChatSession record for {session_id}")
 
-        return ChatSessionDetail(
+        return ChatSession(
             id=session_id,
             title=session_name,
-            agent_name=agent_name,
             agent_id=sessionRequest.agent_id,
-            messages=[],
+            conversation_id=None,
             created_at=new_session.created_at.isoformat(),
             updated_at=new_session.updated_at.isoformat(),
-            last_response_id=None,
         )
 
     except HTTPException:
@@ -417,86 +553,3 @@ async def create_chat_session(
         raise HTTPException(
             status_code=500, detail=f"Failed to create chat session: {str(e)}"
         )
-
-
-@router.get("/debug/{agent_id}")
-async def debug_session_listing(agent_id: str, request: Request):
-    """
-    Debug endpoint for troubleshooting session listing functionality.
-
-    This development/debugging endpoint provides detailed information about
-    session listing operations, including agent verification, session resource
-    inspection, and method execution results. Used for diagnosing issues
-    with LlamaStack session API interactions.
-
-    Args:
-        agent_id: The unique identifier of the agent to debug
-
-    Returns:
-        Dictionary containing debug information:
-        - agent_id: The agent being debugged
-        - response_type: Type of response from LlamaStack
-        - response_value: Raw response value
-        - sessions_count: Number of sessions found
-        - sessions: List of session data
-        - error: Error message if operation fails
-
-    Note:
-        This endpoint should only be used for development and debugging
-        purposes.
-    """
-    try:
-        logger.info(f"=== DEBUG SESSION LISTING FOR AGENT {agent_id} ===")
-
-        # Test 1: Check if agent exists
-        client = get_client_from_request(request)
-        try:
-            agent = await client.agents.retrieve(agent_id=agent_id)
-            logger.info(f"✅ Agent exists: {agent.agent_id}")
-        except Exception as e:
-            logger.error(f"❌ Agent not found: {e}")
-            return {"error": f"Agent not found: {e}"}
-
-        # Test 2: Check session resource type
-        session_resource = client.agents.session
-        logger.info(f"Session resource type: {type(session_resource)}")
-        logger.info(
-            "Session resource methods: "
-            f"{[m for m in dir(session_resource) if not m.startswith('_')]}"
-        )
-
-        # Test 3: Try to call list method
-        try:
-            sessions_response = await client.agents.session.list(agent_id=agent_id)
-            logger.info("✅ List method called successfully")
-            logger.info(f"Response type: {type(sessions_response)}")
-            logger.info(f"Response value: {sessions_response}")
-            logger.info(f"Response dir: {dir(sessions_response)}")
-
-            # Try to extract sessions
-            if hasattr(sessions_response, "sessions"):
-                sessions = sessions_response.sessions
-                logger.info(f"Found sessions attr: {sessions}")
-            elif isinstance(sessions_response, list):
-                sessions = sessions_response
-                logger.info(f"Response is direct list: {sessions}")
-            else:
-                sessions = []
-                logger.info("No sessions found in response")
-
-            return {
-                "agent_id": agent_id,
-                "response_type": str(type(sessions_response)),
-                "response_value": str(sessions_response),
-                "sessions_count": len(sessions) if sessions else 0,
-                "sessions": sessions if sessions else [],
-            }
-
-        except Exception as e:
-            logger.error(f"❌ List method failed: {e}")
-            logger.error(f"Exception type: {type(e)}")
-            return {"error": f"List method failed: {e}"}
-
-    except Exception as e:
-        logger.error(f"❌ Debug failed: {e}")
-        return {"error": f"Debug failed: {e}"}

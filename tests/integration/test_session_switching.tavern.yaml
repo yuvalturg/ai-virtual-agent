@@ -12,6 +12,8 @@ stages:
       method: GET
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
@@ -28,8 +30,10 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
-        name: "Session Switching Test Assistant {tavern.env_vars.TAVERN_UNIQUE}"
+        name: "Session Switching Test Assistant"
         prompt: "You are a helpful assistant. Give concise, accurate answers."
         model_name: "{model_name}"
         temperature: 0.0
@@ -57,6 +61,8 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         agent_id: "{agent_id}"
         session_name: "Math Session"
@@ -76,6 +82,8 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         agent_id: "{agent_id}"
         session_name: "Geography Session"
@@ -94,6 +102,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -101,18 +111,11 @@ stages:
           content:
             - type: input_text
               text: "What is 5+5?"
-        stream: false
         sessionId: "{session1_id}"
-        store: true
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
 
   - name: send_message_to_session1_second
     request:
@@ -120,6 +123,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -127,19 +132,11 @@ stages:
           content:
             - type: input_text
               text: "What is 6+6?"
-        stream: false
         sessionId: "{session1_id}"
-        previousResponseId: "{response_id}"
-        store: true
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
 
   # Send messages to second session
   - name: send_message_to_session2_first
@@ -148,6 +145,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -155,18 +154,11 @@ stages:
           content:
             - type: input_text
               text: "What is the capital of France?"
-        stream: false
         sessionId: "{session2_id}"
-        store: true
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
 
   - name: send_message_to_session2_second
     request:
@@ -174,6 +166,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -181,65 +175,43 @@ stages:
           content:
             - type: input_text
               text: "What is the capital of Germany?"
-        stream: false
         sessionId: "{session2_id}"
-        previousResponseId: "{response_id}"
-        store: true
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
 
-  # Test session switching: Fetch first session messages
+  # Test session switching: Fetch first session messages using new endpoint
   - name: fetch_session1_messages
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}/messages"
       method: GET
       headers:
         Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
         content-type: application/json
       json:
-        id: "{session1_id}"
-        title: "What is 6+6?"
-        agent_name: !anything
-        agent_id: "{agent_id}"
         messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 50
-          total_messages: 4  # 2 user + 2 assistant messages
-          has_more: false
-          messages_loaded: 4
       verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 4
-          expected_user_messages: ["What is 5+5?", "What is 6+6?"]
+        - function: tests.integration.validators:validate_conversation_messages
+        - function: tests.integration.validators:validate_session_messages
+          extra_kwargs:
+            expected_message_count: 4
+            expected_user_messages: ["What is 5+5?", "What is 6+6?"]
 
   # Test chronological message order for session1
   - name: validate_session1_message_order
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}/messages"
       method: GET
       headers:
         Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
@@ -252,48 +224,34 @@ stages:
   # Test session switching: Fetch second session messages
   - name: fetch_session2_messages
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session2_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session2_id}/messages"
       method: GET
       headers:
         Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
         content-type: application/json
       json:
-        id: "{session2_id}"
-        title: "What is the capital of Germany?"
-        agent_name: !anything
-        agent_id: "{agent_id}"
         messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 50
-          total_messages: 4  # 2 user + 2 assistant messages
-          has_more: false
-          messages_loaded: 4
       verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 4
-          expected_user_messages: ["What is the capital of France?", "What is the capital of Germany?"]
+        - function: tests.integration.validators:validate_conversation_messages
+        - function: tests.integration.validators:validate_session_messages
+          extra_kwargs:
+            expected_message_count: 4
+            expected_user_messages: ["What is the capital of France?", "What is the capital of Germany?"]
 
   # Test chronological message order for session2
   - name: validate_session2_message_order
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session2_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session2_id}/messages"
       method: GET
       headers:
         Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
@@ -303,281 +261,6 @@ stages:
         extra_kwargs:
           expected_sequence: ["What is the capital of France?", "The capital of France is Paris.", "What is the capital of Germany?", "The capital of Germany is Berlin."]
 
-  # Test fetching session without messages
-  - name: fetch_session1_without_messages
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: false
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: "What is 6+6?"
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: []
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 50
-          total_messages: 0
-          has_more: false
-          messages_loaded: 0
-
-  # Test pagination with page_size=1 (most granular)
-  - name: fetch_session1_messages_page1_size1
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 1
-        page_size: 1
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 1
-          total_messages: 4
-          has_more: true
-          messages_loaded: 1
-      verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 1
-          expected_first_message: "What is 5+5?"  # Should be chronologically first
-
-  - name: fetch_session1_messages_page2_size1
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 2
-        page_size: 1
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 2
-          page_size: 1
-          total_messages: 4
-          has_more: true
-          messages_loaded: 1
-      verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 1
-
-  - name: fetch_session1_messages_page3_size1
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 3
-        page_size: 1
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 3
-          page_size: 1
-          total_messages: 4
-          has_more: true
-          messages_loaded: 1
-      verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 1
-
-  - name: fetch_session1_messages_page4_size1
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 4
-        page_size: 1
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 4
-          page_size: 1
-          total_messages: 4
-          has_more: false  # This should be the last page
-          messages_loaded: 1
-      verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 1
-
-  # Test pagination beyond available messages
-  - name: fetch_session1_messages_page5_size1
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 5
-        page_size: 1
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: []  # Should be empty
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 5
-          page_size: 1
-          total_messages: 4
-          has_more: false
-          messages_loaded: 0
-
-  # Test pagination with page_size=2
-  - name: fetch_session1_messages_page1_size2
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 1
-        page_size: 2
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 2
-          total_messages: 4
-          has_more: true
-          messages_loaded: 2
-      verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 2
-
-  - name: fetch_session1_messages_page2_size2
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session1_id}"
-      method: GET
-      headers:
-        Accept: application/json
-      params:
-        agent_id: "{agent_id}"
-        load_messages: true
-        page: 2
-        page_size: 2
-    response:
-      status_code: 200
-      headers:
-        content-type: application/json
-      json:
-        id: "{session1_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: "{agent_id}"
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 2
-          page_size: 2
-          total_messages: 4
-          has_more: false  # Last page
-          messages_loaded: 2
-      verify_response_with:
-        function: tests.integration.validators:validate_session_messages
-        extra_kwargs:
-          expected_message_count: 2
-
   # Cleanup: Delete the test sessions
   - name: cleanup_session1
     request:
@@ -585,6 +268,9 @@ stages:
       method: DELETE
       params:
         agent_id: "{agent_id}"
+      headers:
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
 
@@ -594,6 +280,9 @@ stages:
       method: DELETE
       params:
         agent_id: "{agent_id}"
+      headers:
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
 
@@ -604,5 +293,7 @@ stages:
       method: DELETE
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 204

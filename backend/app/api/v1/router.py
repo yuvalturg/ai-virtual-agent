@@ -16,6 +16,7 @@ from .llama_stack import router as llama_stack_router
 from .mcp_servers import router as mcp_servers_router
 from .tools import router as tools_router
 from .users import router as users_router
+from .validate import router as validate_router
 from .virtual_agents import router as virtual_agents_router
 
 api_router = APIRouter()
@@ -33,6 +34,7 @@ api_router.include_router(agent_templates_router, tags=["agent_templates"])
 api_router.include_router(chat_sessions_router, tags=["chat_sessions"])
 api_router.include_router(mcp_servers_router, tags=["mcp_servers"])
 api_router.include_router(users_router, tags=["users"])
+api_router.include_router(validate_router, tags=["validate"])
 api_router.include_router(virtual_agents_router, tags=["virtual_agents"])
 
 

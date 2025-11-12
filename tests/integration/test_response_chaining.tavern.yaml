@@ -1,8 +1,8 @@
 ---
-# Message History Integration Tests
-# Tests the LlamaStack Responses API with full conversation history
+# Conversation History Integration Tests
+# Tests the LlamaStack Conversations API for persistent message history
 
-test_name: Message History API Tests
+test_name: Conversation History Tests
 
 stages:
   # Global Setup: Get available models
@@ -12,6 +12,8 @@ stages:
       method: GET
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
       headers:
@@ -28,9 +30,11 @@ stages:
       headers:
         Content-Type: application/json
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         name: "Shared Test Assistant"
-        prompt: "You are a helpful assistant for testing message history and pagination functionality."
+        prompt: "You are a helpful assistant for testing conversation history functionality."
         model_name: "{model_name}"
         temperature: 0.0
         top_p: 0.9
@@ -48,6 +52,24 @@ stages:
       save:
         json:
           agent_id: "id"
+  # Create first test session
+  - name: create_first_test_session
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
+      method: POST
+      headers:
+        Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+      json:
+        agent_id: "{agent_id}"
+        session_name: "First Test Session"
+    response:
+      status_code: 200
+      save:
+        json:
+          first_session_id: id
+
   # Test 1: First message in session - should succeed
   - name: test_first_message_in_session
     request:
@@ -55,6 +77,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -62,18 +86,12 @@ stages:
           content:
             - type: input_text
               text: "Hello, what is 2+2?"
-        stream: false
-        sessionId: "11111111-2222-3333-4444-555555555555"
+        sessionId: "{first_session_id}"
         # First message will start conversation history
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
 
   # Test 2: Follow-up message with conversation history - should succeed
   - name: test_followup_message_with_history
@@ -82,6 +100,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -89,15 +109,30 @@ stages:
           content:
             - type: input_text
               text: "What about 3+3?"
-        stream: false
-        sessionId: "11111111-2222-3333-4444-555555555555"
+        sessionId: "{first_session_id}"
         # Backend will include previous messages as conversation history
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
+
+  # Create second test session
+  - name: create_second_test_session
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
+      method: POST
+      headers:
+        Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+      json:
+        agent_id: "{agent_id}"
+        session_name: "Second Test Session"
+    response:
+      status_code: 200
+      save:
+        json:
+          second_session_id: id
 
   # Test 3: New session should work with empty conversation history
   - name: test_new_session_empty_history
@@ -106,6 +141,8 @@ stages:
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
@@ -113,210 +150,133 @@ stages:
           content:
             - type: input_text
               text: "Hello from new session"
-        stream: false
-        sessionId: "22222222-3333-4444-5555-666666666666"
+        sessionId: "{second_session_id}"
         # No previous messages in database for this new session
     response:
       status_code: 200
       headers:
         content-type: text/event-stream; charset=utf-8
-      verify_response_with:
-        function: tests.integration.validators:validate_sse_response_id
 
-  # Message Pagination Tests
-  # Setup: Create a session with multiple messages for pagination testing
-  - name: create_session_for_pagination
+  # Message Fetching Tests
+  # Setup: Create a session to test message fetching
+  - name: create_session_for_message_fetching
     request:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         agent_id: "{agent_id}"
-        session_name: "Pagination Test Session"
+        session_name: "Message Fetch Test Session"
     response:
       status_code: 200
       save:
         json:
-          session_id: id
+          message_test_session_id: id
 
-  # Test 1: Send multiple messages to create pagination data
-  - name: send_first_message
+  # Send first message to build conversation
+  - name: send_first_message_for_fetching
     request:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
           role: user
           content:
             - type: input_text
-              text: "Message 1: What is 1+1?"
-        stream: false
-        sessionId: "{session_id}"
+              text: "First test message"
+        sessionId: "{message_test_session_id}"
     response:
       status_code: 200
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
+      headers:
+        content-type: text/event-stream; charset=utf-8
 
-  - name: send_second_message
+  # Send second message to build conversation history
+  - name: send_second_message_for_fetching
     request:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
         Content-Type: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
       json:
         virtualAgentId: "{agent_id}"
         message:
           role: user
           content:
             - type: input_text
-              text: "Message 2: What is 2+2?"
-        stream: false
-        sessionId: "{session_id}"
-        # Backend will include previous messages as conversation history
+              text: "Second test message"
+        sessionId: "{message_test_session_id}"
     response:
       status_code: 200
-      save:
-        $ext:
-          function: tests.integration.validators:extract_response_id
-
-  - name: send_third_message
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
-      method: POST
       headers:
-        Content-Type: application/json
-      json:
-        virtualAgentId: "{agent_id}"
-        message:
-          role: user
-          content:
-            - type: input_text
-              text: "Message 3: What is 3+3?"
-        stream: false
-        sessionId: "{session_id}"
-        # Backend will include previous messages as conversation history
-    response:
-      status_code: 200
+        content-type: text/event-stream; charset=utf-8
 
-  # Test 2: Fetch session with pagination (default page 1, page_size 50)
-  - name: test_fetch_session_with_pagination_default
+  # Test 4: Fetch messages using the new messages endpoint
+  - name: test_fetch_conversation_messages
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{message_test_session_id}/messages"
       method: GET
-      params:
-        agent_id: "{agent_id}"
+      headers:
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
+      headers:
+        content-type: application/json
       json:
-        id: "{session_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: !anything
         messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 50
-          total_messages: !anyint
-          has_more: false
-          messages_loaded: !anyint
+      verify_response_with:
+        - function: tests.integration.validators:validate_conversation_messages
+        - function: tests.integration.validators:validate_session_messages
+          extra_kwargs:
+            expected_message_count: 4  # 2 user messages + 2 assistant responses
+            expected_user_messages:
+              - "First test message"
+              - "Second test message"
 
-  # Test 3: Fetch session with custom pagination parameters
-  - name: test_fetch_session_with_custom_pagination
+  # Cleanup: Delete the test sessions
+  - name: cleanup_first_test_session
     request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
-      method: GET
-      params:
-        agent_id: "{agent_id}"
-        page: 1
-        page_size: 2
-        load_messages: true
-    response:
-      status_code: 200
-      json:
-        id: "{session_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: !anything
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 2
-          total_messages: !anyint
-          has_more: !anybool
-          messages_loaded: !anyint
-
-  # Test 4: Fetch session metadata only (no messages)
-  - name: test_fetch_session_metadata_only
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
-      method: GET
-      params:
-        agent_id: "{agent_id}"
-        load_messages: false
-    response:
-      status_code: 200
-      json:
-        id: "{session_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 1
-          page_size: 50
-          total_messages: 0
-          has_more: false
-          messages_loaded: 0
-        messages: []
-
-  # Test 5: Test pagination with page 2 (if there are enough messages)
-  - name: test_fetch_session_page_2
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
-      method: GET
-      params:
-        agent_id: "{agent_id}"
-        page: 2
-        page_size: 2
-        load_messages: true
-    response:
-      status_code: 200
-      json:
-        id: "{session_id}"
-        title: !anything
-        agent_name: !anything
-        agent_id: !anything
-        messages: !anything
-        created_at: !anything
-        updated_at: !anything
-        last_response_id: !anything
-        pagination:
-          page: 2
-          page_size: 2
-          total_messages: !anyint
-          has_more: !anybool
-          messages_loaded: !anyint
-
-  # Cleanup: Delete the test session
-  - name: cleanup_test_session
-    request:
-      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{session_id}"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{first_session_id}"
       method: DELETE
       params:
         agent_id: "{agent_id}"
+      headers:
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 200
+
+  - name: cleanup_second_test_session
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{second_session_id}"
+      method: DELETE
+      params:
+        agent_id: "{agent_id}"
+      headers:
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
+    response:
+      status_code: 200
+
+  - name: cleanup_message_test_session
+    request:
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{message_test_session_id}"
+      method: DELETE
+      params:
+        agent_id: "{agent_id}"
+      headers:
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 200
 
@@ -327,5 +287,7 @@ stages:
       method: DELETE
       headers:
         Accept: application/json
+        X-Forwarded-User: admin
+        X-Forwarded-Email: admin@change.me
     response:
       status_code: 204

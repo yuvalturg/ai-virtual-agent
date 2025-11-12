@@ -110,22 +110,23 @@ stages:
           api: "inference"
         - provider_id: "llama-guard"
           provider_type: "inline::llama-guard"
-          config: {}
+          config:
+            excluded_categories: []
           api: "safety"
         - provider_id: "meta-reference"
           provider_type: "inline::meta-reference"
           config:
-            persistence_store:
-              type: "sqlite"
-              namespace: null
-              db_path: "/root/.llama/distributions/ollama/agents_store.db"
-            responses_store:
-              type: "sqlite"
-              db_path: >-
-                /root/.llama/distributions/ollama/agents_responses_store.db
-              namespace: null
+            persistence:
+              agent_state:
+                namespace: "agents"
+                backend: "kv_default"
+              responses:
+                table_name: "responses"
+                backend: "sql_default"
+                max_write_queue_size: 10000
+                num_writers: 4
           api: "agents"
-        - provider_id: "meta-reference"
-          provider_type: "inline::meta-reference"
+        - provider_id: "model-context-protocol"
+          provider_type: "remote::model-context-protocol"
           config: {}
-          api: "telemetry"
+          api: "tool_runtime"
