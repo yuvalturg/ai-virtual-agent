@@ -281,7 +281,7 @@ DELETE /api/v1/mcp_servers/{toolgroup_id}
 
 ### Chat Sessions
 
-Manage chat sessions and message history.
+Manage chat sessions using LlamaStack Conversations API. Sessions store conversation history and are managed by LlamaStack.
 
 #### List chat sessions
 ```http
@@ -289,54 +289,70 @@ GET /api/v1/chat_sessions?agent_id={agent_id}
 ```
 
 **Query Parameters**:
-- `agent_id` (optional): Filter by agent ID
+- `agent_id` (required): Filter by agent ID
 
 **Response**: `200 OK`
 ```json
 [
   {
-    "session_id": "session-123",
-    "agent_id": "customer-support-agent",
+    "id": "session-123",
+    "title": "Customer Support Chat",
+    "agent_name": "Support Agent",
     "created_at": "2024-10-31T10:00:00Z",
-    "updated_at": "2024-10-31T10:30:00Z",
-    "message_count": 5
+    "updated_at": "2024-10-31T10:30:00Z"
   }
 ]
 ```
 
 #### Get a specific chat session
 ```http
-GET /api/v1/chat_sessions/{session_id}?agent_id={agent_id}&page=1&page_size=50
+GET /api/v1/chat_sessions/{session_id}?agent_id={agent_id}&load_messages=true
 ```
 
 **Query Parameters**:
 - `agent_id` (required): Agent ID
-- `page` (optional, default: 1): Page number
-- `page_size` (optional, default: 50): Messages per page
-- `load_messages` (optional, default: true): Whether to load messages
+- `load_messages` (optional, default: false): Whether to load messages from LlamaStack
 
 **Response**: `200 OK`
 ```json
 {
-  "session_id": "session-123",
+  "id": "session-123",
+  "title": "Customer Support Chat",
+  "agent_name": "Support Agent",
   "agent_id": "customer-support-agent",
   "messages": [
     {
+      "id": "msg-1",
       "role": "user",
-      "content": "Hello, I need help...",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Hello, I need help..."
+        }
+      ],
       "timestamp": "2024-10-31T10:00:00Z"
     },
     {
+      "id": "msg-2",
       "role": "assistant",
-      "content": "I'd be happy to help!",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "I'd be happy to help!"
+        }
+      ],
       "timestamp": "2024-10-31T10:00:05Z"
     }
   ],
-  "total_messages": 5,
-  "page": 1,
-  "page_size": 50
+  "created_at": "2024-10-31T10:00:00Z",
+  "updated_at": "2024-10-31T10:30:00Z"
 }
 ```
+
+**Notes**:
+- Messages are stored in LlamaStack's Conversations API
+- Each message has structured content with types: `input_text`, `output_text`, `reasoning`, `tool_call`
+- Tool calls and reasoning are preserved in message history
 
 #### Create a new chat session
 ```http
@@ -346,12 +362,21 @@ POST /api/v1/chat_sessions
 **Request Body**:
 ```json
 {
-  "agent_id": "customer-support-agent",
-  "session_name": "Customer Support Session"
+  "agent_id": "customer-support-agent"
 }
 ```
 
 **Response**: `201 Created`
+```json
+{
+  "id": "session-456",
+  "title": "New Conversation",
+  "agent_name": "Support Agent",
+  "agent_id": "customer-support-agent",
+  "created_at": "2024-10-31T11:00:00Z",
+  "updated_at": "2024-10-31T11:00:00Z"
+}
+```
 
 #### Delete a chat session
 ```http
@@ -359,6 +384,10 @@ DELETE /api/v1/chat_sessions/{session_id}?agent_id={agent_id}
 ```
 
 **Response**: `204 No Content`
+
+**Notes**:
+- Deletes the session from both the database and LlamaStack
+- All messages in the conversation are permanently deleted
 
 ---
 
@@ -800,44 +829,82 @@ All endpoints follow consistent error response format:
 
 ---
 
-## WebSocket Endpoints
+### Chat
 
-### Chat Streaming
+Send messages and receive streaming responses using LlamaStack Conversations API.
 
-Real-time chat with streaming responses.
-
+#### Send a chat message
+```http
+POST /api/v1/chat
 ```
-WS /api/v1/chat/stream?agent_id={agent_id}&session_id={session_id}
-```
 
-**Send Message**:
+**Request Body**:
 ```json
 {
-  "content": "Hello, how can you help me?",
-  "attachments": []
+  "virtualAgentId": "customer-support-agent",
+  "sessionId": "session-123",
+  "message": {
+    "role": "user",
+    "content": [
+      {
+        "type": "input_text",
+        "text": "Hello, how can you help me?"
+      }
+    ]
+  },
+  "stream": true
 }
 ```
 
-**Receive Streaming Response**:
-```json
-{
-  "type": "content",
-  "content": "I'd be happy to help! "
-}
+**Response**: `200 OK` (Server-Sent Events stream)
+
+The response uses Server-Sent Events (SSE) format with the following event types:
+
+**Output Text Delta** (streaming text chunks):
+```
+data: {"type":"response.output_text.delta","delta":"Hello! ","item_id":"item-1","content_index":0,"session_id":"session-123"}
 ```
 
-```json
-{
-  "type": "content",
-  "content": "What do you need assistance with?"
-}
+**Reasoning Text Delta** (model's internal reasoning):
+```
+data: {"type":"response.reasoning_text.delta","delta":"Let me think about...","item_id":"item-2","content_index":0,"session_id":"session-123"}
 ```
 
-```json
-{
-  "type": "done"
-}
+**Reasoning Complete**:
 ```
+data: {"type":"response.reasoning_text.done","text":"Complete reasoning text","item_id":"item-2","content_index":0,"session_id":"session-123"}
+```
+
+**Tool Call Started**:
+```
+data: {"type":"response.output_item.added","item":{"id":"tool-1","name":"github::get_repo","server_label":"github","type":"mcp_call"},"session_id":"session-123"}
+```
+
+**Tool Call Completed**:
+```
+data: {"type":"response.output_item.done","item":{"id":"tool-1","output":"Repository data...","error":null},"session_id":"session-123"}
+```
+
+**Response Completed**:
+```
+data: {"type":"response.completed","session_id":"session-123"}
+```
+
+**Stream End**:
+```
+data: [DONE]
+```
+
+**Error Event**:
+```
+data: {"type":"error","content":"Error message","session_id":"session-123"}
+```
+
+**Notes**:
+- Uses `text/event-stream` media type
+- All events include `session_id` for session identification
+- Tool calls show execution status (in_progress, completed, failed)
+- Empty responses trigger a user-friendly warning message
 
 ---
 
