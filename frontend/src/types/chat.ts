@@ -6,22 +6,21 @@ export interface ReasoningEntry {
 
 export interface ToolCallEntry {
   type: 'tool_call';
+  id?: string;
   name: string;
   server_label?: string;
-  arguments?: unknown;
-  output?: unknown;
+  arguments?: string;
+  output?: string;
   error?: string;
-  status: 'completed' | 'failed';
+  status: 'in_progress' | 'completed' | 'failed';
 }
-
-export type TraceEntry = ReasoningEntry | ToolCallEntry;
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: SimpleContentItem[];
   timestamp: Date;
-  trace_entries?: TraceEntry[];
+  tool_calls?: ToolCallEntry[];
 }
 
 export interface TextContentItem {
@@ -91,102 +90,42 @@ export interface ChatSessionDetail {
 }
 
 /**
- * LlamaStack Server-Sent Events (SSE) streaming event types
- * These match the event types sent from the LlamaStack streaming API
+ * Simplified streaming event types from backend aggregation layer
+ * The backend consumes raw LlamaStack events and sends these simplified events
  */
 export interface BaseStreamEvent {
   type: string;
-  session_id?: string;
-  item_id?: string;
-  output_index?: number;
-  content_index?: number;
-  sequence_number?: number;
+  session_id: string;
 }
 
-export interface OutputTextDeltaEvent extends BaseStreamEvent {
-  type: 'response.output_text.delta';
-  delta: string;
-  item_id: string;
-  content_index: number;
-}
-
-export interface ReasoningTextDeltaEvent extends BaseStreamEvent {
-  type: 'response.reasoning_text.delta';
-  delta: string;
-  item_id: string;
-  content_index: number;
-}
-
-export interface ReasoningTextDoneEvent extends BaseStreamEvent {
-  type: 'response.reasoning_text.done';
+export interface ReasoningEvent extends BaseStreamEvent {
+  type: 'reasoning';
   text: string;
-  item_id: string;
-  content_index: number;
+  status: 'in_progress' | 'completed';
+  id: string;
 }
 
-export interface ToolCallAddedEvent extends BaseStreamEvent {
-  type: 'response.output_item.added';
-  item: {
-    id: string;
-    name: string;
-    server_label?: string;
-    arguments?: string;
-    type: string;
-    error: string | null;
-    output: string | null;
-  };
+export interface ToolCallEvent extends BaseStreamEvent {
+  type: 'tool_call';
+  name: string;
+  server_label?: string;
+  arguments?: string;
+  output?: string;
+  error?: string;
+  status: 'in_progress' | 'completed' | 'failed';
+  id: string;
 }
 
-export interface ToolCallArgumentsEvent extends BaseStreamEvent {
-  type: 'response.mcp_call.arguments.done' | 'response.function_call_arguments.delta';
-  arguments: string;
-  item_id: string;
-}
-
-export interface ToolCallDoneEvent extends BaseStreamEvent {
-  type: 'response.output_item.done';
-  item: {
-    id: string;
-    name: string;
-    server_label?: string;
-    arguments?: string;
-    output?: string;
-    error?: string;
-    type: string;
-  };
-}
-
-export interface ResponseCompletedEvent extends BaseStreamEvent {
-  type: 'response.completed';
-  response?: {
-    error?: {
-      message: string;
-    };
-  };
-}
-
-export interface ResponseFailedEvent extends BaseStreamEvent {
-  type: 'response.failed';
-  response?: {
-    error?: {
-      message: string;
-    };
-  };
+export interface ResponseEvent extends BaseStreamEvent {
+  type: 'response';
+  text: string;
+  status: 'in_progress' | 'completed';
+  id: string;
 }
 
 export interface ErrorEvent extends BaseStreamEvent {
   type: 'error';
-  content: string;
+  message: string;
 }
 
-export type StreamEvent =
-  | OutputTextDeltaEvent
-  | ReasoningTextDeltaEvent
-  | ReasoningTextDoneEvent
-  | ToolCallAddedEvent
-  | ToolCallArgumentsEvent
-  | ToolCallDoneEvent
-  | ResponseCompletedEvent
-  | ResponseFailedEvent
-  | ErrorEvent
-  | BaseStreamEvent;
+export type StreamEvent = ReasoningEvent | ToolCallEvent | ResponseEvent | ErrorEvent;

@@ -5,7 +5,7 @@ Chat service for handling LlamaStack conversations with virtual agent configurat
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
@@ -16,6 +16,366 @@ from ..api.llamastack import get_client_from_request
 from ..models import ChatSession
 
 logger = logging.getLogger(__name__)
+
+
+class ContentPart:
+    """Represents a single content part (reasoning or output text) within a message"""
+
+    def __init__(self, item_id: str, content_index: int, part_type: str):
+        self.item_id = item_id
+        self.content_index = content_index
+        self.type = part_type  # 'reasoning_text' or 'output_text'
+        self.text = ""
+        self.complete = False
+
+    def add_delta(self, delta: str):
+        """Accumulate text delta"""
+        self.text += delta
+
+    def set_final_text(self, text: str):
+        """Set the final complete text"""
+        self.text = text
+        self.complete = True
+
+    def get_key(self):
+        """Get unique key for this content part"""
+        return f"{self.item_id}:{self.content_index}"
+
+
+class ToolCall:
+    """Represents a single tool call"""
+
+    def __init__(self, item_id: str, name: str = None, server_label: str = None):
+        self.item_id = item_id
+        self.name = name
+        self.server_label = server_label
+        self.arguments = None
+        self.output = None
+        self.error = None
+        self.complete = False
+
+    def update_arguments(self, arguments: str):
+        """Update tool call arguments"""
+        self.arguments = arguments
+
+    def set_result(self, arguments: str = None, output: str = None, error: str = None):
+        """Set final result and mark complete"""
+        if arguments:
+            self.arguments = arguments
+        self.output = output
+        self.error = error
+        self.complete = True
+
+    def to_dict(self):
+        """Serialize to dict for sending to frontend"""
+        return {
+            "id": self.item_id,
+            "name": self.name,
+            "server_label": self.server_label,
+            "arguments": self.arguments,
+            "output": self.output,
+            "error": self.error,
+            "status": "failed" if self.error else "completed",
+        }
+
+
+class StreamAggregator:
+    """
+    Aggregates raw LlamaStack streaming events into simplified, complete events.
+
+    Works like a DOM builder - accumulates content parts and tool calls,
+    then serializes and sends them when complete.
+    """
+
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        # Content parts indexed by key (item_id:content_index)
+        self.content_parts: Dict[str, ContentPart] = {}
+        # Tool calls indexed by item_id
+        self.tool_calls: Dict[str, ToolCall] = {}
+        # Track what we've already sent to avoid duplicates
+        self.sent_content = set()
+        self.sent_tool_calls = set()
+        # Track if we've seen any output text
+        self.has_output_text = False
+
+    async def process_chunk(
+        self, chunk: Dict[str, Any]
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Process a raw LlamaStack chunk and yield simplified events.
+
+        Args:
+            chunk: Raw LlamaStack streaming chunk
+
+        Yields:
+            Simplified events ready for frontend consumption
+        """
+        chunk_type = chunk.get("type", "")
+
+        # Handle content part creation
+        if chunk_type == "response.content_part.added":
+            for event in self._handle_content_part_added(chunk):
+                yield event
+
+        # Handle reasoning text streaming
+        elif chunk_type == "response.reasoning_text.delta":
+            for event in self._handle_reasoning_delta(chunk):
+                yield event
+        elif chunk_type == "response.reasoning_text.done":
+            for event in self._handle_reasoning_done(chunk):
+                yield event
+
+        # Handle output text streaming
+        elif chunk_type == "response.output_text.delta":
+            for event in self._handle_output_text_delta(chunk):
+                yield event
+
+        # Handle tool calls
+        elif chunk_type == "response.output_item.added":
+            for event in self._handle_output_item_added(chunk):
+                yield event
+        elif chunk_type == "response.output_item.done":
+            for event in self._handle_output_item_done(chunk):
+                yield event
+        elif chunk_type == "response.mcp_call.arguments.done":
+            for event in self._handle_tool_arguments(chunk):
+                yield event
+        elif chunk_type == "response.function_call.arguments.done":
+            for event in self._handle_tool_arguments(chunk):
+                yield event
+
+        # Handle response completion/failure
+        elif chunk_type == "response.completed":
+            for event in self._handle_response_completed(chunk):
+                yield event
+        elif chunk_type == "response.failed":
+            for event in self._handle_response_failed(chunk):
+                yield event
+
+        # Handle errors
+        elif chunk_type == "error":
+            yield self._create_event(
+                "error", {"message": chunk.get("content", "Unknown error")}
+            )
+
+    def _handle_content_part_added(self, chunk: Dict[str, Any]):
+        """Handle content part creation - send in_progress event for reasoning"""
+        item_id = chunk.get("item_id")
+        content_index = chunk.get("content_index")
+        part = chunk.get("part", {})
+        part_type = part.get("type")
+
+        # Only handle reasoning_text - send in_progress event immediately
+        if part_type == "reasoning_text":
+            key = f"{item_id}:{content_index}"
+
+            # Create content part
+            if key not in self.content_parts:
+                self.content_parts[key] = ContentPart(
+                    item_id, content_index, "reasoning_text"
+                )
+
+            # Send in_progress event to create the reasoning block in UI
+            yield self._create_event(
+                "reasoning",
+                {"text": "", "status": "in_progress", "id": key},
+            )
+
+        # Don't handle output_text here - that streams via deltas
+        return []
+
+    def _handle_reasoning_delta(self, chunk: Dict[str, Any]):
+        """Handle reasoning text delta - accumulate but don't send"""
+        item_id = chunk.get("item_id")
+        content_index = chunk.get("content_index")
+        delta = chunk.get("delta", "")
+
+        key = f"{item_id}:{content_index}"
+
+        # Get or create content part
+        if key not in self.content_parts:
+            self.content_parts[key] = ContentPart(
+                item_id, content_index, "reasoning_text"
+            )
+
+        part = self.content_parts[key]
+        part.add_delta(delta)
+
+        # Don't yield anything yet - wait for completion
+        return []
+
+    def _handle_reasoning_done(self, chunk: Dict[str, Any]):
+        """Handle reasoning text completion - send complete reasoning block"""
+        item_id = chunk.get("item_id")
+        content_index = chunk.get("content_index")
+        text = chunk.get("text", "")
+
+        key = f"{item_id}:{content_index}"
+
+        # Get or create content part
+        if key not in self.content_parts:
+            self.content_parts[key] = ContentPart(
+                item_id, content_index, "reasoning_text"
+            )
+
+        part = self.content_parts[key]
+        part.set_final_text(text)
+
+        # Send only if not already sent
+        if key not in self.sent_content:
+            self.sent_content.add(key)
+            yield self._create_event(
+                "reasoning",
+                {"text": part.text, "status": "completed", "id": key},
+            )
+
+    def _handle_output_text_delta(self, chunk: Dict[str, Any]):
+        """Handle output text delta - stream immediately as deltas come in"""
+        item_id = chunk.get("item_id")
+        content_index = chunk.get("content_index")
+        delta = chunk.get("delta", "")
+
+        key = f"{item_id}:{content_index}"
+
+        # Get or create content part
+        if key not in self.content_parts:
+            self.content_parts[key] = ContentPart(item_id, content_index, "output_text")
+
+        part = self.content_parts[key]
+        part.add_delta(delta)
+        self.has_output_text = True
+
+        # Stream the current accumulated text (send updates as we receive deltas)
+        yield self._create_event(
+            "response",
+            {"text": part.text, "status": "in_progress", "id": key},
+        )
+
+    def _handle_output_item_added(self, chunk: Dict[str, Any]):
+        """Handle output item added - only process tool executions"""
+        item = chunk.get("item", {})
+        item_type = item.get("type")
+        item_id = item.get("id")
+
+        # Only process tool execution types
+        tool_execution_types = [
+            "mcp_call",
+            "function_call",
+            "web_search_call",
+            "file_search_call",
+        ]
+        if item_type not in tool_execution_types:
+            return
+
+        # Create tool call object
+        tool_call = ToolCall(
+            item_id=item_id,
+            name=item.get("name"),
+            server_label=item.get("server_label"),
+        )
+        if item.get("arguments"):
+            tool_call.update_arguments(item.get("arguments"))
+
+        self.tool_calls[item_id] = tool_call
+
+        # Yield in_progress tool call
+        yield self._create_event(
+            "tool_call",
+            {
+                **tool_call.to_dict(),
+                "status": "in_progress",
+            },
+        )
+
+    def _handle_tool_arguments(self, chunk: Dict[str, Any]):
+        """Handle tool call arguments completion"""
+        item_id = chunk.get("item_id")
+        arguments = chunk.get("arguments")
+
+        if item_id in self.tool_calls:
+            self.tool_calls[item_id].update_arguments(arguments)
+
+            # Yield updated in_progress event
+            yield self._create_event(
+                "tool_call",
+                {
+                    **self.tool_calls[item_id].to_dict(),
+                    "status": "in_progress",
+                },
+            )
+
+    def _handle_output_item_done(self, chunk: Dict[str, Any]):
+        """Handle output item completion - finalize tool calls"""
+        item = chunk.get("item", {})
+        item_type = item.get("type")
+        item_id = item.get("id")
+
+        # Only process tool execution types
+        tool_execution_types = [
+            "mcp_call",
+            "function_call",
+            "web_search_call",
+            "file_search_call",
+        ]
+        if item_type not in tool_execution_types:
+            return
+
+        # Get or create tool call
+        if item_id not in self.tool_calls:
+            tool_call = ToolCall(
+                item_id=item_id,
+                name=item.get("name"),
+                server_label=item.get("server_label"),
+            )
+            self.tool_calls[item_id] = tool_call
+        else:
+            tool_call = self.tool_calls[item_id]
+
+        # Set final result
+        tool_call.set_result(
+            arguments=item.get("arguments"),
+            output=item.get("output"),
+            error=item.get("error"),
+        )
+
+        # Send only if not already sent
+        if item_id not in self.sent_tool_calls:
+            self.sent_tool_calls.add(item_id)
+            yield self._create_event("tool_call", tool_call.to_dict())
+
+    def _handle_response_completed(self, chunk: Dict[str, Any]):
+        """Handle response completion"""
+        # If we have no output text, send error
+        if not self.has_output_text:
+            error_msg = (
+                "The assistant couldn't generate a text response. "
+                "Please try again or rephrase your request."
+            )
+            yield self._create_event("error", {"message": error_msg})
+        else:
+            # Send final completed status for all output text parts
+            for key, part in self.content_parts.items():
+                if part.type == "output_text" and key not in self.sent_content:
+                    self.sent_content.add(key)
+                    yield self._create_event(
+                        "response",
+                        {"text": part.text, "status": "completed", "id": key},
+                    )
+
+    def _handle_response_failed(self, chunk: Dict[str, Any]):
+        """Handle response failure"""
+        response = chunk.get("response", {})
+        error = response.get("error", {})
+        error_message = error.get("message", "Unknown error")
+
+        yield self._create_event(
+            "error", {"message": f"Response failed: {error_message}"}
+        )
+
+    def _create_event(self, event_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a simplified event with session_id"""
+        return {"type": event_type, "session_id": self.session_id, **data}
 
 
 def expand_image_url(content_item: Dict[str, Any]) -> None:
@@ -282,7 +642,9 @@ class ChatService:
             if tools:
                 response_params["tools"] = tools
 
-            # Stream from LlamaStack - just forward everything to frontend
+            # Stream from LlamaStack with aggregation layer
+            aggregator = StreamAggregator(str(session_id))
+
             async with get_client_from_request(self.request) as client:
                 # Get or create conversation for this session
                 conversation_id = await self._get_or_create_conversation(
@@ -291,11 +653,14 @@ class ChatService:
                 response_params["conversation"] = conversation_id
 
                 async for chunk in await client.responses.create(**response_params):
-                    # Forward the chunk directly to frontend with session_id
+                    # Convert chunk to dict
                     chunk_dict = jsonable_encoder(chunk)
-                    chunk_dict["session_id"] = str(session_id)
-                    logger.info(f"Streaming chunk: {chunk_dict}")
-                    yield f"data: {json.dumps(chunk_dict)}\n\n"
+                    logger.info(f"Raw LlamaStack chunk: {chunk_dict}")
+
+                    # Process through aggregator - yields simplified events
+                    async for simplified_event in aggregator.process_chunk(chunk_dict):
+                        logger.info(f"Simplified event: {simplified_event}")
+                        yield f"data: {json.dumps(simplified_event)}\n\n"
 
             logger.info(f"Stream loop completed for session {session_id}")
 

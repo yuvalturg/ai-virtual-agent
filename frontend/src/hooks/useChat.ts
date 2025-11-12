@@ -1,32 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { CHAT_API_ENDPOINT } from '../config/api';
 import { fetchChatSession, createChatSession } from '@/services/chat-sessions';
-import {
-  ChatMessage,
-  UseLlamaChatOptions,
-  SimpleContentItem,
-  StreamEvent,
-  OutputTextDeltaEvent,
-  ReasoningTextDeltaEvent,
-  ReasoningTextDoneEvent,
-  ToolCallAddedEvent,
-  ToolCallArgumentsEvent,
-  ToolCallDoneEvent,
-  ErrorEvent,
-  ResponseCompletedEvent,
-  ResponseFailedEvent,
-} from '@/types/chat';
-import {
-  handleOutputTextDelta,
-  handleReasoningTextDelta,
-  handleReasoningTextDone,
-  handleToolCallAdded,
-  handleToolCallArguments,
-  handleToolCallDone,
-  handleError,
-  handleResponseCompleted,
-  handleResponseFailed,
-} from './useChat.helpers';
+import { ChatMessage, UseLlamaChatOptions, SimpleContentItem, StreamEvent } from '@/types/chat';
+import { handleReasoning, handleToolCall, handleResponse, handleError } from './useChat.helpers';
 
 // Re-export types for backward compatibility
 export type { ChatMessage, UseLlamaChatOptions } from '@/types/chat';
@@ -228,41 +204,8 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
               const data = line.slice(6).trim();
 
               if (data === '[DONE]') {
-                // Stream finished - check if we have any content
+                // Stream finished
                 setIsLoading(false);
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastMsg = updated[updated.length - 1];
-
-                  if (lastMsg && lastMsg.role === 'assistant') {
-                    // Check if message has any meaningful content
-                    const hasContent = lastMsg.content.some((item) => {
-                      if (item.type === 'output_text' || item.type === 'reasoning') {
-                        return item.text.trim() !== '';
-                      }
-                      if (item.type === 'tool_call') {
-                        return true; // Tool calls count as content
-                      }
-                      return false;
-                    });
-
-                    if (!hasContent) {
-                      // No content - add error message
-                      updated[updated.length - 1] = {
-                        ...lastMsg,
-                        content: [
-                          {
-                            type: 'output_text' as const,
-                            text: '⚠️ No response generated. The model may have encountered an issue.',
-                          },
-                        ],
-                      };
-                    }
-
-                    options?.onFinish?.(updated[updated.length - 1]);
-                  }
-                  return updated;
-                });
                 continue;
               }
 
@@ -280,75 +223,33 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
                   continue;
                 }
 
-                // Process chunk based on type - batch updates using RAF
-                if (chunk.type === 'response.output_text.delta') {
+                // Process simplified events from backend aggregation layer
+                if (chunk.type === 'reasoning') {
                   setIsLoading(false);
-                  scheduleUpdate((prev) =>
-                    handleOutputTextDelta(prev, chunk as OutputTextDeltaEvent)
-                  );
-                } else if (chunk.type === 'response.reasoning_text.delta') {
+                  scheduleUpdate((prev) => handleReasoning(prev, chunk));
+                } else if (chunk.type === 'tool_call') {
                   setIsLoading(false);
-                  scheduleUpdate((prev) =>
-                    handleReasoningTextDelta(prev, chunk as ReasoningTextDeltaEvent)
-                  );
-                } else if (chunk.type === 'response.reasoning_text.done') {
-                  scheduleUpdate((prev) =>
-                    handleReasoningTextDone(prev, chunk as ReasoningTextDoneEvent)
-                  );
-                } else if (chunk.type === 'response.output_item.added') {
+                  scheduleUpdate((prev) => handleToolCall(prev, chunk));
+                } else if (chunk.type === 'response') {
                   setIsLoading(false);
-                  scheduleUpdate((prev) => handleToolCallAdded(prev, chunk as ToolCallAddedEvent));
-                } else if (chunk.type === 'response.mcp_call.arguments.done') {
-                  scheduleUpdate((prev) =>
-                    handleToolCallArguments(prev, chunk as ToolCallArgumentsEvent)
-                  );
-                } else if (chunk.type === 'response.output_item.done') {
-                  scheduleUpdate((prev) => handleToolCallDone(prev, chunk as ToolCallDoneEvent));
+                  const responseEvent = chunk;
+                  scheduleUpdate((prev) => handleResponse(prev, responseEvent));
+
+                  // If response is completed, flush pending updates and call onFinish
+                  if (responseEvent.status === 'completed') {
+                    flushPendingUpdates();
+                    setMessages((prev) => {
+                      const lastMsg = prev[prev.length - 1];
+                      if (lastMsg && lastMsg.role === 'assistant') {
+                        options?.onFinish?.(lastMsg);
+                      }
+                      return prev;
+                    });
+                  }
                 } else if (chunk.type === 'error') {
-                  console.error('Stream error:', (chunk as ErrorEvent).content);
+                  console.error('Stream error:', chunk.message);
                   setIsLoading(false);
-                  scheduleUpdate((prev) => handleError(prev, chunk as ErrorEvent));
-                }
-
-                // Handle completion or failure
-                if (chunk.type === 'response.completed' || chunk.type === 'response.failed') {
-                  setIsLoading(false);
-
-                  // Flush any pending batched updates before finalizing
-                  flushPendingUpdates();
-
-                  // Handle completed responses - check for empty content
-                  if (chunk.type === 'response.completed') {
-                    setMessages((prev) => {
-                      const updated = handleResponseCompleted(
-                        prev,
-                        chunk as ResponseCompletedEvent
-                      );
-                      const lastMsg = updated[updated.length - 1];
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        options?.onFinish?.(lastMsg);
-                      }
-                      return updated;
-                    });
-                  }
-
-                  // Handle failed responses - show error
-                  if (chunk.type === 'response.failed') {
-                    const failedChunk = chunk as ResponseFailedEvent;
-                    const errorResponse = failedChunk.response;
-                    if (errorResponse?.error?.message) {
-                      console.error('Response failed:', errorResponse.error.message);
-                    }
-
-                    setMessages((prev) => {
-                      const updated = handleResponseFailed(prev, failedChunk);
-                      const lastMsg = updated[updated.length - 1];
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        options?.onFinish?.(lastMsg);
-                      }
-                      return updated;
-                    });
-                  }
+                  scheduleUpdate((prev) => handleError(prev, chunk));
                 }
               } catch (_error) {
                 // Ignore parse errors
