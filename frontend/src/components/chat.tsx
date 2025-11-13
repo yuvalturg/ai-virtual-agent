@@ -332,10 +332,8 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     _event: React.MouseEvent<Element, MouseEvent> | undefined,
     value: string | number | undefined
   ) => {
-    console.log('onSelectAgent called with value:', value);
     if (value) {
       const agentId = value.toString();
-      console.log('Setting selected agent to:', agentId);
       setSelectedAgent(agentId);
       if (noAgentsWarning) setNoAgentsWarning(null);
     }

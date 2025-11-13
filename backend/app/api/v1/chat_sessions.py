@@ -321,6 +321,7 @@ async def get_conversation_messages(
 
                 elif item_type in ("mcp_call", "file_search_call", "web_search_call"):
                     # Tool call field mappings: (name_field, server_label_field, args_field, output_field)
+                    # Note: web_search_call uses None for output_field because results aren't exposed in API
                     tool_map = {
                         "mcp_call": ("name", "server_label", "arguments", "output"),
                         "file_search_call": (
@@ -333,7 +334,7 @@ async def get_conversation_messages(
                             "web_search",
                             "llamastack",
                             "query",
-                            "results",
+                            None,
                         ),
                     }
 
@@ -354,7 +355,14 @@ async def get_conversation_messages(
                     )
 
                     args_val = item_dict.get(args_field)
-                    output_val = item_dict.get(output_field)
+                    output_val = item_dict.get(output_field) if output_field else None
+
+                    # Format output
+                    output = (
+                        f"Tool execution {item_dict.get('status', 'completed')}"
+                        if output_field is None
+                        else (str(output_val) if output_val else "No results found")
+                    )
 
                     tool_entry = {
                         "type": "tool_call",
@@ -362,7 +370,7 @@ async def get_conversation_messages(
                         "name": name,
                         "server_label": server_label,
                         "arguments": str(args_val) if args_val else None,
-                        "output": str(output_val) if output_val else "No results found",
+                        "output": output,
                         "error": item_dict.get("error"),
                         "status": "failed" if item_dict.get("error") else "completed",
                     }

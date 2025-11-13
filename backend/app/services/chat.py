@@ -332,6 +332,7 @@ class StreamAggregator:
             return
 
         # Tool call field mappings: (name_field, server_label_field, args_field, output_field)
+        # Note: web_search_call uses None for output_field because results aren't exposed in API
         tool_map = {
             "mcp_call": ("name", "server_label", "arguments", "output"),
             "function_call": ("name", "server_label", "arguments", "output"),
@@ -341,7 +342,7 @@ class StreamAggregator:
                 "queries",
                 "results",
             ),
-            "web_search_call": ("web_search", "llamastack", "query", "results"),
+            "web_search_call": ("web_search", "llamastack", "query", None),
         }
 
         name_field, server_field, args_field, output_field = tool_map[item_type]
@@ -359,15 +360,27 @@ class StreamAggregator:
         # Set final result
         is_standard = item_type in ("mcp_call", "function_call")
         args_val = item.get(args_field)
-        output_val = item.get(output_field)
+
+        # Get output value (None if output_field is None)
+        output_val = item.get(output_field) if output_field else None
+
+        # Format output based on tool type
+        if output_field is None:
+            # For tools like web_search that don't expose results
+            status = item.get("status", "completed")
+            output = f"Tool execution {status}"
+        elif output_val is not None:
+            # For tools that return results
+            if item_type == "file_search_call" and isinstance(output_val, list):
+                output = str(output_val) if output_val else "No results found"
+            else:
+                output = str(output_val)
+        else:
+            output = "No results found" if not is_standard else None
 
         tool_call.set_result(
             arguments=str(args_val) if args_val and not is_standard else args_val,
-            output=(
-                str(output_val)
-                if output_val
-                else ("No results found" if not is_standard else None)
-            ),
+            output=output,
             error=item.get("error"),
         )
 
