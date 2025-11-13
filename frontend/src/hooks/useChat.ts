@@ -211,7 +211,6 @@ export function useChat(agentId: string, options?: UseLlamaChatOptions) {
 
               try {
                 const chunk = JSON.parse(data) as StreamEvent;
-                // console.log('Received chunk:', chunk); // Disabled to prevent memory bloat
 
                 // Extract and set session ID if present
                 if (chunk.session_id && !sessionId) {
