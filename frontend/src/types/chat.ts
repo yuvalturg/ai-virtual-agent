@@ -118,7 +118,7 @@ export interface ToolCallEvent extends BaseStreamEvent {
 
 export interface ResponseEvent extends BaseStreamEvent {
   type: 'response';
-  text: string;
+  delta: string;
   status: 'in_progress' | 'completed';
   id: string;
 }

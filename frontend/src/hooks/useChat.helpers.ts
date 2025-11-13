@@ -103,6 +103,7 @@ export const handleToolCall: ChunkHandler<ToolCallEvent> = (messages, event) => 
 
 /**
  * Handle response events (in_progress and completed)
+ * Accumulates deltas from the backend into full text
  */
 export const handleResponse: ChunkHandler<ResponseEvent> = (messages, event) => {
   const lastMsg = messages[messages.length - 1];
@@ -114,17 +115,20 @@ export const handleResponse: ChunkHandler<ResponseEvent> = (messages, event) => 
   );
 
   if (responseIndex >= 0) {
-    // Update existing response text
-    newContent[responseIndex] = {
-      type: 'output_text' as const,
-      text: event.text,
-      id: event.id,
-    };
+    // Accumulate delta to existing response text
+    const existingItem = newContent[responseIndex];
+    if (existingItem.type === 'output_text') {
+      newContent[responseIndex] = {
+        type: 'output_text' as const,
+        text: existingItem.text + event.delta,
+        id: event.id,
+      };
+    }
   } else {
-    // Add new response text
+    // Add new response text with first delta
     newContent.push({
       type: 'output_text' as const,
-      text: event.text,
+      text: event.delta,
       id: event.id,
     });
   }

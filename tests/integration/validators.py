@@ -43,14 +43,12 @@ def validate_exact_text(response, expected_text):
             # Parse JSON line
             json_data = json.loads(json_line)
 
-            # Handle LlamaStack response format - accumulate text deltas
-            if json_data.get("type") == "response.output_text.delta" and json_data.get(
-                "delta"
-            ):
+            # Handle simplified response format - accumulate text deltas
+            if json_data.get("type") == "response" and "delta" in json_data:
                 combined_text += json_data.get("delta", "")
             elif json_data.get("type") == "error":
                 raise AssertionError(
-                    f"Error from backend: {json_data.get('content', 'Unknown error')}"
+                    f"Error from backend: {json_data.get('message', 'Unknown error')}"
                 )
 
         except (json.JSONDecodeError, KeyError):
