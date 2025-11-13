@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useState, useCallback, useRef } from 'react';
+import React, { Fragment, useEffect, useState, useCallback } from 'react';
 import {
   Chatbot,
   ChatbotContent,
@@ -361,6 +361,11 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       try {
         await loadSession(selectedItem);
         setIsDrawerOpen(false); // Close sidebar after selection
+        // Always show warning when switching to a different session
+        // User will manually dismiss it if not needed
+        setHistoryWarning(
+          'Note: Some messages may not be displayed due to conversation history limitations.'
+        );
       } catch (error) {
         console.error('Error loading session:', error);
         setAnnouncement('Failed to load chat session');
@@ -382,6 +387,11 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         setIsDrawerOpen(false);
         setIsSwitchWarningOpen(false);
         setPendingSessionSwitch(null);
+        // Always show warning when switching to a different session
+        // User will manually dismiss it if not needed
+        setHistoryWarning(
+          'Note: Some messages may not be displayed due to conversation history limitations.'
+        );
       } catch (error) {
         console.error('Error loading session:', error);
         setAnnouncement('Failed to load chat session');
@@ -418,6 +428,8 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         await fetchSessionsData(selectedAgent);
 
         setIsDrawerOpen(false);
+        // Clear warning for new chat
+        setHistoryWarning(null);
       } catch (error) {
         console.error('Error creating new session:', error);
         setAnnouncement('Failed to create new chat session');
@@ -535,6 +547,11 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         if ((!sessionId || !currentSessionExists) && sessions.length > 0) {
           const firstSession = sessions[0]; // Sessions should be ordered by updated_at desc (most recent first)
           await loadSession(firstSession.id);
+          // Always show warning when loading a session
+          // User will manually dismiss it if not needed
+          setHistoryWarning(
+            'Note: Some messages may not be displayed due to conversation history limitations.'
+          );
         } else if (sessions.length === 0 && agentId) {
           // Create a new session if agent has no sessions
           try {
@@ -627,28 +644,6 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAgent]); // fetchSessionsData intentionally excluded to prevent infinite loop
-
-  // Track when session changes to show warning only on session switch
-  const prevSessionIdRef = useRef<string | null>(null);
-
-  // Show history warning only when switching to a different session with existing messages
-  useEffect(() => {
-    // Check if session ID actually changed
-    const sessionChanged = prevSessionIdRef.current !== sessionId;
-    prevSessionIdRef.current = sessionId;
-
-    if (sessionChanged) {
-      // Only show warning if we have messages and a session ID
-      // Clear warning when no messages (new/empty session)
-      if (chatMessages.length > 0 && sessionId) {
-        setHistoryWarning(
-          'Note: Some messages may not be displayed due to conversation history limitations.'
-        );
-      } else {
-        setHistoryWarning(null);
-      }
-    }
-  }, [chatMessages.length, sessionId]);
 
   // Handle message sending
   const handleSendMessage = async (message: string | number) => {
