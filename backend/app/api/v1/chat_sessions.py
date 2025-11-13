@@ -319,15 +319,50 @@ async def get_conversation_messages(
                         )
                         messages.append(msg)
 
-                elif item_type == "mcp_call":
-                    # Tool call - accumulate for next assistant message
+                elif item_type in ("mcp_call", "file_search_call", "web_search_call"):
+                    # Tool call field mappings: (name_field, server_label_field, args_field, output_field)
+                    tool_map = {
+                        "mcp_call": ("name", "server_label", "arguments", "output"),
+                        "file_search_call": (
+                            "knowledge_search",
+                            "llamastack",
+                            "queries",
+                            "results",
+                        ),
+                        "web_search_call": (
+                            "web_search",
+                            "llamastack",
+                            "query",
+                            "results",
+                        ),
+                    }
+
+                    name_field, server_field, args_field, output_field = tool_map[
+                        item_type
+                    ]
+
+                    # For mcp_call, name/server_label are fields; for others, they're literal values
+                    name = (
+                        item_dict.get(name_field)
+                        if item_type == "mcp_call"
+                        else name_field
+                    )
+                    server_label = (
+                        item_dict.get(server_field)
+                        if item_type == "mcp_call"
+                        else server_field
+                    )
+
+                    args_val = item_dict.get(args_field)
+                    output_val = item_dict.get(output_field)
+
                     tool_entry = {
                         "type": "tool_call",
                         "id": item_dict.get("id"),
-                        "name": item_dict.get("name"),
-                        "server_label": item_dict.get("server_label"),
-                        "arguments": item_dict.get("arguments"),
-                        "output": item_dict.get("output"),
+                        "name": name,
+                        "server_label": server_label,
+                        "arguments": str(args_val) if args_val else None,
+                        "output": str(output_val) if output_val else "No results found",
                         "error": item_dict.get("error"),
                         "status": "failed" if item_dict.get("error") else "completed",
                     }

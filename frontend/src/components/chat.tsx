@@ -53,26 +53,16 @@ import { ATTACHMENTS_API_ENDPOINT } from '@/config/api';
 import { SimpleContentItem } from '@/types/chat';
 import { getTemplateDetails } from '@/services/agent-templates';
 
-// Custom sanitize schema that allows <details> and <summary> tags for collapsible sections
+// Custom sanitize schema that allows style attributes for our custom HTML elements
 const customSanitizeSchema = {
   ...defaultSchema,
-  tagNames: [
-    ...(defaultSchema.tagNames || []),
-    'details',
-    'summary',
-    'div',
-    'pre',
-    'code',
-    'strong',
-    'i',
-  ],
   attributes: {
-    ...defaultSchema.attributes,
-    details: ['open', 'style'],
-    summary: ['style'],
-    div: ['style'],
+    ...(defaultSchema.attributes || {}),
+    details: [...((defaultSchema.attributes?.details as string[]) || []), 'open', 'style'],
+    summary: [...((defaultSchema.attributes?.summary as string[]) || []), 'style'],
+    div: [...((defaultSchema.attributes?.div as string[]) || []), 'style', 'class'],
     pre: ['style'],
-    i: ['class', 'className', 'style'],
+    code: [...((defaultSchema.attributes?.code as string[]) || []), 'style'],
   },
 };
 
@@ -163,8 +153,13 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   });
   // Memoized content conversion to prevent recreation on every render
   const contentToText = React.useCallback((content: SimpleContentItem): string => {
-    if (content.type === 'input_text' || content.type === 'output_text') {
+    if (content.type === 'input_text') {
       return content.text;
+    }
+
+    if (content.type === 'output_text') {
+      // Wrap in a div to ensure markdown is processed separately from HTML elements
+      return `<div class="markdown-content">\n\n${content.text}\n\n</div>`;
     }
 
     if (content.type === 'input_image') {
@@ -320,8 +315,10 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     _event: React.MouseEvent<Element, MouseEvent> | undefined,
     value: string | number | undefined
   ) => {
+    console.log('onSelectAgent called with value:', value);
     if (value) {
       const agentId = value.toString();
+      console.log('Setting selected agent to:', agentId);
       setSelectedAgent(agentId);
       if (noAgentsWarning) setNoAgentsWarning(null);
     }
@@ -752,7 +749,11 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
                   >
                     <DropdownList>
                       {availableAgents.map((agent) => (
-                        <DropdownItem value={agent.id} key={agent.id}>
+                        <DropdownItem
+                          value={agent.id}
+                          key={agent.id}
+                          isSelected={agent.id === selectedAgent}
+                        >
                           {agent.name}
                         </DropdownItem>
                       ))}

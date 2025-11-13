@@ -268,14 +268,26 @@ class StreamAggregator:
         if item_type not in tool_execution_types:
             return
 
-        # Create tool call object
-        tool_call = ToolCall(
-            item_id=item_id,
-            name=item.get("name"),
-            server_label=item.get("server_label"),
-        )
-        if item.get("arguments"):
-            tool_call.update_arguments(item.get("arguments"))
+        # Tool call field mappings: (name_field, server_label_field, args_field)
+        tool_map = {
+            "mcp_call": ("name", "server_label", "arguments"),
+            "function_call": ("name", "server_label", "arguments"),
+            "file_search_call": ("knowledge_search", "llamastack", "queries"),
+            "web_search_call": ("web_search", "llamastack", "query"),
+        }
+
+        name_field, server_field, args_field = tool_map[item_type]
+
+        # For mcp_call/function_call, name/server_label are fields; for others, they're literal values
+        is_standard = item_type in ("mcp_call", "function_call")
+        name = item.get(name_field) if is_standard else name_field
+        server_label = item.get(server_field) if is_standard else server_field
+
+        tool_call = ToolCall(item_id=item_id, name=name, server_label=server_label)
+
+        args_val = item.get(args_field)
+        if args_val:
+            tool_call.update_arguments(str(args_val) if not is_standard else args_val)
 
         self.tool_calls[item_id] = tool_call
 
@@ -321,21 +333,43 @@ class StreamAggregator:
         if item_type not in tool_execution_types:
             return
 
+        # Tool call field mappings: (name_field, server_label_field, args_field, output_field)
+        tool_map = {
+            "mcp_call": ("name", "server_label", "arguments", "output"),
+            "function_call": ("name", "server_label", "arguments", "output"),
+            "file_search_call": (
+                "knowledge_search",
+                "llamastack",
+                "queries",
+                "results",
+            ),
+            "web_search_call": ("web_search", "llamastack", "query", "results"),
+        }
+
+        name_field, server_field, args_field, output_field = tool_map[item_type]
+
         # Get or create tool call
         if item_id not in self.tool_calls:
-            tool_call = ToolCall(
-                item_id=item_id,
-                name=item.get("name"),
-                server_label=item.get("server_label"),
-            )
+            is_standard = item_type in ("mcp_call", "function_call")
+            name = item.get(name_field) if is_standard else name_field
+            server_label = item.get(server_field) if is_standard else server_field
+            tool_call = ToolCall(item_id=item_id, name=name, server_label=server_label)
             self.tool_calls[item_id] = tool_call
         else:
             tool_call = self.tool_calls[item_id]
 
         # Set final result
+        is_standard = item_type in ("mcp_call", "function_call")
+        args_val = item.get(args_field)
+        output_val = item.get(output_field)
+
         tool_call.set_result(
-            arguments=item.get("arguments"),
-            output=item.get("output"),
+            arguments=str(args_val) if args_val and not is_standard else args_val,
+            output=(
+                str(output_val)
+                if output_val
+                else ("No results found" if not is_standard else None)
+            ),
             error=item.get("error"),
         )
 
@@ -651,6 +685,12 @@ class ChatService:
                     session_id, client
                 )
                 response_params["conversation"] = conversation_id
+
+                # Log the request we're sending to LlamaStack
+                logger.info(
+                    f"Calling client.responses.create with params: "
+                    f"{json.dumps(jsonable_encoder(response_params), indent=2)}"
+                )
 
                 async for chunk in await client.responses.create(**response_params):
                     # Convert chunk to dict
