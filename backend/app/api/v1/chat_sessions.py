@@ -379,23 +379,6 @@ async def get_conversation_messages(
                     f"of conversation {session.conversation_id}"
                 )
 
-            # Add a notice message at the beginning
-            notice_msg = {
-                "type": "message",
-                "role": "system",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": (
-                            "ℹ️ Note: Some messages may not be displayed due to "
-                            "conversation history limitations."
-                        ),
-                    }
-                ],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-            messages.insert(0, notice_msg)
-
             logger.info(
                 f"Retrieved {len(messages)} messages for conversation "
                 f"{session.conversation_id}"

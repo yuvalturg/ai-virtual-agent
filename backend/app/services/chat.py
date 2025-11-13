@@ -231,25 +231,23 @@ class StreamAggregator:
             )
 
     def _handle_output_text_delta(self, chunk: Dict[str, Any]):
-        """Handle output text delta - stream immediately as deltas come in"""
+        """Handle output text delta - stream deltas to frontend for client-side accumulation"""
         item_id = chunk.get("item_id")
         content_index = chunk.get("content_index")
         delta = chunk.get("delta", "")
 
         key = f"{item_id}:{content_index}"
 
-        # Get or create content part
+        # Track that we've seen output text (for completion validation)
         if key not in self.content_parts:
             self.content_parts[key] = ContentPart(item_id, content_index, "output_text")
 
-        part = self.content_parts[key]
-        part.add_delta(delta)
         self.has_output_text = True
 
-        # Stream the current accumulated text (send updates as we receive deltas)
+        # Stream just the delta to frontend (frontend will accumulate)
         yield self._create_event(
             "response",
-            {"text": part.text, "status": "in_progress", "id": key},
+            {"delta": delta, "status": "in_progress", "id": key},
         )
 
     def _handle_output_item_added(self, chunk: Dict[str, Any]):
@@ -394,7 +392,7 @@ class StreamAggregator:
                     self.sent_content.add(key)
                     yield self._create_event(
                         "response",
-                        {"text": part.text, "status": "completed", "id": key},
+                        {"delta": "", "status": "completed", "id": key},
                     )
 
     def _handle_response_failed(self, chunk: Dict[str, Any]):

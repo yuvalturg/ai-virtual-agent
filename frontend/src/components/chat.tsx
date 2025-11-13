@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useState, useCallback } from 'react';
+import React, { Fragment, useEffect, useState, useCallback, useRef } from 'react';
 import {
   Chatbot,
   ChatbotContent,
@@ -101,6 +101,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   >([]);
   const [announcement, setAnnouncement] = useState<string>('');
   const [noAgentsWarning, setNoAgentsWarning] = useState<string | null>(null);
+  const [historyWarning, setHistoryWarning] = useState<string | null>(null);
   const [chatSessions, setChatSessions] = useState<ChatSessionSummary[]>([]);
   const [demoQuestions, setDemoQuestions] = useState<string[]>([]);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -250,6 +251,22 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         announcement={announcement}
         style={{ maxWidth: '85%', width: '85%', margin: '0 auto' }}
       >
+        {historyWarning && (
+          <Alert
+            variant="info"
+            isInline
+            isPlain
+            title={historyWarning}
+            actionClose={<AlertActionCloseButton onClose={() => setHistoryWarning(null)} />}
+            style={{
+              margin: '8px 0',
+              fontSize: '0.875rem',
+              padding: '8px 12px',
+              border: '1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2)',
+              borderRadius: '4px',
+            }}
+          />
+        )}
         {messages.map((message, index) => {
           if (index === messages.length - 1) {
             return (
@@ -263,7 +280,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         })}
       </MessageBox>
     ),
-    [messages, announcement, rehypePlugins]
+    [messages, announcement, rehypePlugins, historyWarning]
   );
 
   const displayMode = ChatbotDisplayMode.embedded;
@@ -611,9 +628,34 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAgent]); // fetchSessionsData intentionally excluded to prevent infinite loop
 
+  // Track when session changes to show warning only on session switch
+  const prevSessionIdRef = useRef<string | null>(null);
+
+  // Show history warning only when switching to a different session with existing messages
+  useEffect(() => {
+    // Check if session ID actually changed
+    const sessionChanged = prevSessionIdRef.current !== sessionId;
+    prevSessionIdRef.current = sessionId;
+
+    if (sessionChanged) {
+      // Only show warning if we have messages and a session ID
+      // Clear warning when no messages (new/empty session)
+      if (chatMessages.length > 0 && sessionId) {
+        setHistoryWarning(
+          'Note: Some messages may not be displayed due to conversation history limitations.'
+        );
+      } else {
+        setHistoryWarning(null);
+      }
+    }
+  }, [chatMessages.length, sessionId]);
+
   // Handle message sending
   const handleSendMessage = async (message: string | number) => {
     if (typeof message === 'string' && message.trim() && selectedAgent) {
+      // Clear history warning when user sends a message
+      setHistoryWarning(null);
+
       const contents: SimpleContentItem[] = [];
       contents.push({ type: 'input_text', text: message });
       for (const file of attachedFiles) {
