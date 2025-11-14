@@ -84,7 +84,9 @@ def _process_tool_call_item(item_dict: dict) -> dict:
 
     # For mcp_call, name/server_label are fields; for others, they're literal values
     name = item_dict.get(name_field) if item_type == "mcp_call" else name_field
-    server_label = item_dict.get(server_field) if item_type == "mcp_call" else server_field
+    server_label = (
+        item_dict.get(server_field) if item_type == "mcp_call" else server_field
+    )
 
     args_val = item_dict.get(args_field)
     output_val = item_dict.get(output_field) if output_field else None
