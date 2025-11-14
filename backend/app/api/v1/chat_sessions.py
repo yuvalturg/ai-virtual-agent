@@ -47,19 +47,65 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat_sessions", tags=["chat_sessions"])
 
 
-def convert_internal_urls_to_relative(message_data: dict) -> None:
-    """
-    Convert internal service URLs back to relative URLs for frontend consumption.
+def _process_content_item(content_item: dict, role: str) -> dict | None:
+    """Process a single content item from a message."""
+    content_type = content_item.get("type")
 
-    Args:
-        message_data: Message data dict (modified in-place)
-    """
-    for content_item in message_data.get("content", []):
-        if content_item.get("type") == "input_image":
-            if image_url := content_item.get("image_url", ""):
-                parsed = urlparse(image_url)
-                # Keep only the path part of the URL
-                content_item["image_url"] = parsed.path
+    if content_type in ("input_text", "output_text"):
+        return {
+            "type": "input_text" if role == "user" else "output_text",
+            "text": content_item.get("text", ""),
+        }
+    elif content_type == "input_image":
+        image_url = content_item.get("image_url", "")
+        # Convert internal URLs to relative paths for frontend
+        if image_url:
+            parsed = urlparse(image_url)
+            image_url = parsed.path
+        return {
+            "type": "input_image",
+            "image_url": image_url,
+        }
+    return None
+
+
+def _process_tool_call_item(item_dict: dict) -> dict:
+    """Process a tool call item (mcp_call, file_search_call, web_search_call)."""
+    item_type = item_dict.get("type")
+
+    # Tool call field mappings: (name_field, server_label_field, args_field, output_field)
+    tool_map = {
+        "mcp_call": ("name", "server_label", "arguments", "output"),
+        "file_search_call": ("knowledge_search", "llamastack", "queries", "results"),
+        "web_search_call": ("web_search", "llamastack", "query", None),
+    }
+
+    name_field, server_field, args_field, output_field = tool_map[item_type]
+
+    # For mcp_call, name/server_label are fields; for others, they're literal values
+    name = item_dict.get(name_field) if item_type == "mcp_call" else name_field
+    server_label = item_dict.get(server_field) if item_type == "mcp_call" else server_field
+
+    args_val = item_dict.get(args_field)
+    output_val = item_dict.get(output_field) if output_field else None
+
+    # Format output
+    output = (
+        f"Tool execution {item_dict.get('status', 'completed')}"
+        if output_field is None
+        else (str(output_val) if output_val else "No results found")
+    )
+
+    return {
+        "type": "tool_call",
+        "id": item_dict.get("id"),
+        "name": name,
+        "server_label": server_label,
+        "arguments": str(args_val) if args_val else None,
+        "output": output,
+        "error": item_dict.get("error"),
+        "status": "failed" if item_dict.get("error") else "completed",
+    }
 
 
 @router.get("/", response_model=List[ChatSession])
@@ -258,24 +304,16 @@ async def get_conversation_messages(
                     continue
 
                 if item_type == "message":
-                    # User or assistant message
+                    # Process user or assistant message
                     role = item_dict.get("role")
                     message_id = item_dict.get("id")
-                    content_items = []
 
+                    # Process content items
+                    content_items = []
                     for content_item in item_dict.get("content", []):
-                        content_type = content_item.get("type")
-                        if content_type in ("input_text", "output_text"):
-                            content_items.append(
-                                {
-                                    "type": (
-                                        "input_text"
-                                        if role == "user"
-                                        else "output_text"
-                                    ),
-                                    "text": content_item.get("text", ""),
-                                }
-                            )
+                        processed = _process_content_item(content_item, role)
+                        if processed:
+                            content_items.append(processed)
 
                     logger.debug(
                         f"Message: role={role}, id={message_id}, "
@@ -320,60 +358,8 @@ async def get_conversation_messages(
                         messages.append(msg)
 
                 elif item_type in ("mcp_call", "file_search_call", "web_search_call"):
-                    # Tool call field mappings: (name_field, server_label_field, args_field, output_field)
-                    # Note: web_search_call uses None for output_field because results aren't exposed in API
-                    tool_map = {
-                        "mcp_call": ("name", "server_label", "arguments", "output"),
-                        "file_search_call": (
-                            "knowledge_search",
-                            "llamastack",
-                            "queries",
-                            "results",
-                        ),
-                        "web_search_call": (
-                            "web_search",
-                            "llamastack",
-                            "query",
-                            None,
-                        ),
-                    }
-
-                    name_field, server_field, args_field, output_field = tool_map[
-                        item_type
-                    ]
-
-                    # For mcp_call, name/server_label are fields; for others, they're literal values
-                    name = (
-                        item_dict.get(name_field)
-                        if item_type == "mcp_call"
-                        else name_field
-                    )
-                    server_label = (
-                        item_dict.get(server_field)
-                        if item_type == "mcp_call"
-                        else server_field
-                    )
-
-                    args_val = item_dict.get(args_field)
-                    output_val = item_dict.get(output_field) if output_field else None
-
-                    # Format output
-                    output = (
-                        f"Tool execution {item_dict.get('status', 'completed')}"
-                        if output_field is None
-                        else (str(output_val) if output_val else "No results found")
-                    )
-
-                    tool_entry = {
-                        "type": "tool_call",
-                        "id": item_dict.get("id"),
-                        "name": name,
-                        "server_label": server_label,
-                        "arguments": str(args_val) if args_val else None,
-                        "output": output,
-                        "error": item_dict.get("error"),
-                        "status": "failed" if item_dict.get("error") else "completed",
-                    }
+                    # Process tool call
+                    tool_entry = _process_tool_call_item(item_dict)
                     logger.debug(
                         f"Adding tool call: name={tool_entry['name']}, "
                         f"id={tool_entry['id']}, status={tool_entry['status']}"
