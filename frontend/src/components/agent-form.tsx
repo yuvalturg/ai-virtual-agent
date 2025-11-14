@@ -407,29 +407,6 @@ export function AgentForm({
           </FormGroup>
         )}
       </form.Field>
-      <form.Field name="tool_ids">
-        {(field) => (
-          <FormGroup
-            label="Select Tool Groups"
-            fieldId="tools-multiselect" // Unique ID for the FormGroup
-          >
-            <MultiSelect
-              id="tools-multiselect-component" // Unique ID for the MultiSelect component itself
-              value={field.state.value || []} // Ensure it's always an array
-              options={toolsOptions} // Pass the prepared options
-              onBlur={field.handleBlur}
-              onChange={(selectedIds) => field.handleChange(selectedIds)} // Pass the new array directly
-              ariaLabel="Select Tool Groups"
-              isDisabled={
-                isLoadingTools ||
-                toolsError != null ||
-                (tools && tools.length === 0 && !isLoadingTools && !toolsError)
-              }
-              placeholder="Type or select tool groups..."
-            />
-          </FormGroup>
-        )}
-      </form.Field>
       <form.Field name="input_shields">
         {(field) => (
           <FormGroup label="Input Shield" fieldId="input-shield">
@@ -475,6 +452,29 @@ export function AgentForm({
                 />
               ))}
             </FormSelect>
+          </FormGroup>
+        )}
+      </form.Field>
+      <form.Field name="tool_ids">
+        {(field) => (
+          <FormGroup
+            label="Select Tool Groups"
+            fieldId="tools-multiselect" // Unique ID for the FormGroup
+          >
+            <MultiSelect
+              id="tools-multiselect-component" // Unique ID for the MultiSelect component itself
+              value={field.state.value || []} // Ensure it's always an array
+              options={toolsOptions} // Pass the prepared options
+              onBlur={field.handleBlur}
+              onChange={(selectedIds) => field.handleChange(selectedIds)} // Pass the new array directly
+              ariaLabel="Select Tool Groups"
+              isDisabled={
+                isLoadingTools ||
+                toolsError != null ||
+                (tools && tools.length === 0 && !isLoadingTools && !toolsError)
+              }
+              placeholder="Type or select tool groups..."
+            />
           </FormGroup>
         )}
       </form.Field>

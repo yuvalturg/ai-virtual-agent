@@ -17,10 +17,7 @@ import {
   Message,
   MessageBar,
   MessageBox,
-  MessageProps,
 } from '@patternfly/chatbot';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import {
   DropdownItem,
   DropdownList,
@@ -52,19 +49,7 @@ import userAvatar from '../assets/img/user-avatar.svg';
 import { ATTACHMENTS_API_ENDPOINT } from '@/config/api';
 import { SimpleContentItem } from '@/types/chat';
 import { getTemplateDetails } from '@/services/agent-templates';
-
-// Custom sanitize schema that allows style attributes for our custom HTML elements
-const customSanitizeSchema = {
-  ...defaultSchema,
-  attributes: {
-    ...(defaultSchema.attributes || {}),
-    details: [...((defaultSchema.attributes?.details as string[]) || []), 'open', 'style'],
-    summary: [...((defaultSchema.attributes?.summary as string[]) || []), 'style'],
-    div: [...((defaultSchema.attributes?.div as string[]) || []), 'style', 'class'],
-    pre: ['style'],
-    code: [...((defaultSchema.attributes?.code as string[]) || []), 'style'],
-  },
-};
+import { ReasoningSection, ToolCallSection } from './ExpandableContent';
 
 const footnoteProps = {
   label: 'ChatBot uses AI. Check for mistakes.',
@@ -152,78 +137,58 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
       // Session list will be refreshed when user opens the drawer (on-demand)
     },
   });
-  // Memoized content conversion to prevent recreation on every render
-  const contentToText = React.useCallback((content: SimpleContentItem): string => {
-    if (content.type === 'input_text') {
-      return content.text;
+  // Separate content into markdown strings and expandable React components
+  const separateContent = React.useCallback((content: SimpleContentItem[] | undefined) => {
+    if (!content || !Array.isArray(content) || content.length === 0) {
+      return { markdownContent: '', expandableComponents: [] as React.ReactNode[] };
     }
 
-    if (content.type === 'output_text') {
-      // Wrap in a div to ensure markdown is processed separately from HTML elements
-      return `<div class="markdown-content">\n\n${content.text}\n\n</div>`;
-    }
+    const textParts: string[] = [];
+    const expandableComponents: React.ReactNode[] = [];
 
-    if (content.type === 'input_image') {
-      // Convert relative URLs to full URLs for browser display
-      const imageUrl = content.image_url.startsWith('/')
-        ? `${window.location.origin}${content.image_url}`
-        : content.image_url;
-      return `![Image](${imageUrl})`;
-    }
-
-    if (content.type === 'reasoning') {
-      // Display reasoning always collapsed, with status emoji like tool calls
-      const statusEmoji = content.isComplete ? '✅' : '⏳';
-      return `<details style="margin: 4px 0;"><summary style="cursor: pointer; font-style: italic; color: #6a6e73;">${statusEmoji} Reasoning</summary><div style="font-style: italic; padding: 8px; margin-top: 4px; border-left: 2px solid #d2d2d2;">${content.text}</div></details>`;
-    }
-
-    if (content.type === 'tool_call') {
-      // Display tool call in italic, open while in progress, collapsed when complete/failed
-      const statusEmoji =
-        content.status === 'completed' ? '✅' : content.status === 'failed' ? '❌' : '⏳';
-      const toolName = content.server_label
-        ? `${content.server_label}::${content.name}`
-        : content.name;
-      const openAttr = content.status === 'in_progress' ? ' open' : '';
-
-      let detailsContent = '';
-      if (content.arguments) {
-        detailsContent += `<div style="margin-top: 4px;"><strong>Arguments:</strong><pre style="background: #f4f4f4; padding: 8px; border-radius: 4px; overflow-x: auto;"><code>${content.arguments}</code></pre></div>`;
+    content.forEach((item, index) => {
+      if (item.type === 'input_text') {
+        textParts.push(item.text);
+      } else if (item.type === 'output_text') {
+        textParts.push(item.text);
+      } else if (item.type === 'input_image') {
+        const imageUrl = item.image_url.startsWith('/')
+          ? `${window.location.origin}${item.image_url}`
+          : item.image_url;
+        textParts.push(`![Image](${imageUrl})`);
+      } else if (item.type === 'reasoning') {
+        expandableComponents.push(
+          <ReasoningSection
+            key={`reasoning-${index}`}
+            text={item.text}
+            isComplete={item.isComplete}
+          />
+        );
+      } else if (item.type === 'tool_call') {
+        expandableComponents.push(
+          <ToolCallSection
+            key={`tool-${index}`}
+            name={item.name}
+            serverLabel={item.server_label}
+            status={item.status}
+            arguments={item.arguments}
+            output={item.output}
+            error={item.error}
+          />
+        );
       }
-      if (content.output) {
-        detailsContent += `<div style="margin-top: 4px;"><strong>Output:</strong><pre style="background: #f4f4f4; padding: 8px; border-radius: 4px; overflow-x: auto;"><code>${content.output}</code></pre></div>`;
-      }
-      if (content.error) {
-        detailsContent += `<div style="margin-top: 4px; color: #c9190b;"><strong>Error:</strong><pre style="background: #ffe6e6; padding: 8px; border-radius: 4px; overflow-x: auto;"><code>${content.error}</code></pre></div>`;
-      }
+    });
 
-      return `<details${openAttr} style="margin: 4px 0;"><summary style="cursor: pointer; font-style: italic; color: #6a6e73;">${statusEmoji} Tool Call: ${toolName}</summary><div style="font-style: italic; padding: 8px; margin-top: 4px; border-left: 2px solid #d2d2d2;">${detailsContent}</div></details>`;
-    }
-
-    return '';
+    return {
+      markdownContent: textParts.join('\n\n'),
+      expandableComponents,
+    };
   }, []);
-
-  const multipleContentToText = React.useCallback(
-    (content: SimpleContentItem[] | undefined): string => {
-      if (!content || !Array.isArray(content) || content.length === 0) {
-        return '';
-      }
-      // Join with empty string - spacing is handled by CSS margins on each element
-      return content.map((m) => contentToText(m)).join('');
-    },
-    [contentToText]
-  );
-
-  // Memoize rehype plugins to prevent re-creating on every render
-  const rehypePlugins = React.useMemo(
-    () => [rehypeRaw, [rehypeSanitize, customSanitizeSchema]],
-    []
-  );
 
   // Convert our chat messages to PatternFly format
   const messages = React.useMemo(() => {
     const lastMessageId = chatMessages[chatMessages.length - 1]?.id;
-    return chatMessages.map((msg): MessageProps => {
+    return chatMessages.map((msg) => {
       // Merge tool_calls into content for display
       const allContent = [...msg.content];
       if (msg.tool_calls && msg.tool_calls.length > 0) {
@@ -231,10 +196,20 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         allContent.unshift(...msg.tool_calls);
       }
 
+      const { markdownContent, expandableComponents } = separateContent(allContent);
+
+      const role: 'user' | 'bot' = msg.role === 'user' ? 'user' : 'bot';
+
       return {
         id: msg.id,
-        role: msg.role === 'user' ? 'user' : 'bot',
-        content: multipleContentToText(allContent),
+        role,
+        content: markdownContent,
+        extraContent:
+          expandableComponents.length > 0
+            ? {
+                beforeMainContent: <>{expandableComponents}</>,
+              }
+            : undefined,
         name: msg.role === 'user' ? 'You' : 'Agent',
         timestamp: msg.timestamp.toLocaleString(),
         avatar: msg.role === 'user' ? userAvatar : botAvatar,
@@ -242,7 +217,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
         isLoading: msg.role === 'assistant' && isLoading && msg.id === lastMessageId,
       };
     });
-  }, [chatMessages, isLoading, multipleContentToText]);
+  }, [chatMessages, isLoading, separateContent]);
 
   // Memoize the message list to prevent re-rendering when only input changes
   const MemoizedMessageBox = React.useMemo(
@@ -272,15 +247,15 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
             return (
               <Fragment key={message.id}>
                 <div ref={scrollToBottomRef}></div>
-                <Message key={message.id} {...message} additionalRehypePlugins={rehypePlugins} />
+                <Message key={message.id} {...message} />
               </Fragment>
             );
           }
-          return <Message key={message.id} {...message} additionalRehypePlugins={rehypePlugins} />;
+          return <Message key={message.id} {...message} />;
         })}
       </MessageBox>
     ),
-    [messages, announcement, rehypePlugins, historyWarning]
+    [messages, announcement, historyWarning]
   );
 
   const displayMode = ChatbotDisplayMode.embedded;
