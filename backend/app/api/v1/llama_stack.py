@@ -18,6 +18,7 @@ router = APIRouter()
 async def get_llms(request: Request):
     """
     Retrieve all available Large Language Models from LlamaStack.
+    Excludes models that are used as shields.
     """
     client = get_client_from_request(request)
     try:
@@ -36,10 +37,31 @@ async def get_llms(request: Request):
             logger.warning("No models returned from LlamaStack")
             return []
 
+        # Fetch shields to filter them out from LLM list
+        shield_resource_ids = set()
+        try:
+            shields = await client.shields.list()
+            shield_resource_ids = {
+                str(shield.provider_resource_id) for shield in shields
+            }
+        except Exception as shield_error:
+            logger.warning(f"Could not fetch shields: {str(shield_error)}")
+            # Continue without shield filtering
+
         llms = []
         for model in models:
             try:
                 if model.api_model_type == "llm":
+                    # Skip models that are used as shields
+                    provider_resource_id = str(model.provider_resource_id)
+                    model_id = str(model.identifier)
+
+                    if (
+                        provider_resource_id in shield_resource_ids
+                        or model_id in shield_resource_ids
+                    ):
+                        continue
+
                     llm_config = {
                         "model_name": str(model.identifier),
                         "provider_resource_id": model.provider_resource_id,
@@ -138,12 +160,15 @@ async def get_shields(request: Request):
         shields = await client.shields.list()
         shields_list = []
         for shield in shields:
-            shield = {
-                "id": str(shield.identifier),
+            # Use provider_resource_id as the identifier since that's the full model path
+            # that needs to be sent to the Responses API (e.g., "llama-guard-3-1b/meta-llama/Llama-Guard-3-1B")
+            shield_data = {
+                "identifier": str(shield.provider_resource_id),
+                "provider_id": str(shield.provider_id),
                 "name": shield.provider_resource_id,
-                "model_type": shield.type,
+                "type": shield.type,
             }
-            shields_list.append(shield)
+            shields_list.append(shield_data)
         return shields_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -14,6 +14,8 @@ from .guardrails import router as guardrails_router
 from .knowledge_bases import router as knowledge_bases_router
 from .llama_stack import router as llama_stack_router
 from .mcp_servers import router as mcp_servers_router
+from .models_management import router as models_router
+from .providers_management import router as providers_router
 from .tools import router as tools_router
 from .users import router as users_router
 from .validate import router as validate_router
@@ -33,6 +35,11 @@ api_router.include_router(guardrails_router, tags=["guardrails"])
 api_router.include_router(agent_templates_router, tags=["agent_templates"])
 api_router.include_router(chat_sessions_router, tags=["chat_sessions"])
 api_router.include_router(mcp_servers_router, tags=["mcp_servers"])
+# Register providers router BEFORE models router to prevent /{model_id:path} from catching /providers/
+api_router.include_router(
+    providers_router, prefix="/models/providers", tags=["providers"]
+)
+api_router.include_router(models_router, prefix="/models", tags=["models"])
 api_router.include_router(users_router, tags=["users"])
 api_router.include_router(validate_router, tags=["validate"])
 api_router.include_router(virtual_agents_router, tags=["virtual_agents"])

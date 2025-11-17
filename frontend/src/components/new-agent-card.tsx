@@ -25,7 +25,6 @@ export function NewAgentCard() {
       try {
         await createAgent(values);
         setIsOpen(false);
-        console.log('Agent created successfully');
       } catch (error) {
         console.error('Error creating agent:', error);
       }

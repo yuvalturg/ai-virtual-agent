@@ -391,6 +391,21 @@ class StreamAggregator:
 
     def _handle_response_completed(self, chunk: Dict[str, Any]):
         """Handle response completion"""
+        response = chunk.get("response", {})
+        output = response.get("output", [])
+
+        # Check for guardrail refusal
+        for output_item in output:
+            if output_item.get("type") == "message":
+                content = output_item.get("content", [])
+                for content_item in content:
+                    if content_item.get("type") == "refusal":
+                        refusal_msg = content_item.get(
+                            "refusal", "Request blocked by safety guardrail"
+                        )
+                        yield self._create_event("error", {"message": refusal_msg})
+                        return
+
         # If we have no output text, send error
         if not self.has_output_text:
             error_msg = (
@@ -566,31 +581,46 @@ class ChatService:
 
         return conversation_id
 
-    async def _prepare_conversation_input(self, user_input):
+    async def _prepare_conversation_input(self, user_input, has_guardrails=False):
         """
         Prepare input with just the current user message.
 
         When using the conversation parameter, LlamaStack manages the conversation
         history automatically - we only need to send the new user message.
+
+        Args:
+            user_input: User input content
+            has_guardrails: If True and content is text-only, use simple string format
+                           for guardrails compatibility (workaround for LlamaStack bug)
         """
-        # Prepare current user input only
-        if isinstance(user_input, list):
-            # Multimodal content - serialize and expand URLs
-            content_items = []
-            for item in user_input:
-                content_item = item.model_dump()
-                expand_image_url(content_item)
-                content_items.append(content_item)
-            return [{"role": "user", "content": content_items}]
-        else:
-            # Single content item
-            content_item = user_input.model_dump()
+        logger.debug(f"Preparing conversation input: has_guardrails={has_guardrails}")
+
+        # Prepare current user input only (user_input is always a list)
+        content_items = []
+        for item in user_input:
+            content_item = item.model_dump()
             expand_image_url(content_item)
-            return [{"role": "user", "content": [content_item]}]
+            content_items.append(content_item)
+
+        # Workaround for LlamaStack guardrails bug:
+        # Use simple string format for text-only content when guardrails are enabled
+        # This prevents the "Unsupported content type" error in guardrail processing
+        if (
+            has_guardrails
+            and len(content_items) == 1
+            and content_items[0].get("type") == "input_text"
+        ):
+            logger.debug("Using simple string format (text-only with guardrails)")
+            return [{"role": "user", "content": content_items[0].get("text", "")}]
+
+        # Use structured format for multimodal content or when no guardrails
+        logger.debug(
+            f"Using structured format (multimodal or no guardrails, {len(content_items)} items)"
+        )
+        return [{"role": "user", "content": content_items}]
 
     async def _update_session_title(
         self,
-        agent_id: str,
         session_id: str,
         user_input: Any,
     ) -> None:
@@ -598,7 +628,6 @@ class ChatService:
         Update session title based on first user message.
 
         Args:
-            agent_id: Virtual agent configuration ID
             session_id: Chat session ID
             user_input: User message content
         """
@@ -667,9 +696,14 @@ class ChatService:
                 agent.tools, agent.vector_store_ids, self.request
             )
 
-            # Prepare input with just the current message
-            openai_input = await self._prepare_conversation_input(prompt)
+            # Check if guardrails are enabled
+            has_guardrails = bool(agent.input_shields and len(agent.input_shields) > 0)
 
+            # Prepare input with just the current message
+            # Pass has_guardrails flag to use simple format for text-only messages
+            openai_input = await self._prepare_conversation_input(
+                prompt, has_guardrails
+            )
             # Prepare streaming request parameters
             response_params = {
                 "model": agent.model_name,
@@ -687,6 +721,12 @@ class ChatService:
             if tools:
                 response_params["tools"] = tools
 
+            # Add guardrails via extra_body (client doesn't support it directly yet)
+            # Pass shield IDs as an array of strings (matching test examples)
+            if has_guardrails:
+                response_params["extra_body"] = {"guardrails": agent.input_shields}
+                logger.info(f"Applying guardrails: {agent.input_shields}")
+
             # Stream from LlamaStack with aggregation layer
             aggregator = StreamAggregator(str(session_id))
 
@@ -699,18 +739,21 @@ class ChatService:
 
                 # Log the request we're sending to LlamaStack
                 logger.info(
-                    f"Calling client.responses.create with params: "
-                    f"{json.dumps(jsonable_encoder(response_params), indent=2)}"
+                    f"Starting stream for session {session_id}, model={agent.model_name}, "
+                    f"conversation={conversation_id}, guardrails={has_guardrails}"
+                )
+                logger.debug(
+                    f"Request params: {json.dumps(jsonable_encoder(response_params), indent=2)}"
                 )
 
                 async for chunk in await client.responses.create(**response_params):
                     # Convert chunk to dict
                     chunk_dict = jsonable_encoder(chunk)
-                    logger.info(f"Raw LlamaStack chunk: {chunk_dict}")
+                    logger.debug(f"Raw chunk: {chunk_dict}")
 
                     # Process through aggregator - yields simplified events
                     async for simplified_event in aggregator.process_chunk(chunk_dict):
-                        logger.info(f"Simplified event: {simplified_event}")
+                        logger.debug(f"Event: {simplified_event}")
                         yield f"data: {json.dumps(simplified_event)}\n\n"
 
             logger.info(f"Stream loop completed for session {session_id}")
@@ -719,7 +762,7 @@ class ChatService:
             yield "data: [DONE]\n\n"
 
             # Update session title based on first message
-            await self._update_session_title(agent.id, session_id, prompt)
+            await self._update_session_title(session_id, prompt)
 
         except Exception as e:
             logger.exception(f"Error in stream for agent {agent.id}: {e}")

@@ -20,8 +20,8 @@ class VirtualAgentBase(BaseModel):
     tools: Optional[List[ToolAssociationInfo]] = []
     knowledge_base_ids: List[str] = []
     vector_store_ids: List[str] = []
-    input_shields: List[Dict[str, Any]] = []
-    output_shields: List[Dict[str, Any]] = []
+    input_shields: List[str] = []
+    output_shields: List[str] = []
     sampling_strategy: Optional[str] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -47,8 +47,8 @@ class VirtualAgentUpdate(BaseModel):
     tools: Optional[List[ToolAssociationInfo]] = None
     knowledge_base_ids: Optional[List[str]] = None
     vector_store_ids: Optional[List[str]] = None
-    input_shields: Optional[List[Dict[str, Any]]] = None
-    output_shields: Optional[List[Dict[str, Any]]] = None
+    input_shields: Optional[List[str]] = None
+    output_shields: Optional[List[str]] = None
     sampling_strategy: Optional[str] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None

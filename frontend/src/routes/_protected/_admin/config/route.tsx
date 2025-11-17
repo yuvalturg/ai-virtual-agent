@@ -1,5 +1,5 @@
 import { Nav, NavItem, NavList, Page, PageSidebar, PageSidebarBody } from '@patternfly/react-core';
-import { RobotIcon, BookIcon, ServerIcon, UsersIcon } from '@patternfly/react-icons';
+import { RobotIcon, BookIcon, ServerIcon, UsersIcon, CubeIcon } from '@patternfly/react-icons';
 import { createFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
 import { Masthead } from '../../../../components/masthead';
 
@@ -35,7 +35,13 @@ function ConfigLayout() {
                 MCP Servers
               </Link>
             </NavItem>
-            <NavItem itemId={3} isActive={location.pathname == '/config/users'} to="#">
+            <NavItem itemId={3} isActive={location.pathname == '/config/models'} to="#">
+              <Link to="/config/models" search={{ tab: 'models' }}>
+                <CubeIcon style={{ marginRight: '8px' }} />
+                Models
+              </Link>
+            </NavItem>
+            <NavItem itemId={4} isActive={location.pathname == '/config/users'} to="#">
               <Link to="/config/users" search={{ userId: undefined }}>
                 <UsersIcon style={{ marginRight: '8px' }} />
                 Users
