@@ -6,9 +6,10 @@ import { ErrorResponse } from '@/types';
 export type { Shield } from '@/types/auth';
 
 interface BackendShield {
-  id: string;
+  identifier: string;
+  provider_id: string;
   name: string;
-  model_type: string;
+  type: string;
 }
 
 export const fetchShields = async (): Promise<Shield[]> => {
@@ -22,8 +23,9 @@ export const fetchShields = async (): Promise<Shield[]> => {
   const data: BackendShield[] = (await response.json()) as BackendShield[];
 
   // Map backend response to frontend expected structure
+  // Use shield identifier (e.g., "meta-llama/Llama-Guard-3-1B") for guardrails
   return data.map((shield) => ({
-    identifier: shield.id,
+    identifier: shield.identifier,
     name: shield.name,
   }));
 };

@@ -47,8 +47,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat_sessions", tags=["chat_sessions"])
 
 
-def _process_content_item(content_item: dict, role: str) -> dict | None:
+def _process_content_item(content_item: dict | str, role: str) -> dict | None:
     """Process a single content item from a message."""
+    # Handle string content (simple text format)
+    if isinstance(content_item, str):
+        return {
+            "type": "input_text" if role == "user" else "output_text",
+            "text": content_item,
+        }
+
+    # Handle dict content (structured format)
     content_type = content_item.get("type")
 
     if content_type in ("input_text", "output_text"):
@@ -312,7 +320,14 @@ async def get_conversation_messages(
 
                     # Process content items
                     content_items = []
-                    for content_item in item_dict.get("content", []):
+                    raw_content = item_dict.get("content", [])
+
+                    # Handle both string and list content
+                    # When using simple format (e.g., with guardrails), content is a string
+                    if isinstance(raw_content, str):
+                        raw_content = [raw_content]
+
+                    for content_item in raw_content:
                         processed = _process_content_item(content_item, role)
                         if processed:
                             content_items.append(processed)

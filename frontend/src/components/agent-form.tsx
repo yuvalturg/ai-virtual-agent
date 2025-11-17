@@ -48,8 +48,7 @@ interface AgentFormData {
   max_tokens: number;
   repetition_penalty: number;
   samplingAccordionExpanded: boolean; // Added for accordion state
-  input_shields: string; // Single selection for form UI
-  output_shields: string; // Single selection for form UI
+  guardrails: string[]; // Shield IDs for guardrails
 }
 
 // Helper functions to convert between formats
@@ -68,8 +67,7 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
       max_tokens: 512,
       repetition_penalty: 1.0, // XXX: this is specific to vllm, and doesn't work with openai's API in llamastack
       samplingAccordionExpanded: false, // Initialize accordion state
-      input_shields: '',
-      output_shields: '',
+      guardrails: [],
     };
   }
 
@@ -89,8 +87,7 @@ const convertAgentToFormData = (agent: Agent | undefined): AgentFormData => {
     max_tokens: agent.max_tokens ?? 512,
     repetition_penalty: agent.repetition_penalty ?? 1.0,
     samplingAccordionExpanded: false, // Initialize accordion state
-    input_shields: agent.input_shields?.[0] || '', // Take first shield or empty string
-    output_shields: agent.output_shields?.[0] || '', // Take first shield or empty string
+    guardrails: agent.input_shields || [], // Use input_shields as guardrails
   };
 };
 
@@ -122,8 +119,8 @@ const convertFormDataToAgent = (formData: AgentFormData, tools: ToolGroup[]): Ne
     top_k: formData.top_k,
     max_tokens: formData.max_tokens,
     repetition_penalty: formData.repetition_penalty,
-    input_shields: formData.input_shields ? [formData.input_shields] : [], // Convert to array
-    output_shields: formData.output_shields ? [formData.output_shields] : [], // Convert to array
+    input_shields: formData.guardrails, // Store guardrails in input_shields for now
+    output_shields: [], // Keep empty for backward compatibility
   };
 };
 
@@ -149,7 +146,6 @@ export function AgentForm({
   const form = useForm({
     defaultValues: initialAgentData,
     onSubmit: ({ value }) => {
-      console.log('Test');
       const convertedAgent = convertFormDataToAgent(value, tools || []);
       onSubmit(convertedAgent);
     },
@@ -264,23 +260,43 @@ export function AgentForm({
   }, [tools, isLoadingTools, toolsError]);
 
   const [isSamplingAccordionExpanded, setSamplingAccordionExpanded] = useState(false);
-  const shieldsOptions = useMemo(() => {
+
+  const guardrailsOptions = useMemo((): CustomSelectOptionProps[] => {
     if (isLoadingShields) {
-      return [{ value: '', label: 'Loading shields...', disabled: true }];
+      return [
+        {
+          value: 'loading_shields',
+          children: 'Loading shields...',
+          isDisabled: true,
+          id: 'loading_shields_opt',
+        },
+      ];
     }
     if (shieldsError) {
-      return [{ value: '', label: 'Error loading shields', disabled: true }];
+      return [
+        {
+          value: 'error_shields',
+          children: 'Error loading shields',
+          isDisabled: true,
+          id: 'error_shields_opt',
+        },
+      ];
     }
     if (!shields || shields.length === 0) {
-      return [{ value: '', label: 'No shields available', disabled: true }];
+      return [
+        {
+          value: 'no_shields_options',
+          children: 'No shields available',
+          isDisabled: true,
+          id: 'no_shields_options_opt',
+        },
+      ];
     }
-    return [{ value: '', label: 'No shield selected', disabled: false }].concat(
-      shields.map((shield) => ({
-        value: shield.identifier,
-        label: shield.name || shield.identifier,
-        disabled: false,
-      }))
-    );
+    return shields.map((shield) => ({
+      value: shield.identifier,
+      children: shield.name || shield.identifier,
+      id: `shield-option-${shield.identifier}`,
+    }));
   }, [shields, isLoadingShields, shieldsError]);
 
   return (
@@ -407,51 +423,23 @@ export function AgentForm({
           </FormGroup>
         )}
       </form.Field>
-      <form.Field name="input_shields">
+      <form.Field name="guardrails">
         {(field) => (
-          <FormGroup label="Input Shield" fieldId="input-shield">
-            <FormSelect
-              id="input-shield"
-              name={field.name}
-              value={field.state.value || ''}
+          <FormGroup label="Guardrails (Shields)" fieldId="guardrails-multiselect">
+            <MultiSelect
+              id="guardrails-multiselect-component"
+              value={field.state.value || []}
+              options={guardrailsOptions}
               onBlur={field.handleBlur}
-              onChange={(_event, value) => field.handleChange(value)}
-              aria-label="Select Input Shield"
-              isDisabled={isLoadingShields || !!shieldsError}
-            >
-              {shieldsOptions.map((option) => (
-                <FormSelectOption
-                  key={option.value}
-                  value={option.value}
-                  label={option.label}
-                  isDisabled={option.disabled}
-                />
-              ))}
-            </FormSelect>
-          </FormGroup>
-        )}
-      </form.Field>
-      <form.Field name="output_shields">
-        {(field) => (
-          <FormGroup label="Output Shield" fieldId="output-shield">
-            <FormSelect
-              id="output-shield"
-              name={field.name}
-              value={field.state.value || ''}
-              onBlur={field.handleBlur}
-              onChange={(_event, value) => field.handleChange(value)}
-              aria-label="Select Output Shield"
-              isDisabled={isLoadingShields || !!shieldsError}
-            >
-              {shieldsOptions.map((option) => (
-                <FormSelectOption
-                  key={option.value}
-                  value={option.value}
-                  label={option.label}
-                  isDisabled={option.disabled}
-                />
-              ))}
-            </FormSelect>
+              onChange={(selectedIds) => field.handleChange(selectedIds)}
+              ariaLabel="Select Guardrails"
+              isDisabled={
+                isLoadingShields ||
+                shieldsError != null ||
+                (shields && shields.length === 0 && !isLoadingShields && !shieldsError)
+              }
+              placeholder="Type or select shields for safety..."
+            />
           </FormGroup>
         )}
       </form.Field>

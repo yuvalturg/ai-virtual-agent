@@ -14,6 +14,24 @@ rules:
   - get
   - list
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - toolhive.stacklok.dev
   resources:
   - mcpservers
