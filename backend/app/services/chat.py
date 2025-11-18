@@ -581,7 +581,62 @@ class ChatService:
 
         return conversation_id
 
-    async def _prepare_conversation_input(self, user_input, has_guardrails=False):
+    async def _run_input_shields(self, client, shield_ids: List[str], user_input: List[Any]) -> Optional[Dict[str, Any]]:
+        """
+        Run input shields manually before processing the user message.
+
+        Args:
+            client: LlamaStack client
+            shield_ids: List of shield IDs to run
+            user_input: User's input content items
+
+        Returns:
+            Violation dict if content is blocked, None otherwise
+        """
+        if not shield_ids:
+            return None
+
+        logger.info(f"Running input shields manually: {shield_ids}")
+
+        # Extract text content for shield checking
+        # If multimodal, concatenate all text parts
+        text_content = ""
+        for item in user_input:
+            if hasattr(item, 'type') and item.type == 'input_text':
+                text_content += getattr(item, 'text', '')
+
+        if not text_content:
+            logger.debug("No text content to check with shields")
+            return None
+
+        try:
+            # Run all shields and check for violations
+            for shield_id in shield_ids:
+                logger.debug(f"Running shield: {shield_id} with text: {text_content[:100]}...")
+                shield_response = await client.safety.run_shield(
+                    shield_id=shield_id,
+                    messages=[{"role": "user", "content": text_content}],
+                    params={},
+                )
+                logger.debug(f"Shield {shield_id} response: {shield_response}")
+
+                # Check if content was blocked
+                if hasattr(shield_response, 'violation') and shield_response.violation:
+                    violation_msg = shield_response.violation.user_message if hasattr(shield_response.violation, 'user_message') else 'Content policy violation'
+                    logger.warning(f"Content blocked by shield {shield_id}: {violation_msg}")
+                    return {
+                        "type": "error",
+                        "message": violation_msg,
+                    }
+
+            return None
+
+        except Exception as shield_error:
+            logger.error(f"Error running shield: {shield_error}")
+            # Continue without shield if it fails
+            return None
+
+    async def _prepare_conversation_input(self, user_input):
         """
         Prepare input with just the current user message.
 
@@ -590,10 +645,8 @@ class ChatService:
 
         Args:
             user_input: User input content
-            has_guardrails: If True and content is text-only, use simple string format
-                           for guardrails compatibility (workaround for LlamaStack bug)
         """
-        logger.debug(f"Preparing conversation input: has_guardrails={has_guardrails}")
+        logger.debug("Preparing conversation input")
 
         # Prepare current user input only (user_input is always a list)
         content_items = []
@@ -602,21 +655,8 @@ class ChatService:
             expand_image_url(content_item)
             content_items.append(content_item)
 
-        # Workaround for LlamaStack guardrails bug:
-        # Use simple string format for text-only content when guardrails are enabled
-        # This prevents the "Unsupported content type" error in guardrail processing
-        if (
-            has_guardrails
-            and len(content_items) == 1
-            and content_items[0].get("type") == "input_text"
-        ):
-            logger.debug("Using simple string format (text-only with guardrails)")
-            return [{"role": "user", "content": content_items[0].get("text", "")}]
-
-        # Use structured format for multimodal content or when no guardrails
-        logger.debug(
-            f"Using structured format (multimodal or no guardrails, {len(content_items)} items)"
-        )
+        # Use structured format for all content
+        logger.debug(f"Using structured format ({len(content_items)} items)")
         return [{"role": "user", "content": content_items}]
 
     async def _update_session_title(
@@ -696,14 +736,9 @@ class ChatService:
                 agent.tools, agent.vector_store_ids, self.request
             )
 
-            # Check if guardrails are enabled
-            has_guardrails = bool(agent.input_shields and len(agent.input_shields) > 0)
-
             # Prepare input with just the current message
-            # Pass has_guardrails flag to use simple format for text-only messages
-            openai_input = await self._prepare_conversation_input(
-                prompt, has_guardrails
-            )
+            openai_input = await self._prepare_conversation_input(prompt)
+
             # Prepare streaming request parameters
             response_params = {
                 "model": agent.model_name,
@@ -721,16 +756,20 @@ class ChatService:
             if tools:
                 response_params["tools"] = tools
 
-            # Add guardrails via extra_body (client doesn't support it directly yet)
-            # Pass shield IDs as an array of strings (matching test examples)
-            if has_guardrails:
-                response_params["extra_body"] = {"guardrails": agent.input_shields}
-                logger.info(f"Applying guardrails: {agent.input_shields}")
-
             # Stream from LlamaStack with aggregation layer
             aggregator = StreamAggregator(str(session_id))
 
             async with get_client_from_request(self.request) as client:
+                # Run input shields manually before creating the response
+                if agent.input_shields and len(agent.input_shields) > 0:
+                    violation = await self._run_input_shields(
+                        client, agent.input_shields, prompt
+                    )
+                    if violation:
+                        violation["session_id"] = str(session_id)
+                        yield f"data: {json.dumps(jsonable_encoder(violation))}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
                 # Get or create conversation for this session
                 conversation_id = await self._get_or_create_conversation(
                     session_id, client
@@ -740,7 +779,7 @@ class ChatService:
                 # Log the request we're sending to LlamaStack
                 logger.info(
                     f"Starting stream for session {session_id}, model={agent.model_name}, "
-                    f"conversation={conversation_id}, guardrails={has_guardrails}"
+                    f"conversation={conversation_id}"
                 )
                 logger.debug(
                     f"Request params: {json.dumps(jsonable_encoder(response_params), indent=2)}"
@@ -768,7 +807,7 @@ class ChatService:
             logger.exception(f"Error in stream for agent {agent.id}: {e}")
             error_data = {
                 "type": "error",
-                "content": f"Error: {str(e)}",
+                "message": f"Error: {str(e)}",
                 "session_id": str(session_id),
             }
             yield f"data: {json.dumps(jsonable_encoder(error_data))}\n\n"

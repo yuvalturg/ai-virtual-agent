@@ -105,14 +105,13 @@ install: install-namespace deps ## Install the AI Virtual Agent deployment
 	@echo "$(AI_VIRTUAL_AGENT_RELEASE) installed successfully"
 	@echo ""
 	@echo "Getting application URL..."
-	@sleep 5
-	@$(eval APP_URL := $(shell oc get routes ai-virtual-agent-authenticated -n $(NAMESPACE) -o jsonpath='{.status.ingress[0].host}' 2>/dev/null || echo ""))
-	@if [ -n "$(APP_URL)" ]; then \
+	@APP_URL=$$(oc get route ai-virtual-agent-authenticated -n $(NAMESPACE) -o jsonpath='{.status.ingress[0].host}' 2>/dev/null || echo ""); \
+	if [ -n "$$APP_URL" ]; then \
 		echo "🎉 Application is ready!"; \
-		echo "📱 Access your AI Virtual Agent at: https://$(APP_URL)"; \
+		echo "📱 Access your AI Virtual Agent at: https://$$APP_URL"; \
 	else \
 		echo "⚠️  Route not ready yet. Get the URL manually with:"; \
-		echo "   oc get routes ai-virtual-agent-authenticated -n $(NAMESPACE)"; \
+		echo "   oc get route ai-virtual-agent-authenticated -n $(NAMESPACE)"; \
 	fi
 	@echo ""
 

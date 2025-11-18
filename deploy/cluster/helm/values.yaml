@@ -191,6 +191,15 @@ llama-stack:
       when: user with admin in roles
       description: users with the admin role can create, update or delete vector_stores
     - permit:
+        actions: [read]
+        resource: shield::*
+      description: all users have read access to shields
+    - permit:
+        actions: [create, update, delete]
+        resource: shield::*
+      when: user with admin in roles
+      description: users with the admin role can create, update or delete shields
+    - permit:
         actions: [create, update, delete]
         resource: tool_group::*
       when: user with admin in roles
