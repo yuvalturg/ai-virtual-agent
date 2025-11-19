@@ -585,7 +585,9 @@ class ChatService:
 
         return conversation_id
 
-    async def _run_input_shields(self, client, shield_ids: List[str], user_input: List[Any]) -> Optional[Dict[str, Any]]:
+    async def _run_input_shields(
+        self, client, shield_ids: List[str], user_input: List[Any]
+    ) -> Optional[Dict[str, Any]]:
         """
         Run input shields manually before processing the user message.
 
@@ -606,8 +608,8 @@ class ChatService:
         # If multimodal, concatenate all text parts
         text_content = ""
         for item in user_input:
-            if hasattr(item, 'type') and item.type == 'input_text':
-                text_content += getattr(item, 'text', '')
+            if hasattr(item, "type") and item.type == "input_text":
+                text_content += getattr(item, "text", "")
 
         if not text_content:
             logger.debug("No text content to check with shields")
@@ -616,7 +618,9 @@ class ChatService:
         try:
             # Run all shields and check for violations
             for shield_id in shield_ids:
-                logger.debug(f"Running shield: {shield_id} with text: {text_content[:100]}...")
+                logger.debug(
+                    f"Running shield: {shield_id} with text: {text_content[:100]}..."
+                )
                 shield_response = await client.safety.run_shield(
                     shield_id=shield_id,
                     messages=[{"role": "user", "content": text_content}],
@@ -625,9 +629,15 @@ class ChatService:
                 logger.debug(f"Shield {shield_id} response: {shield_response}")
 
                 # Check if content was blocked
-                if hasattr(shield_response, 'violation') and shield_response.violation:
-                    violation_msg = shield_response.violation.user_message if hasattr(shield_response.violation, 'user_message') else 'Content policy violation'
-                    logger.warning(f"Content blocked by shield {shield_id}: {violation_msg}")
+                if hasattr(shield_response, "violation") and shield_response.violation:
+                    violation_msg = (
+                        shield_response.violation.user_message
+                        if hasattr(shield_response.violation, "user_message")
+                        else "Content policy violation"
+                    )
+                    logger.warning(
+                        f"Content blocked by shield {shield_id}: {violation_msg}"
+                    )
                     return {
                         "type": "error",
                         "message": violation_msg,
