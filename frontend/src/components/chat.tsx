@@ -97,6 +97,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   const [pendingSessionSwitch, setPendingSessionSwitch] = useState<string | null>(null);
   const scrollToBottomRef = React.useRef<HTMLDivElement>(null);
   const historyRef = React.useRef<HTMLButtonElement>(null);
+  const previousMessageCountRef = React.useRef<number>(0);
 
   // Get current user context
   const {
@@ -131,9 +132,7 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
     },
     onFinish: () => {
       setAnnouncement(`Message from assistant complete`);
-      if (scrollToBottomRef.current) {
-        scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
+      // No auto-scroll on completion - user scrolls manually
       // Session list will be refreshed when user opens the drawer (on-demand)
     },
   });
@@ -259,6 +258,21 @@ export function Chat({ preSelectedAgentId }: ChatProps = {}) {
   );
 
   const displayMode = ChatbotDisplayMode.embedded;
+
+  // Scroll to last message when user sends a message
+  useEffect(() => {
+    const currentCount = chatMessages.length;
+    const previousCount = previousMessageCountRef.current;
+
+    // Only scroll when messages are added (user sent a message)
+    if (currentCount > previousCount) {
+      if (scrollToBottomRef.current) {
+        scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    previousMessageCountRef.current = currentCount;
+  }, [chatMessages]);
 
   // Load demo questions for the selected agent (if template-backed)
   useEffect(() => {
