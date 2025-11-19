@@ -186,7 +186,7 @@ class StreamAggregator:
         return []
 
     def _handle_reasoning_delta(self, chunk: Dict[str, Any]):
-        """Handle reasoning text delta - accumulate but don't send"""
+        """Handle reasoning text delta - stream deltas to frontend"""
         item_id = chunk.get("item_id")
         content_index = chunk.get("content_index")
         delta = chunk.get("delta", "")
@@ -202,8 +202,12 @@ class StreamAggregator:
         part = self.content_parts[key]
         part.add_delta(delta)
 
-        # Don't yield anything yet - wait for completion
-        return []
+        # Stream the delta to frontend for real-time display
+        if delta:
+            yield self._create_event(
+                "reasoning",
+                {"text": part.text, "status": "in_progress", "id": key},
+            )
 
     def _handle_reasoning_done(self, chunk: Dict[str, Any]):
         """Handle reasoning text completion - send complete reasoning block"""
