@@ -62,20 +62,24 @@ jobs:
           sed -i "s/^version: .*/version: ${{ steps.new_version.outputs.version }}/" deploy/cluster/helm/Chart.yaml
           sed -i "s/^appVersion: .*/appVersion: \"${{ steps.new_version.outputs.version }}\"/" deploy/cluster/helm/Chart.yaml
 
+      - name: Update image tag to use release version
+        run: |
+          sed -i "s/^  tag: .*/  tag: \"${{ steps.new_version.outputs.version }}\"/" deploy/cluster/helm/values.yaml
+
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b release/v${{ steps.new_version.outputs.version }}
-          git add deploy/cluster/helm/Chart.yaml
+          git add deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml
           git commit -m "chore: bump version to ${{ steps.new_version.outputs.version }}"
 
           # Merge main into release branch to pre-resolve conflicts
           git fetch origin main
           git merge origin/main --no-edit || {
-            # If conflicts occur, take our (release branch) version for Chart.yaml
-            git checkout --ours deploy/cluster/helm/Chart.yaml
-            git add deploy/cluster/helm/Chart.yaml
+            # If conflicts occur, take our (release branch) version for Chart.yaml and values.yaml
+            git checkout --ours deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml
+            git add deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml
             git commit --no-edit
           }
 
