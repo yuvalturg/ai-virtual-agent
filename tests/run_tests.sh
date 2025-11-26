@@ -148,7 +148,7 @@ if [ -f ".coverage.unit" ] || [ -f ".coverage.integration" ]; then
         coverage combine $COVERAGE_FILES 2>/dev/null || true
         echo ""
         echo "📈 Coverage Report:"
-        coverage report --skip-covered
+        coverage report
         echo ""
         echo "💡 HTML report: coverage html && open htmlcov/index.html"
     fi

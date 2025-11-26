@@ -5,3 +5,6 @@ branch = True
 source =
     backend
     /app/backend
+
+[report]
+skip_covered = True
