@@ -2,7 +2,6 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/rh-ai-quickstart/ai-virtual-agent)](https://github.com/rh-ai-quickstart/ai-virtual-agent/releases)
 [![Docker Image](https://img.shields.io/badge/quay.io-ai--virtual--agent-blue)](https://quay.io/repository/rh-ai-quickstart/ai-virtual-agent)
-[![codecov](https://codecov.io/gh/rh-ai-quickstart/ai-virtual-agent/branch/main/graph/badge.svg)](https://codecov.io/gh/rh-ai-quickstart/ai-virtual-agent)
 
 Build and deploy a conversational AI virtual agent on Red Hat OpenShift AI to automate customer interactions and provide instant support.
 

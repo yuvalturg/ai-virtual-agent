@@ -131,22 +131,13 @@ jobs:
       - name: Run integration tests
         run: ./tests/run_tests.sh
 
-      - name: Generate coverage XML report for Codecov
+      - name: Display coverage report
         if: always()
         run: |
           if [ -f ".coverage" ]; then
-            coverage xml
+            echo "📊 Coverage Summary:"
+            coverage report
           fi
-
-      - name: Upload coverage to Codecov
-        if: always()
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.xml
-          flags: integration,unit
-          name: combined-coverage
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage reports as artifacts
         if: always()
@@ -157,7 +148,6 @@ jobs:
             .coverage
             .coverage.unit
             .coverage.integration
-            coverage.xml
             htmlcov/
           retention-days: 30
 
