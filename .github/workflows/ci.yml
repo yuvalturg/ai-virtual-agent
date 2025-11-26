@@ -124,11 +124,42 @@ jobs:
         env:
           ENABLE_ATTACHMENTS: false
           LOCAL_DEV_ENV_MODE: true
+          ENABLE_COVERAGE: true
           BUILDKIT_PROGRESS: plain
           DOCKER_BUILDKIT: 1
 
       - name: Run integration tests
         run: ./tests/run_tests.sh
+
+      - name: Generate coverage XML report for Codecov
+        if: always()
+        run: |
+          if [ -f ".coverage" ]; then
+            coverage xml
+          fi
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: integration,unit
+          name: combined-coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage reports as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            .coverage
+            .coverage.unit
+            .coverage.integration
+            coverage.xml
+            htmlcov/
+          retention-days: 30
 
       - name: Show logs on failure
         if: failure()

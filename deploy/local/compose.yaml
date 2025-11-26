@@ -101,6 +101,7 @@ services:
       - LOCAL_DEV_ENV_MODE=${LOCAL_DEV_ENV_MODE:-true}
       - LLAMASTACK_URL=${LLAMASTACK_URL:-http://llamastack:8321}
       - DISABLE_ATTACHMENTS=${DISABLE_ATTACHMENTS:-false}
+      - ENABLE_COVERAGE=${ENABLE_COVERAGE:-false}
     ports:
       - '${BACKEND_PORT:-8000}:8000'
     volumes:

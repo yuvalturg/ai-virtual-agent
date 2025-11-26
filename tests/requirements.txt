@@ -1,4 +1,5 @@
 pytest>=7.0.0
+pytest-xdist>=3.0.0
 pydantic[email]
 tavern>=2.0.0
 requests>=2.25.0
