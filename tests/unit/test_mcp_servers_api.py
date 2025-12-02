@@ -256,9 +256,7 @@ class TestDiscoverMCPServers:
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
 
-    def test_discover_mcp_servers_error(
-        self, test_client, mock_k8s_discovery_service
-    ):
+    def test_discover_mcp_servers_error(self, test_client, mock_k8s_discovery_service):
         """Test discovery handles K8s errors gracefully."""
         mock_k8s_discovery_service.side_effect = Exception("K8s error")
 
@@ -336,9 +334,7 @@ class TestUpdateMCPServer:
         )
         mock_llamastack_toolgroups.toolgroups.register.assert_called_once()
 
-    def test_update_mcp_server_not_found(
-        self, test_client, mock_llamastack_toolgroups
-    ):
+    def test_update_mcp_server_not_found(self, test_client, mock_llamastack_toolgroups):
         """Test updating non-existent MCP server returns 404."""
         mock_llamastack_toolgroups.toolgroups.list.return_value = []
 

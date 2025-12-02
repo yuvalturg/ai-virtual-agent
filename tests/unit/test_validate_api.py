@@ -203,7 +203,9 @@ class TestValidateWithHeaders:
 
     @patch("backend.app.api.v1.validate.get_sa_token")
     @patch("backend.app.api.v1.validate.make_http_request")
-    def test_validate_with_headers_auth_failed(self, mock_http, mock_token, test_client):
+    def test_validate_with_headers_auth_failed(
+        self, mock_http, mock_token, test_client
+    ):
         """Test validation with headers when auth fails."""
         mock_token.return_value = "test-token"
         mock_response = MagicMock()
@@ -222,7 +224,9 @@ class TestValidateWithHeaders:
 
     @patch("backend.app.api.v1.validate.get_sa_token")
     @patch("backend.app.api.v1.validate.make_http_request")
-    def test_validate_with_headers_invalid_response(self, mock_http, mock_token, test_client):
+    def test_validate_with_headers_invalid_response(
+        self, mock_http, mock_token, test_client
+    ):
         """Test validation with invalid response format."""
         mock_token.return_value = "test-token"
         mock_response = MagicMock()

@@ -90,7 +90,12 @@ class TestCreateKnowledgeBase:
     """Test knowledge base creation endpoint."""
 
     def test_create_kb_success(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions, sample_kb
+        self,
+        test_client,
+        mock_db_session,
+        mock_kb_crud,
+        _mock_pipeline_functions,
+        sample_kb,
     ):
         """Test successful knowledge base creation."""
         from backend.app.api.v1.knowledge_bases import get_db
@@ -113,7 +118,7 @@ class TestCreateKnowledgeBase:
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_create_kb_duplicate(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions
+        self, test_client, mock_db_session, mock_kb_crud, _mock_pipeline_functions
     ):
         """Test creating duplicate knowledge base returns conflict."""
         from backend.app.api.v1.knowledge_bases import get_db
@@ -143,7 +148,12 @@ class TestListKnowledgeBases:
     """Test knowledge base listing endpoint."""
 
     def test_list_kbs_success(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions, sample_kb
+        self,
+        test_client,
+        mock_db_session,
+        mock_kb_crud,
+        _mock_pipeline_functions,
+        sample_kb,
     ):
         """Test listing all knowledge bases."""
         from backend.app.api.v1.knowledge_bases import get_db
@@ -157,7 +167,7 @@ class TestListKnowledgeBases:
         assert response.status_code == status.HTTP_200_OK
 
     def test_list_kbs_empty(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions
+        self, test_client, mock_db_session, mock_kb_crud, _mock_pipeline_functions
     ):
         """Test listing when no knowledge bases exist."""
         from backend.app.api.v1.knowledge_bases import get_db
@@ -176,7 +186,12 @@ class TestGetKnowledgeBase:
     """Test single knowledge base retrieval."""
 
     def test_get_kb_success(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions, sample_kb
+        self,
+        test_client,
+        mock_db_session,
+        mock_kb_crud,
+        _mock_pipeline_functions,
+        sample_kb,
     ):
         """Test retrieving a single knowledge base."""
         from backend.app.api.v1.knowledge_bases import get_db
@@ -190,7 +205,7 @@ class TestGetKnowledgeBase:
         assert response.status_code == status.HTTP_200_OK
 
     def test_get_kb_not_found(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions
+        self, test_client, mock_db_session, mock_kb_crud, _mock_pipeline_functions
     ):
         """Test retrieving non-existent knowledge base returns 404."""
         from backend.app.api.v1.knowledge_bases import get_db
@@ -216,7 +231,7 @@ class TestDeleteKnowledgeBase:
         test_client,
         mock_db_session,
         mock_kb_crud,
-        mock_pipeline_functions,
+        _mock_pipeline_functions,
         sample_kb,
     ):
         """Test successful knowledge base deletion."""
@@ -237,7 +252,7 @@ class TestDeleteKnowledgeBase:
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
     def test_delete_kb_not_found(
-        self, test_client, mock_db_session, mock_kb_crud, mock_pipeline_functions
+        self, test_client, mock_db_session, mock_kb_crud, _mock_pipeline_functions
     ):
         """Test deleting non-existent knowledge base returns 404."""
         from backend.app.api.v1.knowledge_bases import get_db

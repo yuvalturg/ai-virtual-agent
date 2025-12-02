@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from backend.app.core.template_startup import ensure_templates_populated
 
 

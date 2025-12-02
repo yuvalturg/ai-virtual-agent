@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, mock_open, patch
 
-import pytest
 from kubernetes import client
 
 from backend.app.services.k8s_mcp_discovery import K8sMCPDiscovery, get_k8s_discovery
@@ -24,7 +23,7 @@ class TestK8sMCPDiscoveryInit:
     @patch("os.path.exists")
     @patch("builtins.open", new_callable=mock_open, read_data="test-namespace")
     def test_init_with_incluster_config(
-        self, mock_file, mock_exists, mock_core_api, mock_custom_api, mock_incluster
+        self, _mock_file, mock_exists, mock_core_api, mock_custom_api, mock_incluster
     ):
         """Test initialization with in-cluster config."""
         mock_exists.return_value = True
@@ -109,7 +108,9 @@ class TestDiscoverMCPServers:
         mock_exists.return_value = False
         mock_incluster.side_effect = ConfigException("Not in cluster")
 
-        with patch("backend.app.services.k8s_mcp_discovery.config.load_kube_config") as mock_kube:
+        with patch(
+            "backend.app.services.k8s_mcp_discovery.config.load_kube_config"
+        ) as mock_kube:
             mock_kube.side_effect = ConfigException("No config")
             discovery = K8sMCPDiscovery()
 
@@ -154,7 +155,9 @@ class TestDiscoverMCPServers:
         mock_port = MagicMock()
         mock_port.port = 8080
         mock_service.spec.ports = [mock_port]
-        mock_core_api_instance.list_namespaced_service.return_value.items = [mock_service]
+        mock_core_api_instance.list_namespaced_service.return_value.items = [
+            mock_service
+        ]
 
         result = discovery.discover_mcp_servers()
 
@@ -179,7 +182,9 @@ class TestDiscoverMCPServers:
         # Mock MCPServer error
         mock_custom_api_instance = MagicMock()
         discovery.custom_api = mock_custom_api_instance
-        mock_custom_api_instance.list_namespaced_custom_object.side_effect = Exception("K8s error")
+        mock_custom_api_instance.list_namespaced_custom_object.side_effect = Exception(
+            "K8s error"
+        )
 
         # Mock Service resources working
         mock_core_api_instance = MagicMock()
@@ -310,7 +315,9 @@ class TestDiscoverMCPServerResources:
         mock_custom_api_instance = MagicMock()
         discovery.custom_api = mock_custom_api_instance
         api_exception = client.exceptions.ApiException(status=404)
-        mock_custom_api_instance.list_namespaced_custom_object.side_effect = api_exception
+        mock_custom_api_instance.list_namespaced_custom_object.side_effect = (
+            api_exception
+        )
 
         result = discovery._discover_mcpserver_resources()
 
@@ -403,14 +410,19 @@ class TestDiscoverServiceResources:
         mock_port.port = 8080
         mock_service.spec.ports = [mock_port]
 
-        mock_core_api_instance.list_namespaced_service.return_value.items = [mock_service]
+        mock_core_api_instance.list_namespaced_service.return_value.items = [
+            mock_service
+        ]
 
         result = discovery._discover_service_resources()
 
         assert len(result) == 1
         assert result[0]["name"] == "test-service"
         assert result[0]["description"] == "Test Service"
-        assert result[0]["endpoint_url"] == "http://test-service.test.svc.cluster.local:8080/sse"
+        assert (
+            result[0]["endpoint_url"]
+            == "http://test-service.test.svc.cluster.local:8080/sse"
+        )
         assert result[0]["source"] == "service"
 
     @patch("backend.app.services.k8s_mcp_discovery.config.load_incluster_config")
@@ -438,11 +450,16 @@ class TestDiscoverServiceResources:
         mock_port.port = 8080
         mock_service.spec.ports = [mock_port]
 
-        mock_core_api_instance.list_namespaced_service.return_value.items = [mock_service]
+        mock_core_api_instance.list_namespaced_service.return_value.items = [
+            mock_service
+        ]
 
         result = discovery._discover_service_resources()
 
-        assert result[0]["endpoint_url"] == "http://test-service.test.svc.cluster.local:8080/mcp"
+        assert (
+            result[0]["endpoint_url"]
+            == "http://test-service.test.svc.cluster.local:8080/mcp"
+        )
 
     @patch("backend.app.services.k8s_mcp_discovery.config.load_incluster_config")
     @patch("backend.app.services.k8s_mcp_discovery.client.CustomObjectsApi")
@@ -469,7 +486,9 @@ class TestDiscoverServiceResources:
         mock_port.port = 8080
         mock_service.spec.ports = [mock_port]
 
-        mock_core_api_instance.list_namespaced_service.return_value.items = [mock_service]
+        mock_core_api_instance.list_namespaced_service.return_value.items = [
+            mock_service
+        ]
 
         result = discovery._discover_service_resources()
 
@@ -491,7 +510,9 @@ class TestDiscoverServiceResources:
 
         mock_core_api_instance = MagicMock()
         discovery.core_api = mock_core_api_instance
-        mock_core_api_instance.list_namespaced_service.side_effect = Exception("K8s error")
+        mock_core_api_instance.list_namespaced_service.side_effect = Exception(
+            "K8s error"
+        )
 
         result = discovery._discover_service_resources()
 
@@ -512,6 +533,7 @@ class TestGetK8sDiscoverySingleton:
 
         # Reset the singleton
         import backend.app.services.k8s_mcp_discovery as discovery_module
+
         discovery_module._discovery_instance = None
 
         instance1 = get_k8s_discovery()

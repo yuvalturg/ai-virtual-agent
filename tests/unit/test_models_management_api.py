@@ -24,9 +24,7 @@ def test_client():
 @pytest.fixture
 def mock_llama_client():
     """Mock LlamaStack client."""
-    with patch(
-        "backend.app.api.v1.models_management.get_client_from_request"
-    ) as mock:
+    with patch("backend.app.api.v1.models_management.get_client_from_request") as mock:
         client = AsyncMock()
         client.models.register = AsyncMock()
         client.models.list = AsyncMock()
@@ -189,7 +187,9 @@ class TestDeleteModel:
 
         mock_db = AsyncMock()
         mock_agents.get_all_with_templates = AsyncMock(return_value=[])
-        mock_llama_client.models.unregister = AsyncMock(side_effect=Exception("Not found"))
+        mock_llama_client.models.unregister = AsyncMock(
+            side_effect=Exception("Not found")
+        )
 
         app.dependency_overrides[get_db] = lambda: mock_db
         response = test_client.delete("/api/v1/models/nonexistent")

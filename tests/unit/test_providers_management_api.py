@@ -6,7 +6,7 @@ Tests provider registration and management, including Kubernetes ConfigMap updat
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import status
@@ -100,7 +100,9 @@ class TestRegisterProvider:
             "config": {"url": "http://new-vllm:8000"},
         }
 
-        with patch("backend.app.api.v1.providers_management.wait_for_llamastack") as mock_wait:
+        with patch(
+            "backend.app.api.v1.providers_management.wait_for_llamastack"
+        ) as mock_wait:
             mock_wait.return_value = True
             response = test_client.post("/api/v1/models/providers/", json=provider_data)
 

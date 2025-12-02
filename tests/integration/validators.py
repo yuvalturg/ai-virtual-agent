@@ -840,9 +840,13 @@ def validate_skipped_deployment(response):
 
         assert isinstance(result, dict), f"Expected dict, got {type(result)}"
         assert "status" in result, "Response missing status field"
-        assert result["status"] == "skipped", f"Expected status 'skipped', got '{result['status']}'"
+        assert (
+            result["status"] == "skipped"
+        ), f"Expected status 'skipped', got '{result['status']}'"
         assert "message" in result, "Response missing message field"
-        assert "already deployed" in result["message"].lower(), "Message should indicate already deployed"
+        assert (
+            "already deployed" in result["message"].lower()
+        ), "Message should indicate already deployed"
 
         print("✓ Skipped deployment validation passed")
         return True

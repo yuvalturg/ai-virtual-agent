@@ -114,8 +114,9 @@ def mock_k8s_custom_api():
 @pytest.fixture
 def mock_k8s_config():
     """Mock Kubernetes config loading."""
-    with patch("kubernetes.config.load_incluster_config") as mock_incluster, \
-         patch("kubernetes.config.load_kube_config") as mock_kubeconfig:
+    with patch("kubernetes.config.load_incluster_config") as mock_incluster, patch(
+        "kubernetes.config.load_kube_config"
+    ) as mock_kubeconfig:
         yield {"incluster": mock_incluster, "kubeconfig": mock_kubeconfig}
 
 
