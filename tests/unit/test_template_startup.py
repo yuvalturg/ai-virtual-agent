@@ -8,12 +8,15 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from backend.app.core.template_startup import ensure_templates_populated
 
 
 class TestEnsureTemplatesPopulated:
     """Test template population on startup."""
 
+    @pytest.mark.asyncio
     @patch("backend.app.core.template_startup.AsyncSessionLocal")
     @patch("backend.app.core.template_startup.load_all_templates_from_directory")
     async def test_populate_templates_when_empty(
@@ -44,6 +47,7 @@ class TestEnsureTemplatesPopulated:
         mock_session.add.assert_called()
         mock_session.commit.assert_called()
 
+    @pytest.mark.asyncio
     @patch("backend.app.core.template_startup.AsyncSessionLocal")
     async def test_skip_when_templates_exist(self, mock_session_local):
         """Test skipping population when templates exist."""

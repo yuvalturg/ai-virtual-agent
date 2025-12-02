@@ -248,6 +248,7 @@ class TestValidateWithHeaders:
 class TestMakeHttpRequest:
     """Test make_http_request helper function."""
 
+    @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_make_http_request_get(self, mock_client_class):
         """Test GET request."""
@@ -265,6 +266,7 @@ class TestMakeHttpRequest:
 
         assert response.status_code == 200
 
+    @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_make_http_request_post(self, mock_client_class):
         """Test POST request."""
@@ -282,6 +284,7 @@ class TestMakeHttpRequest:
 
         assert response.status_code == 200
 
+    @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_make_http_request_timeout(self, mock_client_class):
         """Test request timeout handling."""
@@ -299,6 +302,7 @@ class TestMakeHttpRequest:
 
         assert exc_info.value.status_code == 408
 
+    @pytest.mark.asyncio
     @patch("httpx.AsyncClient")
     async def test_make_http_request_error(self, mock_client_class):
         """Test request error handling."""
