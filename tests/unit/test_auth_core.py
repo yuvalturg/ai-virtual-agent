@@ -56,6 +56,7 @@ class TestIsLocalDevMode:
 class TestGetOrCreateDevUser:
     """Test dev user creation and retrieval."""
 
+    @pytest.mark.asyncio
     async def test_get_existing_dev_user(self, mock_db_session):
         """Test retrieving existing dev user."""
         existing_user = User(
@@ -73,6 +74,7 @@ class TestGetOrCreateDevUser:
         assert result == existing_user
         mock_db_session.add.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_create_new_dev_user(self, mock_db_session):
         """Test creating new dev user."""
         # Mock no existing user

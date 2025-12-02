@@ -44,7 +44,7 @@ repos:
         entry: vulture
         language: system
         types: [python]
-        exclude: '^(backend/migrations/|migrations/|deploy/)'
+        exclude: '^(backend/migrations/|migrations/|deploy/|tests/)'
         args: [--min-confidence=80]
       - id: helm-lint
         name: Helm lint

@@ -43,6 +43,7 @@ def sample_guardrail():
 class TestGetGuardrail:
     """Test get single guardrail."""
 
+    @pytest.mark.asyncio
     async def test_get_guardrail_success(self, mock_db_session, sample_guardrail):
         """Test retrieving a single guardrail."""
         mock_result = MagicMock()
@@ -53,6 +54,7 @@ class TestGetGuardrail:
 
         assert result == sample_guardrail
 
+    @pytest.mark.asyncio
     async def test_get_guardrail_not_found(self, mock_db_session):
         """Test retrieving non-existent guardrail returns None."""
         mock_result = MagicMock()
@@ -67,6 +69,7 @@ class TestGetGuardrail:
 class TestCreateGuardrail:
     """Test guardrail creation."""
 
+    @pytest.mark.asyncio
     async def test_create_guardrail_success(self, mock_db_session):
         """Test creating a new guardrail."""
         guardrail_data = GuardrailCreate(name="New Guardrail", rules={"threshold": 0.7})
@@ -77,6 +80,7 @@ class TestCreateGuardrail:
         mock_db_session.add.assert_called_once()
         mock_db_session.commit.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_create_guardrail_rollback_on_error(self, mock_db_session):
         """Test rollback on creation error."""
         mock_db_session.commit.side_effect = Exception("DB error")
@@ -92,6 +96,7 @@ class TestCreateGuardrail:
 class TestUpdateGuardrail:
     """Test guardrail update."""
 
+    @pytest.mark.asyncio
     async def test_update_guardrail_success(self, mock_db_session, sample_guardrail):
         """Test updating a guardrail."""
         update_data = GuardrailCreate(name="Updated Name", rules={"threshold": 0.9})
@@ -107,6 +112,7 @@ class TestUpdateGuardrail:
 class TestDeleteGuardrail:
     """Test guardrail deletion."""
 
+    @pytest.mark.asyncio
     async def test_delete_guardrail_success(self, mock_db_session, sample_guardrail):
         """Test deleting a guardrail."""
         mock_result = MagicMock()
