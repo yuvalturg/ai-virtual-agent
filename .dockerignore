@@ -47,5 +47,6 @@ tests/
 .DS_Store
 Thumbs.db
 
-# Deployment configs (already in image or not needed)
-deploy/cluster/
+# Deployment configs (exclude unnecessary files but keep scripts)
+deploy/cluster/helm/
+deploy/cluster/Makefile
