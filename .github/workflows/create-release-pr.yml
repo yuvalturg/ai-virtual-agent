@@ -78,8 +78,8 @@ jobs:
           git fetch origin main
           git merge origin/main --no-edit || {
             # If conflicts occur, take our (release branch) version for Chart.yaml and values.yaml
-            git checkout --ours deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml
-            git add deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml
+            git checkout --ours deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml deploy/helm/rag/Chart.lock
+            git add deploy/cluster/helm/Chart.yaml deploy/cluster/helm/values.yaml deploy/helm/rag/Chart.lock
             git commit --no-edit
           }
 
