@@ -10,6 +10,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
         X-Forwarded-User: "test_user"
@@ -26,6 +27,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/00000000-0000-0000-0000-000000000000/messages"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
         X-Forwarded-User: "test_user"
         X-Forwarded-Email: "test@example.com"
@@ -38,6 +40,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/00000000-0000-0000-0000-000000000000"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         X-Forwarded-User: "test_user"
         X-Forwarded-Email: "test@example.com"
       params:
@@ -55,6 +58,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/llama_stack/llms"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: 200
@@ -68,6 +72,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -86,6 +91,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
         X-Forwarded-User: "error_test_user"
@@ -105,6 +111,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{empty_session_id}/messages"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
         X-Forwarded-User: "error_test_user"
         X-Forwarded-Email: "error@example.com"
@@ -119,6 +126,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
         X-Forwarded-User: "error_test_user"
         X-Forwarded-Email: "error@example.com"
@@ -135,6 +143,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{empty_session_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         X-Forwarded-User: "error_test_user"
         X-Forwarded-Email: "error@example.com"
       params:
@@ -159,6 +168,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/llama_stack/llms"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: 200
@@ -171,6 +181,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -189,6 +200,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         X-Forwarded-User: "deletion_user"
         X-Forwarded-Email: "deletion@example.com"
@@ -207,6 +219,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{deletion_session_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         X-Forwarded-User: "deletion_user"
         X-Forwarded-Email: "deletion@example.com"
       params:
@@ -220,6 +233,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{deletion_session_id}/messages"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
         X-Forwarded-User: "deletion_user"
         X-Forwarded-Email: "deletion@example.com"
@@ -232,6 +246,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{deletion_session_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         X-Forwarded-User: "deletion_user"
         X-Forwarded-Email: "deletion@example.com"
       params:

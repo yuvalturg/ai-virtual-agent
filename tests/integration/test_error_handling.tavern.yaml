@@ -86,6 +86,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
         # Missing X-Forwarded-User and X-Forwarded-Email
@@ -104,6 +105,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -122,6 +124,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -138,6 +141,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/12345678-1234-1234-1234-123456789012"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: 404
@@ -149,6 +153,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -167,6 +172,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [403, 200]  # In dev mode, may allow regular users to list users
@@ -178,6 +184,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{test_user_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404]  # 404 if user wasn't created
@@ -187,6 +194,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{invalid_email_user_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404, 422]  # 422 if UUID is None, 404 if user wasn't created, 204 if deleted
@@ -196,6 +204,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{regular_user_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404]  # 404 if user wasn't created
@@ -208,6 +217,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
         # Missing authentication headers
@@ -231,6 +241,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -247,6 +258,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/12345678-1234-1234-1234-123456789012"
       method: GET
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: 404
@@ -258,6 +270,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/12345678-1234-1234-1234-123456789012"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: 404
@@ -269,6 +282,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -293,6 +307,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{test_agent_unique_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404]  # 404 if agent wasn't actually created
@@ -302,6 +317,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/virtual_agents/{test_agent_nonexistent_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404]  # 404 if agent wasn't actually created
@@ -325,6 +341,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       data: "invalid json {{"
@@ -336,6 +353,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: text/plain
         Accept: application/json
       data: "plain text data"
@@ -347,6 +365,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
       json:
         username: "test_user_unique_{tavern.env_vars.TAVERN_UNIQUE}"
@@ -364,6 +383,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{missing_content_type_user_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404, 422]  # 422 if UUID is None, 404 if user wasn't created, 204 if deleted
@@ -376,6 +396,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -412,6 +433,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -431,6 +453,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{long_username_user_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404, 422]  # 422 if UUID is None, 404 if user wasn't created, 204 if deleted
@@ -440,6 +463,7 @@ stages:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/{sql_injection_user_id}"
       method: DELETE
       headers:
+        Cookie: "session={admin_session_cookie}"
         Accept: application/json
     response:
       status_code: [204, 404]  # 404 if user wasn't created

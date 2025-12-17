@@ -91,6 +91,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Add session middleware for OAuth flow
+SESSION_SECRET = os.getenv("SESSION_SECRET_KEY", "dev-secret-key-change-in-production")
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    session_cookie="session",
+    max_age=14 * 24 * 60 * 60,  # 14 days in seconds
+    path="/",
+    domain=None,  # No domain restriction - works across ports on localhost
+    same_site="lax",
+    https_only=SESSION_COOKIE_SECURE,  # Configurable: False for local dev, True for production
+)
+
 origins = ["*"]  # Update this with the frontend domain in production
 
 app.add_middleware(

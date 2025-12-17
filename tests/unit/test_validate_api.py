@@ -1,7 +1,7 @@
 """
 Unit tests for Authentication Validation API endpoints.
 
-Tests authentication validation with local dev mode and external auth service.
+Tests OAuth session-based authentication validation.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import status
+from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
@@ -45,17 +45,15 @@ def sample_user():
 
 
 class TestValidateEndpoint:
-    """Test main validate endpoint."""
+    """Test main validate endpoint with OAuth sessions."""
 
-    @patch("backend.app.api.v1.validate.is_local_dev_mode")
-    @patch("backend.app.api.v1.validate.get_or_create_dev_user")
-    def test_validate_local_dev_mode(
-        self, mock_get_user, mock_is_dev, test_client, mock_db_session, sample_user
+    @patch("backend.app.api.v1.validate.get_user_from_session")
+    def test_validate_authenticated_user(
+        self, mock_get_user, test_client, mock_db_session, sample_user
     ):
-        """Test validation in local dev mode."""
+        """Test validation with authenticated user session."""
         from backend.app.api.v1.validate import get_db
 
-        mock_is_dev.return_value = True
         mock_get_user.return_value = sample_user
 
         auth_request = {
@@ -75,57 +73,22 @@ class TestValidateEndpoint:
         data = response.json()
         assert data["principal"] == "test-user"
         assert data["message"] == "Authentication successful"
+        assert data["attributes"]["roles"] == ["user"]
 
-    @patch("backend.app.api.v1.validate.is_local_dev_mode")
-    @patch("backend.app.api.v1.validate.make_http_request")
-    @patch("backend.app.api.v1.validate.get_user_from_headers")
-    def test_validate_normal_mode_success(
-        self,
-        mock_get_user,
-        mock_http,
-        mock_is_dev,
-        test_client,
-        mock_db_session,
-        sample_user,
+    @patch("backend.app.api.v1.validate.get_user_from_session")
+    def test_validate_admin_user(
+        self, mock_get_user, test_client, mock_db_session
     ):
-        """Test validation in normal mode with successful auth."""
+        """Test validation with admin user session."""
         from backend.app.api.v1.validate import get_db
 
-        mock_is_dev.return_value = False
-        mock_get_user.return_value = sample_user
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_http.return_value = mock_response
-
-        auth_request = {
-            "api_key": "test-key",
-            "request": {
-                "path": "/",
-                "headers": {"x-forwarded-user": "test-user"},
-                "params": {},
-            },
-        }
-
-        app.dependency_overrides[get_db] = lambda: mock_db_session
-        response = test_client.post("/api/v1/validate/", json=auth_request)
-        app.dependency_overrides.clear()
-
-        assert response.status_code == status.HTTP_200_OK
-
-    @patch("backend.app.api.v1.validate.is_local_dev_mode")
-    @patch("backend.app.api.v1.validate.make_http_request")
-    def test_validate_auth_failed(
-        self, mock_http, mock_is_dev, test_client, mock_db_session
-    ):
-        """Test validation with failed authentication."""
-        from backend.app.api.v1.validate import get_db
-
-        mock_is_dev.return_value = False
-
-        mock_response = MagicMock()
-        mock_response.status_code = 403
-        mock_http.return_value = mock_response
+        admin_user = User(
+            id=uuid.uuid4(),
+            username="admin",
+            email="admin@example.com",
+            role=RoleEnum.admin,
+        )
+        mock_get_user.return_value = admin_user
 
         auth_request = {
             "api_key": "test-key",
@@ -140,29 +103,28 @@ class TestValidateEndpoint:
         response = test_client.post("/api/v1/validate/", json=auth_request)
         app.dependency_overrides.clear()
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["principal"] == "admin"
+        assert data["attributes"]["roles"] == ["admin"]
 
-    @patch("backend.app.api.v1.validate.is_local_dev_mode")
-    @patch("backend.app.api.v1.validate.make_http_request")
-    @patch("backend.app.api.v1.validate.get_user_from_headers")
-    def test_validate_user_not_found(
-        self, mock_get_user, mock_http, mock_is_dev, test_client, mock_db_session
+    @patch("backend.app.api.v1.validate.get_user_from_session")
+    def test_validate_no_session(
+        self, mock_get_user, test_client, mock_db_session
     ):
-        """Test validation when user not found in database."""
+        """Test validation when user has no session."""
         from backend.app.api.v1.validate import get_db
 
-        mock_is_dev.return_value = False
-        mock_get_user.return_value = None
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_http.return_value = mock_response
+        mock_get_user.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
 
         auth_request = {
             "api_key": "test-key",
             "request": {
                 "path": "/",
-                "headers": {"x-forwarded-user": "unknown-user"},
+                "headers": {},
                 "params": {},
             },
         }
