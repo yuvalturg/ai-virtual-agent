@@ -18,7 +18,6 @@ export const createKnowledgeBase = async (
 ): Promise<KnowledgeBase> => {
   const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT, {
     credentials: 'include',
-    credentials: 'include',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -37,7 +36,6 @@ export const createKnowledgeBase = async (
 
 export const deleteKnowledgeBase = async (vectorStoreName: string): Promise<void> => {
   const response = await fetch(KNOWLEDGE_BASES_API_ENDPOINT + vectorStoreName, {
-    credentials: 'include',
     credentials: 'include',
     method: 'DELETE',
   });

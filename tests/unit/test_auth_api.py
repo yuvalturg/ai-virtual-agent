@@ -29,7 +29,7 @@ class TestAuthEndpointsLogic:
             return_value=MagicMock(status_code=307)
         )
 
-        result = await login(mock_request)
+        await login(mock_request)
 
         # Verify OAuth redirect was called
         mock_oauth.keycloak.authorize_redirect.assert_called_once_with(
@@ -52,9 +52,7 @@ class TestAuthEndpointsLogic:
             "access_token": "test-access-token",
             "id_token": "test-id-token",
         }
-        mock_oauth.keycloak.authorize_access_token = AsyncMock(
-            return_value=mock_token
-        )
+        mock_oauth.keycloak.authorize_access_token = AsyncMock(return_value=mock_token)
 
         # Mock user extraction
         mock_extract_user.return_value = {
@@ -129,7 +127,7 @@ class TestAuthHelpers:
         }
 
         # Call the actual function
-        result = extract_user_from_token(mock_token)
+        extract_user_from_token(mock_token)
 
         # Verify it was processed
         mock_extract.assert_called_once_with(mock_token)

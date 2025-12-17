@@ -71,7 +71,6 @@ export async function fetchChatSession(
 export async function deleteChatSession(sessionId: string, agentId: string): Promise<void> {
   const response = await fetch(`${CHAT_SESSIONS_API_ENDPOINT}${sessionId}?agent_id=${agentId}`, {
     credentials: 'include',
-    credentials: 'include',
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -87,7 +86,6 @@ export async function createChatSession(
   sessionName?: string
 ): Promise<ChatSessionDetail> {
   const response = await fetch(CHAT_SESSIONS_API_ENDPOINT, {
-    credentials: 'include',
     credentials: 'include',
     method: 'POST',
     headers: {

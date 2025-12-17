@@ -17,7 +17,9 @@ def test_backend_url():
     return os.getenv("TEST_BACKEND_URL", "http://localhost:8000")
 
 
-def authenticate_with_keycloak(username: str, password: str, test_backend_url: str) -> requests.Session:
+def authenticate_with_keycloak(
+    username: str, password: str, test_backend_url: str
+) -> requests.Session:
     """
     Authenticate by simulating the browser OAuth flow.
 
@@ -39,36 +41,38 @@ def authenticate_with_keycloak(username: str, password: str, test_backend_url: s
         raise Exception(f"Login redirect failed: {login_response.status_code}")
 
     # Extract Keycloak cookies (manually set due to localhost cookie domain issues)
-    auth_session_id = session.cookies.get('AUTH_SESSION_ID', '')
-    kc_restart = session.cookies.get('KC_RESTART', '')
+    auth_session_id = session.cookies.get("AUTH_SESSION_ID", "")
+    kc_restart = session.cookies.get("KC_RESTART", "")
 
     # Parse the Keycloak login form
-    soup = BeautifulSoup(login_response.text, 'html.parser')
-    form = soup.find('form')
+    soup = BeautifulSoup(login_response.text, "html.parser")
+    form = soup.find("form")
     if not form:
         raise Exception("Could not find login form")
 
     # Extract all form fields (including hidden ones)
     form_data = {
-        input_field.get('name'): input_field.get('value', '')
-        for input_field in form.find_all('input')
-        if input_field.get('name')
+        input_field.get("name"): input_field.get("value", "")
+        for input_field in form.find_all("input")
+        if input_field.get("name")
     }
-    form_data['username'] = username
-    form_data['password'] = password
+    form_data["username"] = username
+    form_data["password"] = password
 
     # Submit credentials to Keycloak
     auth_response = session.post(
-        form.get('action'),
+        form.get("action"),
         data=form_data,
-        headers={'Cookie': f"AUTH_SESSION_ID={auth_session_id}; KC_RESTART={kc_restart}"},
-        allow_redirects=True
+        headers={
+            "Cookie": f"AUTH_SESSION_ID={auth_session_id}; KC_RESTART={kc_restart}"
+        },
+        allow_redirects=True,
     )
 
     if auth_response.status_code != 200:
         raise Exception(f"Authentication failed: {auth_response.status_code}")
 
-    if 'session' not in session.cookies:
+    if "session" not in session.cookies:
         raise Exception("No session cookie created")
 
     return session

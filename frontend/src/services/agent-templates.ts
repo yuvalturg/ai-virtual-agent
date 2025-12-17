@@ -61,7 +61,6 @@ export async function initializeAgentFromTemplate(
 ): Promise<TemplateInitializationResponse> {
   const response = await fetch(`${API_BASE_URL}/agent_templates/initialize`, {
     credentials: 'include',
-    credentials: 'include',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -85,7 +84,6 @@ export async function initializeAgentFromTemplate(
  */
 export async function initializeAllTemplates(): Promise<TemplateInitializationResponse[]> {
   const response = await fetch(`${API_BASE_URL}/agent_templates/initialize-all`, {
-    credentials: 'include',
     credentials: 'include',
     method: 'POST',
     headers: {
@@ -111,7 +109,6 @@ export async function initializeAllTemplates(): Promise<TemplateInitializationRe
  */
 export async function initializeSuite(suiteId: string): Promise<TemplateInitializationResponse[]> {
   const response = await fetch(`/api/v1/agent_templates/initialize-suite/${suiteId}`, {
-    credentials: 'include',
     credentials: 'include',
     method: 'POST',
     headers: {

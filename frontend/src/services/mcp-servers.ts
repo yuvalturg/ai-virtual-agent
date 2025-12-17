@@ -16,7 +16,6 @@ export const fetchMCPServers = async (): Promise<MCPServer[]> => {
 export const createMCPServer = async (newServer: MCPServerCreate): Promise<MCPServer> => {
   const response = await fetch(MCP_SERVERS_API_ENDPOINT, {
     credentials: 'include',
-    credentials: 'include',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -39,7 +38,6 @@ export const updateMCPServer = async (
 ): Promise<MCPServer> => {
   const response = await fetch(MCP_SERVERS_API_ENDPOINT + toolgroup_id, {
     credentials: 'include',
-    credentials: 'include',
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -59,7 +57,6 @@ export const updateMCPServer = async (
 export const deleteMCPServer = async (toolgroup_id: string): Promise<void> => {
   const response = await fetch(MCP_SERVERS_API_ENDPOINT + toolgroup_id, {
     credentials: 'include',
-    credentials: 'include',
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -73,7 +70,6 @@ export const deleteMCPServer = async (toolgroup_id: string): Promise<void> => {
 
 export const syncMCPServers = async (): Promise<MCPServer[]> => {
   const response = await fetch(MCP_SERVERS_API_ENDPOINT + 'sync', {
-    credentials: 'include',
     credentials: 'include',
     method: 'POST',
   });
