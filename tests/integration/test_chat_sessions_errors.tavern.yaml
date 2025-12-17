@@ -13,8 +13,6 @@ stages:
         Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
-        X-Forwarded-User: "test_user"
-        X-Forwarded-Email: "test@example.com"
       json:
         agent_id: "00000000-0000-0000-0000-000000000000"
         session_name: "Test Session"
@@ -29,8 +27,6 @@ stages:
       headers:
         Cookie: "session={admin_session_cookie}"
         Accept: application/json
-        X-Forwarded-User: "test_user"
-        X-Forwarded-Email: "test@example.com"
     response:
       status_code: 404
 
@@ -41,8 +37,6 @@ stages:
       method: DELETE
       headers:
         Cookie: "session={admin_session_cookie}"
-        X-Forwarded-User: "test_user"
-        X-Forwarded-Email: "test@example.com"
       params:
         agent_id: "00000000-0000-0000-0000-000000000000"
     response:
@@ -94,8 +88,6 @@ stages:
         Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
-        X-Forwarded-User: "error_test_user"
-        X-Forwarded-Email: "error@example.com"
       json:
         agent_id: "{error_test_agent_id}"
         session_name: "Empty Session"
@@ -113,8 +105,6 @@ stages:
       headers:
         Cookie: "session={admin_session_cookie}"
         Accept: application/json
-        X-Forwarded-User: "error_test_user"
-        X-Forwarded-Email: "error@example.com"
     response:
       status_code: 200
       json:
@@ -128,8 +118,6 @@ stages:
       headers:
         Cookie: "session={admin_session_cookie}"
         Accept: application/json
-        X-Forwarded-User: "error_test_user"
-        X-Forwarded-Email: "error@example.com"
       params:
         agent_id: "{error_test_agent_id}"
         limit: 50
@@ -144,8 +132,6 @@ stages:
       method: DELETE
       headers:
         Cookie: "session={admin_session_cookie}"
-        X-Forwarded-User: "error_test_user"
-        X-Forwarded-Email: "error@example.com"
       params:
         agent_id: "{error_test_agent_id}"
     response:
@@ -202,8 +188,7 @@ stages:
       headers:
         Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
-        X-Forwarded-User: "deletion_user"
-        X-Forwarded-Email: "deletion@example.com"
+        Accept: application/json
       json:
         agent_id: "{deletion_agent_id}"
         session_name: "To Be Deleted"
@@ -220,8 +205,6 @@ stages:
       method: DELETE
       headers:
         Cookie: "session={admin_session_cookie}"
-        X-Forwarded-User: "deletion_user"
-        X-Forwarded-Email: "deletion@example.com"
       params:
         agent_id: "{deletion_agent_id}"
     response:
@@ -235,8 +218,6 @@ stages:
       headers:
         Cookie: "session={admin_session_cookie}"
         Accept: application/json
-        X-Forwarded-User: "deletion_user"
-        X-Forwarded-Email: "deletion@example.com"
     response:
       status_code: 404
 
@@ -247,8 +228,6 @@ stages:
       method: DELETE
       headers:
         Cookie: "session={admin_session_cookie}"
-        X-Forwarded-User: "deletion_user"
-        X-Forwarded-Email: "deletion@example.com"
       params:
         agent_id: "{deletion_agent_id}"
     response:

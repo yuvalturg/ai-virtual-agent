@@ -19,7 +19,12 @@ class TestExtractUserFromToken:
     def test_extract_admin_role(self):
         """Test extraction of admin role from token."""
         token_data = {
-            "id_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJhZG1pbiIsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiYWRtaW4iLCJkZXZvcHMiLCJ1c2VyIl19fQ.dummysignature",
+            "id_token": (
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                "eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJhZG1pbiIsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLC"
+                "JyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiYWRtaW4iLCJkZXZvcHMiLCJ1c2VyIl19fQ."
+                "dummysignature"
+            ),
             "access_token": "dummy_access_token",
         }
 
@@ -33,7 +38,12 @@ class TestExtractUserFromToken:
     def test_extract_devops_role(self):
         """Test extraction of devops role from token."""
         token_data = {
-            "id_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJkZXZvcHMiLCJlbWFpbCI6ImRldm9wc0BleGFtcGxlLmNvbSIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZXZvcHMiLCJ1c2VyIl19fQ.dummysignature",
+            "id_token": (
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                "eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJkZXZvcHMiLCJlbWFpbCI6ImRldm9wc0BleGFtcGxlLmNvbSI"
+                "sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZXZvcHMiLCJ1c2VyIl19fQ."
+                "dummysignature"
+            ),
             "access_token": "dummy_access_token",
         }
 
@@ -45,7 +55,12 @@ class TestExtractUserFromToken:
     def test_extract_user_role(self):
         """Test extraction of user role from token (default)."""
         token_data = {
-            "id_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ1c2VyIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInVzZXIiXX19.dummysignature",
+            "id_token": (
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                "eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ1c2VyIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwi"
+                "cmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInVzZXIiXX19."
+                "dummysignature"
+            ),
             "access_token": "dummy_access_token",
         }
 

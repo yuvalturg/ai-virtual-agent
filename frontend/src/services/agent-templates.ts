@@ -133,7 +133,9 @@ export async function initializeSuite(suiteId: string): Promise<TemplateInitiali
  * Get suites grouped by category.
  */
 export async function getSuitesByCategory(): Promise<Record<string, string[]>> {
-  const response = await fetch(`/api/v1/agent_templates/suites/categories`, { credentials: 'include' });
+  const response = await fetch(`/api/v1/agent_templates/suites/categories`, {
+    credentials: 'include',
+  });
   if (!response.ok) {
     const errorData = (await response.json().catch(() => ({
       detail: `Failed to fetch suites by category: ${response.statusText}`,
@@ -191,7 +193,9 @@ export async function getCategoriesInfo(): Promise<
     }
   >
 > {
-  const response = await fetch(`/api/v1/agent_templates/categories/info`, { credentials: 'include' });
+  const response = await fetch(`/api/v1/agent_templates/categories/info`, {
+    credentials: 'include',
+  });
   if (!response.ok) {
     const errorData = (await response.json().catch(() => ({
       detail: `Failed to fetch categories info: ${response.statusText}`,

@@ -12,7 +12,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_list_not_empty
@@ -30,7 +29,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       json:
         name: !anystr
@@ -46,7 +44,7 @@ stages:
 
   - name: Get available models for template deployment
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/llama_stack/llms"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/llama_stack/llms"
       method: GET
       headers:
         Accept: application/json
@@ -96,7 +94,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       strict:
         - json:off
@@ -128,7 +125,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_list_not_empty
@@ -146,7 +142,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       json:
         id: "{first_suite}"
@@ -171,7 +166,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_suite_deployment_results
@@ -188,7 +182,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_agents_grouped_by_suite
@@ -223,7 +216,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_categories_structure
@@ -238,7 +230,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       verify_response_with:
         - function: tests.integration.validators:validate_categories_info_structure

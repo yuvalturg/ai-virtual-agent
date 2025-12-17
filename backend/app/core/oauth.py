@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 # KEYCLOAK_SERVER_URL: External URL (what browser sees) - used in OAuth metadata
 # KEYCLOAK_SERVER_URL_INTERNAL: Internal URL (backend-to-keycloak) - used for API calls
 KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL", "http://localhost:8080")
-KEYCLOAK_SERVER_URL_INTERNAL = os.getenv("KEYCLOAK_SERVER_URL_INTERNAL", KEYCLOAK_SERVER_URL)
+KEYCLOAK_SERVER_URL_INTERNAL = os.getenv(
+    "KEYCLOAK_SERVER_URL_INTERNAL", KEYCLOAK_SERVER_URL
+)
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "ai-apps")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "ai-virtual-agent")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "ai-virtual-agent-secret")
@@ -96,7 +98,9 @@ def extract_user_from_token(token_data: dict) -> dict:
     realm_roles = user_info.get("realm_access", {}).get("roles", [])
 
     # Debug logging to see what roles are in the token
-    logger.info(f"JWT token roles for user {user_info.get('preferred_username')}: {realm_roles}")
+    logger.info(
+        f"JWT token roles for user {user_info.get('preferred_username')}: {realm_roles}"
+    )
 
     # Check roles in priority order: admin > devops > user
     if "admin" in realm_roles:

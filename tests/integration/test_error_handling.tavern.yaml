@@ -3,9 +3,10 @@ test_name: Test Chat API Error Handling
 stages:
   - name: Test invalid agent ID
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -24,9 +25,10 @@ stages:
 
   - name: Test non-existent agent ID
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -45,9 +47,10 @@ stages:
 
   - name: Test missing required fields
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -61,9 +64,10 @@ stages:
 
   - name: Test empty messages array
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:
@@ -81,7 +85,7 @@ stages:
 ---
 test_name: Test User API Error Handling
 stages:
-  - name: Test create user with missing OAuth headers
+  - name: Test create user with OAuth authentication
     request:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/users/"
       method: POST
@@ -89,7 +93,6 @@ stages:
         Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
-        # Missing X-Forwarded-User and X-Forwarded-Email
       json:
         username: "test_user_{tavern.env_vars.TAVERN_UNIQUE}"
         email: "test_{tavern.env_vars.TAVERN_UNIQUE}@example.com"
@@ -327,9 +330,10 @@ test_name: Test Malformed Request Handling
 stages:
   - name: Test invalid JSON in chat request
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       data: "invalid json {{"
@@ -411,9 +415,10 @@ stages:
 
   - name: Test extremely long chat message
     request:
-      url: "{tavern.env_vars.TEST_FRONTEND_URL}/api/v1/chat"
+      url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat"
       method: POST
       headers:
+        Cookie: "session={admin_session_cookie}"
         Content-Type: application/json
         Accept: application/json
       json:

@@ -47,13 +47,19 @@ def sample_user():
 class TestValidateEndpoint:
     """Test main validate endpoint with OAuth sessions."""
 
-    @patch("backend.app.api.v1.validate.get_user_from_session")
+    @patch("backend.app.api.v1.validate.get_or_create_user_from_oauth")
+    @patch("backend.app.api.v1.validate.get_session_from_request")
     def test_validate_authenticated_user(
-        self, mock_get_user, test_client, mock_db_session, sample_user
+        self, mock_get_session, mock_get_user, test_client, mock_db_session, sample_user
     ):
         """Test validation with authenticated user session."""
         from backend.app.api.v1.validate import get_db
 
+        mock_get_session.return_value = {
+            "username": "test-user",
+            "email": "test@example.com",
+            "roles": ["user"],
+        }
         mock_get_user.return_value = sample_user
 
         auth_request = {
@@ -75,9 +81,10 @@ class TestValidateEndpoint:
         assert data["message"] == "Authentication successful"
         assert data["attributes"]["roles"] == ["user"]
 
-    @patch("backend.app.api.v1.validate.get_user_from_session")
+    @patch("backend.app.api.v1.validate.get_or_create_user_from_oauth")
+    @patch("backend.app.api.v1.validate.get_session_from_request")
     def test_validate_admin_user(
-        self, mock_get_user, test_client, mock_db_session
+        self, mock_get_session, mock_get_user, test_client, mock_db_session
     ):
         """Test validation with admin user session."""
         from backend.app.api.v1.validate import get_db
@@ -88,6 +95,11 @@ class TestValidateEndpoint:
             email="admin@example.com",
             role=RoleEnum.admin,
         )
+        mock_get_session.return_value = {
+            "username": "admin",
+            "email": "admin@example.com",
+            "roles": ["admin"],
+        }
         mock_get_user.return_value = admin_user
 
         auth_request = {
@@ -108,17 +120,12 @@ class TestValidateEndpoint:
         assert data["principal"] == "admin"
         assert data["attributes"]["roles"] == ["admin"]
 
-    @patch("backend.app.api.v1.validate.get_user_from_session")
-    def test_validate_no_session(
-        self, mock_get_user, test_client, mock_db_session
-    ):
+    @patch("backend.app.api.v1.validate.get_session_from_request")
+    def test_validate_no_session(self, mock_get_session, test_client, mock_db_session):
         """Test validation when user has no session."""
         from backend.app.api.v1.validate import get_db
 
-        mock_get_user.side_effect = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
+        mock_get_session.return_value = None  # No session
 
         auth_request = {
             "api_key": "test-key",
@@ -133,150 +140,80 @@ class TestValidateEndpoint:
         response = test_client.post("/api/v1/validate/", json=auth_request)
         app.dependency_overrides.clear()
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    @patch("backend.app.api.v1.validate.get_or_create_user_from_oauth")
+    @patch("backend.app.api.v1.validate.get_session_from_request")
+    def test_validate_without_trailing_slash(
+        self, mock_get_session, mock_get_user, test_client, mock_db_session, sample_user
+    ):
+        """Test validation endpoint without trailing slash."""
+        from backend.app.api.v1.validate import get_db
 
-class TestValidateWithHeaders:
-    """Test validate_with_headers endpoint."""
-
-    @patch("backend.app.api.v1.validate.get_sa_token")
-    @patch("backend.app.api.v1.validate.make_http_request")
-    def test_validate_with_headers_success(self, mock_http, mock_token, test_client):
-        """Test successful validation with headers."""
-        mock_token.return_value = "test-token"
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "principal": "test-user",
-            "attributes": {"roles": ["user"]},
-            "message": "Success",
+        mock_get_session.return_value = {
+            "username": "test-user",
+            "email": "test@example.com",
+            "roles": ["user"],
         }
-        mock_http.return_value = mock_response
+        mock_get_user.return_value = sample_user
 
-        response = test_client.post(
-            "/api/v1/validate/test",
-            headers={
-                "X-Forwarded-User": "test-user",
-                "X-Forwarded-Email": "test@example.com",
+        auth_request = {
+            "api_key": "test-key",
+            "request": {
+                "path": "/",
+                "headers": {},
+                "params": {},
             },
-        )
+        }
+
+        app.dependency_overrides[get_db] = lambda: mock_db_session
+        response = test_client.post("/api/v1/validate", json=auth_request)
+        app.dependency_overrides.clear()
 
         assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["principal"] == "test-user"
 
-    @patch("backend.app.api.v1.validate.get_sa_token")
-    @patch("backend.app.api.v1.validate.make_http_request")
-    def test_validate_with_headers_auth_failed(
-        self, mock_http, mock_token, test_client
+
+class TestGetUserFromSession:
+    """Test get_user_from_session helper function."""
+
+    @pytest.mark.asyncio
+    @patch("backend.app.api.v1.validate.get_or_create_user_from_oauth")
+    @patch("backend.app.api.v1.validate.get_session_from_request")
+    async def test_get_user_from_session_success(
+        self, mock_get_session, mock_get_user, mock_db_session, sample_user
     ):
-        """Test validation with headers when auth fails."""
-        mock_token.return_value = "test-token"
-        mock_response = MagicMock()
-        mock_response.status_code = 403
-        mock_http.return_value = mock_response
+        """Test successful user retrieval from session."""
+        from backend.app.api.v1.validate import get_user_from_session
 
-        response = test_client.post(
-            "/api/v1/validate/test",
-            headers={
-                "X-Forwarded-User": "test-user",
-                "X-Forwarded-Email": "test@example.com",
-            },
-        )
+        mock_request = MagicMock()
+        mock_get_session.return_value = {
+            "username": "test-user",
+            "email": "test@example.com",
+            "roles": ["user"],
+        }
+        mock_get_user.return_value = sample_user
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        user = await get_user_from_session(mock_request, mock_db_session)
 
-    @patch("backend.app.api.v1.validate.get_sa_token")
-    @patch("backend.app.api.v1.validate.make_http_request")
-    def test_validate_with_headers_invalid_response(
-        self, mock_http, mock_token, test_client
+        assert user == sample_user
+        mock_get_session.assert_called_once_with(mock_request)
+        mock_get_user.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("backend.app.api.v1.validate.get_session_from_request")
+    async def test_get_user_from_session_no_session(
+        self, mock_get_session, mock_db_session
     ):
-        """Test validation with invalid response format."""
-        mock_token.return_value = "test-token"
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"invalid": "data"}
-        mock_http.return_value = mock_response
+        """Test error when no session exists."""
+        from backend.app.api.v1.validate import get_user_from_session
 
-        response = test_client.post(
-            "/api/v1/validate/test",
-            headers={
-                "X-Forwarded-User": "test-user",
-                "X-Forwarded-Email": "test@example.com",
-            },
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-
-class TestMakeHttpRequest:
-    """Test make_http_request helper function."""
-
-    @pytest.mark.asyncio
-    @patch("httpx.AsyncClient")
-    async def test_make_http_request_get(self, mock_client_class):
-        """Test GET request."""
-        from backend.app.api.v1.validate import make_http_request
-
-        mock_client = AsyncMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-
-        response = await make_http_request(
-            "http://test.com", {"Authorization": "Bearer token"}
-        )
-
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    @patch("httpx.AsyncClient")
-    async def test_make_http_request_post(self, mock_client_class):
-        """Test POST request."""
-        from backend.app.api.v1.validate import make_http_request
-
-        mock_client = AsyncMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-
-        response = await make_http_request(
-            "http://test.com", {}, method="POST", json_data={"key": "value"}
-        )
-
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    @patch("httpx.AsyncClient")
-    async def test_make_http_request_timeout(self, mock_client_class):
-        """Test request timeout handling."""
-        import httpx
-        from fastapi import HTTPException
-
-        from backend.app.api.v1.validate import make_http_request
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
-        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_request = MagicMock()
+        mock_get_session.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            await make_http_request("http://test.com", {})
+            await get_user_from_session(mock_request, mock_db_session)
 
-        assert exc_info.value.status_code == 408
-
-    @pytest.mark.asyncio
-    @patch("httpx.AsyncClient")
-    async def test_make_http_request_error(self, mock_client_class):
-        """Test request error handling."""
-        from fastapi import HTTPException
-
-        from backend.app.api.v1.validate import make_http_request
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=Exception("Connection error"))
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-
-        with pytest.raises(HTTPException) as exc_info:
-            await make_http_request("http://test.com", {})
-
-        assert exc_info.value.status_code == 503
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert exc_info.value.detail == "Not authenticated"

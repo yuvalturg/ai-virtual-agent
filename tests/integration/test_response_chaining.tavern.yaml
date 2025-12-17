@@ -16,7 +16,6 @@ stages:
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       save:
         json:
@@ -216,10 +215,12 @@ stages:
     request:
       url: "{tavern.env_vars.TEST_BACKEND_URL}/api/v1/chat_sessions/{message_test_session_id}/messages"
       method: GET
+      headers:
+        Cookie: "session={admin_session_cookie}"
+        Accept: application/json
     response:
       status_code: 200
       headers:
-        Cookie: "session={admin_session_cookie}"
         content-type: application/json
       json:
         messages: !anything
