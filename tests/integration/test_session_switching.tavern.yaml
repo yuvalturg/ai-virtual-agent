@@ -5,8 +5,7 @@
 test_name: Session Switching and Message Fetching Test
 
 marks:
-  - skip:
-      reason: "Flaky test - needs investigation"
+  - skip
 
 stages:
   # Global Setup: Get available models
