@@ -159,6 +159,8 @@ jobs:
           docker compose -f compose.yaml -f compose.ci.yaml ps
           echo "=== Backend Logs ==="
           docker compose -f compose.yaml -f compose.ci.yaml logs backend
+          echo "=== Frontend Logs ==="
+          docker compose -f compose.yaml -f compose.ci.yaml logs frontend
           echo "=== LlamaStack Logs ==="
           docker compose -f compose.yaml -f compose.ci.yaml logs llamastack
           echo "=== Database Logs ==="
