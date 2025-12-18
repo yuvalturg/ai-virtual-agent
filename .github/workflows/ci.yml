@@ -163,6 +163,8 @@ jobs:
           docker compose -f compose.yaml -f compose.ci.yaml logs llamastack
           echo "=== Database Logs ==="
           docker compose -f compose.yaml -f compose.ci.yaml logs db
+          echo "=== Auth Logs ==="
+          docker compose -f compose.yaml -f compose.ci.yaml logs keycloak
 
       - name: Tear down
         if: always()
