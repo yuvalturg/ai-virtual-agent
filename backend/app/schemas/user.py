@@ -5,7 +5,7 @@ User-related schemas.
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from ..models.user import RoleEnum
 from .base import BaseSchema, TimestampMixin
@@ -15,7 +15,7 @@ class UserBase(BaseModel):
     """Base user schema with common fields."""
 
     username: str
-    email: EmailStr
+    email: str
     role: RoleEnum
     agent_ids: List[UUID] = []
 
@@ -30,7 +30,7 @@ class UserUpdate(BaseModel):
     """Schema for updating a user."""
 
     username: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     role: Optional[RoleEnum] = None
     agent_ids: Optional[List[UUID]] = None
 
