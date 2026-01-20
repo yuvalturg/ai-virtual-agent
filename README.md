@@ -182,7 +182,9 @@ answer = chat_response.json()
 print(f"Agent response: {answer}")
 ```
 
-## Connect Oracle Database for BI Analysts
+## Advanced Solutions with AI Virtual Agents
+
+### Connect Oracle Database for BI Analysts
 
 Integrate AI agents with an Oracle data warehouse using the Model Context Protocol (MCP). [Oracle MCP Server on OpenShift with the Red Hat AI Virtual Agent](https://developers.redhat.com/articles/2026/01/20/deploy-oracle-sqlcl-mcp-server-openshift)
 
