@@ -10,7 +10,7 @@ dependencies:
   version: 0.5.7
 - name: llama-stack
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
-  version: 0.6.4
+  version: 0.6.8
 - name: configure-pipeline
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.5
@@ -20,5 +20,5 @@ dependencies:
 - name: oracle-db
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.3
-digest: sha256:4eaa4dbc08ea023cb619318ccaca964382f734fa8c4b3d20a02797cc755b0792
-generated: "2025-12-04T09:30:40.467411067-05:00"
+digest: sha256:bafaf64a5426b7db12c3f03bceb690a24b9e9fe4eb57f7e8f0f193351a448c55
+generated: "2026-01-20T11:12:27.86582992-05:00"
