@@ -182,6 +182,10 @@ answer = chat_response.json()
 print(f"Agent response: {answer}")
 ```
 
+## Oracle Database Solution
+
+Integrate AI agents with Oracle databases using the Model Context Protocol. [Deploy Oracle SQLcl MCP Server on OpenShift](https://developers.redhat.com/articles/2026/01/20/deploy-oracle-sqlcl-mcp-server-openshift)
+
 ## Advanced instructions
 
 ### Getting Started Guides
