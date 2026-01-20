@@ -198,6 +198,4 @@ def create_tool_call_trace_entry(item: Any) -> dict:
     }
 
 
-ERROR_NO_RESPONSE_MESSAGE = (
-    "⚠️ Unable to generate a response. Please try rephrasing your question or try again."
-)
+ERROR_NO_RESPONSE_MESSAGE = "⚠️ Unable to generate a response. Please try rephrasing your question or try again."
