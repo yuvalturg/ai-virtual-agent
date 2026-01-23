@@ -116,10 +116,7 @@ export function KnowledgeBaseCard({
   );
 
   return (
-    <Card
-      id={`expandable-kb-card-${knowledgeBase.vector_store_name}`}
-      isExpanded={isExpanded}
-    >
+    <Card id={`expandable-kb-card-${knowledgeBase.vector_store_name}`} isExpanded={isExpanded}>
       <CardHeader
         actions={{ actions: headerActions }}
         onExpand={onExpand}

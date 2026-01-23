@@ -106,7 +106,9 @@ export function ModelList() {
               />
             ))}
         {!isLoadingModels && !modelsError && models && models.length === 0 && (
-          <p>No models auto-registered yet. Models will appear here when providers discover them.</p>
+          <p>
+            No models auto-registered yet. Models will appear here when providers discover them.
+          </p>
         )}
       </Flex>
     </div>

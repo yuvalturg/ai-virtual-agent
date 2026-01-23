@@ -24,10 +24,7 @@ export function ProviderCard({ provider, models }: ProviderCardProps) {
   const onExpand = () => setIsExpanded(!isExpanded);
 
   return (
-    <Card
-      id={`expandable-provider-card-${provider.provider_id}`}
-      isExpanded={isExpanded}
-    >
+    <Card id={`expandable-provider-card-${provider.provider_id}`} isExpanded={isExpanded}>
       <CardHeader
         onExpand={onExpand}
         toggleButtonProps={{
@@ -47,14 +44,10 @@ export function ProviderCard({ provider, models }: ProviderCardProps) {
             {!isExpanded && (
               <>
                 <FlexItem>
-                  <Label color="blue">
-                    {provider.api}
-                  </Label>
+                  <Label color="blue">{provider.api}</Label>
                 </FlexItem>
                 <FlexItem>
-                  <Label color="grey">
-                    {provider.provider_type}
-                  </Label>
+                  <Label color="grey">{provider.provider_type}</Label>
                 </FlexItem>
                 <FlexItem>
                   <Label color="teal">
@@ -71,28 +64,32 @@ export function ProviderCard({ provider, models }: ProviderCardProps) {
           <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
             {/* API */}
             <FlexItem>
-              <Flex direction={{ default: 'row' }} gap={{ default: 'gapMd' }} alignItems={{ default: 'alignItemsCenter' }}>
+              <Flex
+                direction={{ default: 'row' }}
+                gap={{ default: 'gapMd' }}
+                alignItems={{ default: 'alignItemsCenter' }}
+              >
                 <FlexItem style={{ minWidth: '150px' }}>
                   <strong>API</strong>
                 </FlexItem>
                 <FlexItem flex={{ default: 'flex_1' }}>
-                  <Label color="blue">
-                    {provider.api}
-                  </Label>
+                  <Label color="blue">{provider.api}</Label>
                 </FlexItem>
               </Flex>
             </FlexItem>
 
             {/* Provider Type */}
             <FlexItem>
-              <Flex direction={{ default: 'row' }} gap={{ default: 'gapMd' }} alignItems={{ default: 'alignItemsCenter' }}>
+              <Flex
+                direction={{ default: 'row' }}
+                gap={{ default: 'gapMd' }}
+                alignItems={{ default: 'alignItemsCenter' }}
+              >
                 <FlexItem style={{ minWidth: '150px' }}>
                   <strong>Provider Type</strong>
                 </FlexItem>
                 <FlexItem flex={{ default: 'flex_1' }}>
-                  <Label color="grey">
-                    {provider.provider_type}
-                  </Label>
+                  <Label color="grey">{provider.provider_type}</Label>
                 </FlexItem>
               </Flex>
             </FlexItem>
@@ -130,7 +127,9 @@ export function ProviderCard({ provider, models }: ProviderCardProps) {
                   {models.length > 0 ? (
                     <LabelGroup numLabels={10}>
                       {models
-                        .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
+                        .sort(
+                          (a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? '')
+                        )
                         .map((model) => (
                           <Label key={model.model_id} color="teal">
                             {model.model_id}

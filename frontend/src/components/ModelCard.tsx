@@ -134,10 +134,7 @@ export function ModelCard({
   );
 
   return (
-    <Card
-      id={`expandable-model-card-${model.model_id}`}
-      isExpanded={isExpanded}
-    >
+    <Card id={`expandable-model-card-${model.model_id}`} isExpanded={isExpanded}>
       <CardHeader
         actions={{ actions: headerActions }}
         onExpand={onExpand}

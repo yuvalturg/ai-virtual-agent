@@ -1,12 +1,4 @@
-import {
-  Alert,
-  Button,
-  Flex,
-  FlexItem,
-  PageSection,
-  Spinner,
-  Title,
-} from '@patternfly/react-core';
+import { Alert, Button, Flex, FlexItem, PageSection, Spinner, Title } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { createFileRoute } from '@tanstack/react-router';
 import React, { useState } from 'react';
@@ -111,7 +103,11 @@ function Models() {
               models?.filter((model) => model.provider_id === provider.provider_id) || [];
 
             return (
-              <ProviderCard key={provider.provider_id} provider={provider} models={providerModels} />
+              <ProviderCard
+                key={provider.provider_id}
+                provider={provider}
+                models={providerModels}
+              />
             );
           })}
 

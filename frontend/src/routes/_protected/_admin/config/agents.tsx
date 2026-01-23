@@ -1032,9 +1032,7 @@ function MyAgents() {
       <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
         <FlexItem>
           <Title headingLevel="h2">My Agents</Title>
-          <p style={{ color: '#6A6E73' }}>
-            View and manage your deployed AI agents.
-          </p>
+          <p style={{ color: '#6A6E73' }}>View and manage your deployed AI agents.</p>
         </FlexItem>
         <NewAgentCard />
         <AgentList />

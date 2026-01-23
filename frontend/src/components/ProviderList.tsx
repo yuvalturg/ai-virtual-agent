@@ -34,7 +34,11 @@ export function ProviderList() {
               models?.filter((model) => model.provider_id === provider.provider_id) || [];
 
             return (
-              <ProviderCard key={provider.provider_id} provider={provider} models={providerModels} />
+              <ProviderCard
+                key={provider.provider_id}
+                provider={provider}
+                models={providerModels}
+              />
             );
           })}
 
