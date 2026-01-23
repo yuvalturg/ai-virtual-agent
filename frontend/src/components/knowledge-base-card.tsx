@@ -119,7 +119,6 @@ export function KnowledgeBaseCard({
     <Card
       id={`expandable-kb-card-${knowledgeBase.vector_store_name}`}
       isExpanded={isExpanded}
-      className="pf-v6-u-mb-md"
     >
       <CardHeader
         actions={{ actions: headerActions }}

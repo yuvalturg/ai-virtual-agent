@@ -1029,10 +1029,10 @@ function AgentTemplates() {
 function MyAgents() {
   return (
     <div>
-      <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+      <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
         <FlexItem>
           <Title headingLevel="h2">My Agents</Title>
-          <p style={{ marginBottom: '24px', color: '#6A6E73' }}>
+          <p style={{ color: '#6A6E73' }}>
             View and manage your deployed AI agents.
           </p>
         </FlexItem>

@@ -21,15 +21,13 @@ import {
   Alert,
   Label,
 } from '@patternfly/react-core';
-import { EllipsisVIcon, TrashIcon, EditIcon } from '@patternfly/react-icons';
+import { EllipsisVIcon, TrashIcon } from '@patternfly/react-icons';
 import { useState, Fragment } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import { Model } from '@/types/models';
 
 interface ModelCardProps {
   model: Model;
   onDelete?: (model_id: string) => void;
-  onEdit?: (model: Model) => void;
   isDeleting?: boolean;
   deleteError?: Error | null;
   resetDeleteError?: () => void;
@@ -38,12 +36,10 @@ interface ModelCardProps {
 export function ModelCard({
   model,
   onDelete,
-  onEdit,
   isDeleting = false,
   deleteError,
   resetDeleteError,
 }: ModelCardProps) {
-  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
@@ -62,20 +58,12 @@ export function ModelCard({
     onDelete?.(model.model_id);
   };
 
-  const handleEditModel = () => {
-    onEdit?.(model);
-    setDropdownOpen(false);
-  };
-
   const dropdownItems = (
     <>
-      <DropdownItem icon={<EditIcon />} value={0} key="edit" onClick={handleEditModel}>
-        Edit
-      </DropdownItem>
       <DropdownItem
         isDanger
         icon={<TrashIcon />}
-        value={1}
+        value={0}
         key="delete"
         onClick={() => {
           toggleModal();
@@ -149,7 +137,6 @@ export function ModelCard({
     <Card
       id={`expandable-model-card-${model.model_id}`}
       isExpanded={isExpanded}
-      className="pf-v6-u-mb-md"
     >
       <CardHeader
         actions={{ actions: headerActions }}
@@ -192,15 +179,7 @@ export function ModelCard({
             {model.provider_id && (
               <FlexItem>
                 <span className="pf-v6-u-text-color-subtle">Provider ID: </span>
-                <Button
-                  variant="link"
-                  isInline
-                  onClick={() => {
-                    void navigate({ to: '/config/models', search: { tab: 'providers' } });
-                  }}
-                >
-                  {model.provider_id}
-                </Button>
+                {model.provider_id}
               </FlexItem>
             )}
             {model.provider_model_id && (
