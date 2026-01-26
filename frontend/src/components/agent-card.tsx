@@ -144,7 +144,7 @@ export function AgentCard({ agent, isAssigned }: AgentCardProps) {
     </div>
   );
   return (
-    <Card id={`expandable-agent-card-${agent.id}`} isExpanded={expanded} className="pf-v6-u-mb-md">
+    <Card id={`expandable-agent-card-${agent.id}`} isExpanded={expanded}>
       <Fragment>
         <CardHeader
           actions={{ actions: headerActions, hasNoOffset: true }}

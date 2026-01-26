@@ -143,11 +143,7 @@ export function MCPServerCard({
   );
 
   return (
-    <Card
-      id={`expandable-mcp-card-${mcpServer.toolgroup_id}`}
-      isExpanded={isExpanded}
-      className="pf-v6-u-mb-md"
-    >
+    <Card id={`expandable-mcp-card-${mcpServer.toolgroup_id}`} isExpanded={isExpanded}>
       <CardHeader
         actions={{ actions: headerActions }}
         onExpand={onExpand}

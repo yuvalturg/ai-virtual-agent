@@ -4,7 +4,7 @@ import { NewProviderCard } from '@/components/NewProviderCard';
 import { ProviderCard } from '@/components/ProviderCard';
 
 export function ProviderList() {
-  const { providers, isLoadingProviders, providersError } = useModelsManagement();
+  const { providers, models, isLoadingProviders, providersError } = useModelsManagement();
 
   // Filter to only show inference providers
   const inferenceProviders = providers?.filter((p) => p.api === 'inference') || [];
@@ -28,9 +28,19 @@ export function ProviderList() {
         {!isLoadingProviders &&
           !providersError &&
           inferenceProviders.length > 0 &&
-          inferenceProviders.map((provider) => (
-            <ProviderCard key={provider.provider_id} provider={provider} />
-          ))}
+          inferenceProviders.map((provider) => {
+            // Filter models for this provider
+            const providerModels =
+              models?.filter((model) => model.provider_id === provider.provider_id) || [];
+
+            return (
+              <ProviderCard
+                key={provider.provider_id}
+                provider={provider}
+                models={providerModels}
+              />
+            );
+          })}
 
         {!isLoadingProviders && !providersError && inferenceProviders.length === 0 && (
           <p>No providers configured yet.</p>

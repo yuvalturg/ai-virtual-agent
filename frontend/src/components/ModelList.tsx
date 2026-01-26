@@ -1,16 +1,13 @@
-import { Model } from '@/types/models';
 import { Alert, Button, Flex, FlexItem, Spinner, Title } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useModelsManagement } from '@/hooks/useModelsManagement';
 import React, { useState } from 'react';
-import { NewModelCard } from '@/components/NewModelCard';
 import { ModelCard } from '@/components/ModelCard';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function ModelList() {
   const queryClient = useQueryClient();
   const [lastFetchTime, setLastFetchTime] = useState<string>('');
-  const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   // Use custom models hook
   const {
@@ -43,10 +40,6 @@ export function ModelList() {
         console.error('Error deleting model:', error);
       }
     })();
-  };
-
-  const handleEditModel = (model: Model) => {
-    setEditingModel(model);
   };
 
   const handleRefresh = () => {
@@ -96,27 +89,26 @@ export function ModelList() {
         </Alert>
       )}
       <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
-        <NewModelCard editingModel={editingModel} onEditComplete={() => setEditingModel(null)} />
         {!isLoadingModels &&
           !modelsError &&
           models &&
           models.length > 0 &&
           models
             .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? ''))
-            .filter((model) => model.model_id !== editingModel?.model_id)
             .map((model) => (
               <ModelCard
                 key={model.model_id}
                 model={model}
                 onDelete={handleDeleteModel}
-                onEdit={handleEditModel}
                 isDeleting={isDeleting}
                 deleteError={deleteError}
                 resetDeleteError={resetDeleteError}
               />
             ))}
         {!isLoadingModels && !modelsError && models && models.length === 0 && (
-          <p>No models configured yet.</p>
+          <p>
+            No models auto-registered yet. Models will appear here when providers discover them.
+          </p>
         )}
       </Flex>
     </div>
