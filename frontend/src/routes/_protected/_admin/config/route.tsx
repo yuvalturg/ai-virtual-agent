@@ -36,9 +36,9 @@ function ConfigLayout() {
               </Link>
             </NavItem>
             <NavItem itemId={3} isActive={location.pathname == '/config/models'} to="#">
-              <Link to="/config/models" search={{ tab: 'models' }}>
+              <Link to="/config/models">
                 <CubeIcon style={{ marginRight: '8px' }} />
-                Models
+                Model Providers
               </Link>
             </NavItem>
             <NavItem itemId={4} isActive={location.pathname == '/config/users'} to="#">

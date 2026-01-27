@@ -59,7 +59,7 @@ export function AgentList() {
                   </CardTitle>
                 </CardHeader>
                 <CardBody>
-                  <Flex direction={{ default: 'column' }}>
+                  <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
                     {groupAgents
                       .sort(
                         (a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? '')
