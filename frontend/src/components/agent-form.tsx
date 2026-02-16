@@ -205,7 +205,7 @@ export function AgentForm({
       ];
     }
     const readyKnowledgeBases = knowledgeBases?.filter(
-      (kb: KnowledgeBaseWithStatus) => kb.status === 'succeeded',
+      (kb: KnowledgeBaseWithStatus) => kb.status === 'succeeded'
     );
     if (!readyKnowledgeBases || readyKnowledgeBases.length === 0) {
       return [
